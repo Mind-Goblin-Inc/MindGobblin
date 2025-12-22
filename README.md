@@ -1,4 +1,4 @@
-# Project README
+# MIND GOBLIN
 
 Welcome! This README continas two common workflows:
 
