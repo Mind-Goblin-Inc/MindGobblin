@@ -1,4 +1,3 @@
-md
 # Project README
 
 Welcome! This repository supports two common workflows:
