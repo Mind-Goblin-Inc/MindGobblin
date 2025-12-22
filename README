@@ -1,4 +1,4 @@
-````md
+md
 # Project README
 
 Welcome! This repository supports two common workflows:
@@ -98,5 +98,4 @@ docker run --rm -p 8080:8080 jake-server
 * The server listens on port **8080** in the container and is mapped to **localhost:8080** on your machine.
 * Keep branches focused (one feature/fix per branch) to make PRs easier to review.
 
-```
 ```
