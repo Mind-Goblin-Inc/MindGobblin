@@ -1,6 +1,6 @@
 # Project README
 
-Welcome! This repository supports two common workflows:
+Welcome! This README continas two common workflows:
 
 - **Contributing (new to Git):** clone → branch → commit → push → open a PR
 - **Running locally:** install prerequisites → build Docker image → run container
