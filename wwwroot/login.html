@@ -1,0 +1,223 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>MindGobblin Login</title>
+  <style>
+    :root {
+      --bg: #0b0f17;
+      --fg: #eaeaea;
+      --card: #151c27;
+      --border: #2b3442;
+      --accent: #3ff0c1;
+      --danger: #ff8e8e;
+      --muted: #9fb0c9;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      padding: 1rem;
+      font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+      background: radial-gradient(circle at top, #172133, var(--bg) 58%);
+      color: var(--fg);
+    }
+
+    .wrap {
+      width: 100%;
+      max-width: 420px;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 1rem;
+    }
+
+    h1 { margin: 0 0 0.4rem; font-size: 1.4rem; }
+    p { margin: 0 0 1rem; color: var(--muted); }
+
+    .tabs { display: flex; gap: 0.5rem; margin-bottom: 1rem; }
+    .tabs button {
+      flex: 1;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      background: #0f151f;
+      color: var(--fg);
+      padding: 0.6rem;
+      cursor: pointer;
+    }
+    .tabs button.active {
+      border-color: var(--accent);
+      color: #07120f;
+      background: var(--accent);
+      font-weight: 700;
+    }
+
+    form { display: none; }
+    form.active { display: block; }
+
+    label {
+      display: block;
+      margin: 0.6rem 0 0.3rem;
+      color: var(--muted);
+      font-size: 0.9rem;
+    }
+
+    input {
+      width: 100%;
+      padding: 0.65rem 0.7rem;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: #0f151f;
+      color: var(--fg);
+      outline: none;
+    }
+
+    input:focus { border-color: var(--accent); }
+
+    .submit {
+      width: 100%;
+      margin-top: 0.9rem;
+      padding: 0.65rem;
+      border: 1px solid transparent;
+      border-radius: 9px;
+      background: var(--accent);
+      color: #07120f;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    .meta {
+      margin-top: 0.9rem;
+      font-size: 0.85rem;
+      color: var(--muted);
+      text-align: center;
+    }
+
+    .msg {
+      min-height: 1.2rem;
+      margin: 0.3rem 0 0;
+      font-size: 0.9rem;
+      color: var(--danger);
+    }
+
+    .ok { color: var(--accent); }
+    a { color: var(--accent); }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>Account</h1>
+    <p>Sign in to your MindGobblin account.</p>
+
+    <div class="tabs">
+      <button id="showLogin" class="active" type="button">Login</button>
+      <button id="showRegister" type="button">Register</button>
+    </div>
+
+    <form id="loginForm" class="active">
+      <label for="loginUser">Username</label>
+      <input id="loginUser" name="username" autocomplete="username" required />
+      <label for="loginPass">Password</label>
+      <input id="loginPass" name="password" type="password" autocomplete="current-password" required />
+      <button class="submit" type="submit">Log In</button>
+      <div id="loginMsg" class="msg"></div>
+    </form>
+
+    <form id="registerForm">
+      <label for="registerUser">Username</label>
+      <input id="registerUser" name="username" autocomplete="username" required />
+      <label for="registerPass">Password</label>
+      <input id="registerPass" name="password" type="password" autocomplete="new-password" required />
+      <button class="submit" type="submit">Create Account</button>
+      <div id="registerMsg" class="msg"></div>
+    </form>
+
+    <div class="meta">
+      <a href="index.html">Back to home</a>
+    </div>
+  </div>
+
+  <script>
+    const showLoginBtn = document.getElementById("showLogin");
+    const showRegisterBtn = document.getElementById("showRegister");
+    const loginForm = document.getElementById("loginForm");
+    const registerForm = document.getElementById("registerForm");
+    const loginMsg = document.getElementById("loginMsg");
+    const registerMsg = document.getElementById("registerMsg");
+
+    function setTab(tab) {
+      const login = tab === "login";
+      showLoginBtn.classList.toggle("active", login);
+      showRegisterBtn.classList.toggle("active", !login);
+      loginForm.classList.toggle("active", login);
+      registerForm.classList.toggle("active", !login);
+      loginMsg.textContent = "";
+      registerMsg.textContent = "";
+    }
+
+    showLoginBtn.addEventListener("click", () => setTab("login"));
+    showRegisterBtn.addEventListener("click", () => setTab("register"));
+
+    async function authPost(url, payload) {
+      const res = await fetch(url, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+      let data = null;
+      try { data = await res.json(); } catch {}
+      return { ok: res.ok, status: res.status, data };
+    }
+
+    function getReturnPath() {
+      const qp = new URLSearchParams(location.search).get("returnUrl");
+      if (!qp) return "index.html";
+      if (!qp.startsWith("/") && !qp.endsWith(".html")) return "index.html";
+      return qp;
+    }
+
+    loginForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      loginMsg.classList.remove("ok");
+      loginMsg.textContent = "Signing in...";
+
+      const username = document.getElementById("loginUser").value.trim();
+      const password = document.getElementById("loginPass").value;
+      const result = await authPost("/api/auth/login", { username, password });
+
+      if (!result.ok) {
+        loginMsg.textContent = "Invalid username or password.";
+        return;
+      }
+
+      loginMsg.classList.add("ok");
+      loginMsg.textContent = "Logged in. Redirecting...";
+      location.href = getReturnPath();
+    });
+
+    registerForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      registerMsg.classList.remove("ok");
+      registerMsg.textContent = "Creating account...";
+
+      const username = document.getElementById("registerUser").value.trim();
+      const password = document.getElementById("registerPass").value;
+      const result = await authPost("/api/auth/register", { username, password });
+
+      if (!result.ok) {
+        registerMsg.textContent = result.data?.error || "Could not create account.";
+        return;
+      }
+
+      registerMsg.classList.add("ok");
+      registerMsg.textContent = "Account created. Redirecting...";
+      location.href = getReturnPath();
+    });
+  </script>
+</body>
+</html>

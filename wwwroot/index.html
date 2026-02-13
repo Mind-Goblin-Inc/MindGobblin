@@ -35,6 +35,131 @@
       text-align: center;
       margin-bottom: 2rem;
     }
+    .auth-bar {
+      position: fixed;
+      top: 18px;
+      right: 18px;
+      z-index: 3;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .auth-status {
+      color: rgba(234, 234, 234, 0.9);
+      font-size: 0.92rem;
+    }
+    .auth-actions {
+      display: flex;
+      gap: 0.5rem;
+      align-items: center;
+      position: relative;
+    }
+    .auth-actions a,
+    .auth-actions button {
+      background: transparent;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      color: var(--fg);
+      border-radius: 999px;
+      padding: 0.42rem 0.9rem;
+      text-decoration: none;
+      cursor: pointer;
+      font: inherit;
+      background: rgba(21, 28, 39, 0.88);
+      backdrop-filter: blur(4px);
+    }
+    .auth-actions button:hover,
+    .auth-actions a:hover {
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+    .auth-menu {
+      position: absolute;
+      top: calc(100% + 10px);
+      right: 0;
+      width: min(330px, 90vw);
+      background: var(--card-bg);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      border-radius: 12px;
+      box-shadow: 0 12px 30px rgba(0, 0, 0, 0.35);
+      padding: 0.7rem;
+      display: none;
+    }
+    .auth-menu.open {
+      display: block;
+    }
+    .auth-tabs {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.4rem;
+      margin-bottom: 0.6rem;
+    }
+    .auth-tabs button {
+      border-radius: 8px;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      padding: 0.45rem;
+      background: #0f151f;
+      color: var(--fg);
+      cursor: pointer;
+    }
+    .auth-tabs button.active {
+      border-color: var(--accent);
+      color: #08111a;
+      background: var(--accent);
+      font-weight: 700;
+    }
+    .auth-form {
+      display: none;
+    }
+    .auth-form.active {
+      display: block;
+    }
+    .auth-form label {
+      display: block;
+      font-size: 0.85rem;
+      color: rgba(234, 234, 234, 0.85);
+      margin: 0.45rem 0 0.2rem;
+    }
+    .auth-form input {
+      width: 100%;
+      border-radius: 8px;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      background: #0f151f;
+      color: var(--fg);
+      padding: 0.5rem 0.55rem;
+      outline: none;
+    }
+    .auth-form input:focus {
+      border-color: var(--accent);
+    }
+    .auth-submit {
+      width: 100%;
+      margin-top: 0.6rem;
+      border-radius: 8px;
+      border: 1px solid transparent;
+      background: var(--accent);
+      color: #08111a;
+      padding: 0.5rem 0.6rem;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    .auth-msg {
+      min-height: 1.1rem;
+      font-size: 0.85rem;
+      margin-top: 0.4rem;
+      color: #ff9f9f;
+    }
+    .auth-msg.ok {
+      color: var(--accent);
+    }
+    @media (max-width: 640px) {
+      .auth-bar {
+        top: 12px;
+        right: 12px;
+      }
+      .auth-status {
+        display: none;
+      }
+    }
 
     header img {
       width: 160px;
@@ -232,9 +357,39 @@
     <h1>Welcome to MindGobblin</h1>
     <p>A collection of games & things</p>
   </header>
+  <div class="auth-bar">
+    <div id="authStatus" class="auth-status">Checking login status...</div>
+    <div class="auth-actions">
+      <button id="authMenuBtn" type="button">Login</button>
+      <button id="logoutBtn" type="button" style="display:none;">Logout</button>
+      <div id="authMenu" class="auth-menu">
+        <div class="auth-tabs">
+          <button id="showLoginTab" class="active" type="button">Login</button>
+          <button id="showRegisterTab" type="button">Register</button>
+        </div>
+        <form id="loginForm" class="auth-form active">
+          <label for="loginUser">Username</label>
+          <input id="loginUser" name="username" autocomplete="username" required />
+          <label for="loginPass">Password</label>
+          <input id="loginPass" name="password" type="password" autocomplete="current-password" required />
+          <button class="auth-submit" type="submit">Log In</button>
+          <div id="loginMsg" class="auth-msg"></div>
+        </form>
+        <form id="registerForm" class="auth-form">
+          <label for="registerUser">Username</label>
+          <input id="registerUser" name="username" autocomplete="username" required />
+          <label for="registerPass">Password</label>
+          <input id="registerPass" name="password" type="password" autocomplete="new-password" required />
+          <button class="auth-submit" type="submit">Create Account</button>
+          <div id="registerMsg" class="auth-msg"></div>
+        </form>
+      </div>
+    </div>
+  </div>
 
   <nav>
     <h2 class="nav-section" id="Games">Games</h2>
+    <a href="artillery.html">▶ Artillery </a>
     <a href="tetris.html">▶ Tong's Tetris</a>
     <a href="patty-flip.html">▶ Tong's Patty</a>
     <a href="pong-local.html">▶ Tong's Singleplayer Pong</a>
@@ -271,6 +426,122 @@
     View the source on
     <a href="https://github.com/JFerrigan/MindGobblin" target="_blank" rel="noopener noreferrer">GitHub</a>.
   </footer>
+
+  <script>
+    (async function () {
+      const authStatus = document.getElementById("authStatus");
+      const authMenuBtn = document.getElementById("authMenuBtn");
+      const authMenu = document.getElementById("authMenu");
+      const logoutBtn = document.getElementById("logoutBtn");
+      const showLoginTab = document.getElementById("showLoginTab");
+      const showRegisterTab = document.getElementById("showRegisterTab");
+      const loginForm = document.getElementById("loginForm");
+      const registerForm = document.getElementById("registerForm");
+      const loginMsg = document.getElementById("loginMsg");
+      const registerMsg = document.getElementById("registerMsg");
+
+      async function authPost(url, payload) {
+        const res = await fetch(url, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify(payload)
+        });
+        let data = null;
+        try { data = await res.json(); } catch {}
+        return { ok: res.ok, status: res.status, data };
+      }
+
+      function setTab(tab) {
+        const login = tab === "login";
+        showLoginTab.classList.toggle("active", login);
+        showRegisterTab.classList.toggle("active", !login);
+        loginForm.classList.toggle("active", login);
+        registerForm.classList.toggle("active", !login);
+        loginMsg.textContent = "";
+        registerMsg.textContent = "";
+        loginMsg.classList.remove("ok");
+        registerMsg.classList.remove("ok");
+      }
+
+      async function refresh() {
+        try {
+          const res = await fetch("/api/auth/me");
+          const data = await res.json();
+          if (data.loggedIn && data.user) {
+            authStatus.textContent = data.user.username;
+            authMenuBtn.style.display = "none";
+            authMenu.classList.remove("open");
+            logoutBtn.style.display = "";
+          } else {
+            authStatus.textContent = "";
+            authMenuBtn.style.display = "";
+            logoutBtn.style.display = "none";
+          }
+        } catch {
+          authStatus.textContent = "";
+        }
+      }
+
+      authMenuBtn.addEventListener("click", () => {
+        authMenu.classList.toggle("open");
+      });
+
+      document.addEventListener("click", (e) => {
+        if (!authMenu.contains(e.target) && !authMenuBtn.contains(e.target)) {
+          authMenu.classList.remove("open");
+        }
+      });
+
+      showLoginTab.addEventListener("click", () => setTab("login"));
+      showRegisterTab.addEventListener("click", () => setTab("register"));
+
+      loginForm.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        loginMsg.classList.remove("ok");
+        loginMsg.textContent = "Signing in...";
+
+        const username = document.getElementById("loginUser").value.trim();
+        const password = document.getElementById("loginPass").value;
+        const result = await authPost("/api/auth/login", { username, password });
+
+        if (!result.ok) {
+          loginMsg.textContent = "Invalid username or password.";
+          return;
+        }
+
+        loginMsg.classList.add("ok");
+        loginMsg.textContent = "Logged in.";
+        await refresh();
+      });
+
+      registerForm.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        registerMsg.classList.remove("ok");
+        registerMsg.textContent = "Creating account...";
+
+        const username = document.getElementById("registerUser").value.trim();
+        const password = document.getElementById("registerPass").value;
+        const result = await authPost("/api/auth/register", { username, password });
+
+        if (!result.ok) {
+          registerMsg.textContent = result.data?.error || "Could not create account.";
+          return;
+        }
+
+        registerMsg.classList.add("ok");
+        registerMsg.textContent = "Account created.";
+        await refresh();
+      });
+
+      logoutBtn.addEventListener("click", async () => {
+        await fetch("/api/auth/logout", { method: "POST" });
+        await refresh();
+      });
+
+      setTab("login");
+      await refresh();
+    })();
+  </script>
   
 </body>
 
