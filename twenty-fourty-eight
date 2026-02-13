@@ -1,0 +1,233 @@
+HTML
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>2048 Game</title>
+    <style>
+        body {
+            background-color: #faf8ef;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+            font-family: "Clear Sans", "Helvetica Neue", Arial, sans-serif;
+            color: #776e65;
+        }
+
+        .header { width: 340px; display: flex; justify-content: space-between; align-items: center; }
+        h1 { font-size: 60px; margin: 0; }
+        
+        .score-container {
+            background: #bbada0;
+            padding: 10px 20px;
+            border-radius: 6px;
+            color: white;
+            text-align: center;
+        }
+
+        #grid {
+            background-color: #bbada0;
+            width: 340px;
+            height: 340px;
+            padding: 10px;
+            border-radius: 6px;
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            grid-gap: 10px;
+            position: relative;
+        }
+
+        .cell {
+            width: 75px;
+            height: 75px;
+            background-color: rgba(238, 228, 218, 0.35);
+            border-radius: 3px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 35px;
+            font-weight: bold;
+        }
+
+        /* Tile Colors */
+        .tile-2 { background: #eee4da; color: #776e65; }
+        .tile-4 { background: #ede0c8; color: #776e65; }
+        .tile-8 { background: #f2b179; color: white; }
+        .tile-16 { background: #f59563; color: white; }
+        .tile-32 { background: #f67c5f; color: white; }
+        .tile-64 { background: #f65e3b; color: white; }
+        .tile-128 { background: #edcf72; color: white; font-size: 30px; }
+        .tile-256 { background: #edcc61; color: white; font-size: 30px; }
+        .tile-512 { background: #edc850; color: white; font-size: 30px; }
+        .tile-1024 { background: #edc53f; color: white; font-size: 25px; }
+        .tile-2048 { background: #edc22e; color: white; font-size: 25px; }
+
+        .controls { margin-top: 20px; }
+        button {
+            background: #8f7a66;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <h1>2048</h1>
+        <div class="score-container">
+            <div>Score</div>
+            <div id="score">0</div>
+        </div>
+    </div>
+
+    <div id="grid"></div>
+
+    <div class="controls">
+        <button onclick="resetGame()">New Game</button>
+    </div>
+    <p>Use <b>Arrow Keys</b> to move tiles!</p>
+
+    <script>
+        const gridDisplay = document.getElementById('grid');
+        const scoreDisplay = document.getElementById('score');
+        let squares = [];
+        let score = 0;
+
+        // Create the board
+        function createBoard() {
+            for (let i = 0; i < 16; i++) {
+                let square = document.createElement('div');
+                square.classList.add('cell');
+                square.innerHTML = '';
+                gridDisplay.appendChild(square);
+                squares.push(square);
+            }
+            generate();
+            generate();
+        }
+
+        // Generate a random number
+        function generate() {
+            let randomNumber = Math.floor(Math.random() * squares.length);
+            if (squares[randomNumber].innerHTML === '') {
+                squares[randomNumber].innerHTML = Math.random() > 0.1 ? 2 : 4;
+                updateStyles();
+                checkForGameOver();
+            } else generate();
+        }
+
+        function updateStyles() {
+            squares.forEach(square => {
+                square.className = 'cell';
+                if (square.innerHTML) {
+                    square.classList.add('tile-' + square.innerHTML);
+                }
+            });
+        }
+
+        // Swipe Logic
+        function moveRight() {
+            for (let i = 0; i < 16; i += 4) {
+                let row = [squares[i].innerHTML, squares[i+1].innerHTML, squares[i+2].innerHTML, squares[i+3].innerHTML];
+                let filteredRow = row.filter(num => num);
+                let missing = 4 - filteredRow.length;
+                let zeros = Array(missing).fill('');
+                let newRow = zeros.concat(filteredRow);
+                for (let j = 0; j < 4; j++) squares[i+j].innerHTML = newRow[j];
+            }
+        }
+
+        function moveLeft() {
+            for (let i = 0; i < 16; i += 4) {
+                let row = [squares[i].innerHTML, squares[i+1].innerHTML, squares[i+2].innerHTML, squares[i+3].innerHTML];
+                let filteredRow = row.filter(num => num);
+                let missing = 4 - filteredRow.length;
+                let zeros = Array(missing).fill('');
+                let newRow = filteredRow.concat(zeros);
+                for (let j = 0; j < 4; j++) squares[i+j].innerHTML = newRow[j];
+            }
+        }
+
+        function combineRow() {
+            for (let i = 0; i < 15; i++) {
+                if (squares[i].innerHTML === squares[i+1].innerHTML && squares[i].innerHTML !== '' && i % 4 !== 3) {
+                    let combinedTotal = parseInt(squares[i].innerHTML) + parseInt(squares[i+1].innerHTML);
+                    squares[i].innerHTML = combinedTotal;
+                    squares[i+1].innerHTML = '';
+                    score += combinedTotal;
+                    scoreDisplay.innerHTML = score;
+                }
+            }
+        }
+
+        // Vertical movement logic simplified for this example
+        function moveDown() {
+            for (let i = 0; i < 4; i++) {
+                let column = [squares[i].innerHTML, squares[i+4].innerHTML, squares[i+8].innerHTML, squares[i+12].innerHTML];
+                let filtered = column.filter(num => num);
+                let newCol = Array(4 - filtered.length).fill('').concat(filtered);
+                for (let j = 0; j < 4; j++) squares[i + j*4].innerHTML = newCol[j];
+            }
+        }
+
+        function moveUp() {
+            for (let i = 0; i < 4; i++) {
+                let column = [squares[i].innerHTML, squares[i+4].innerHTML, squares[i+8].innerHTML, squares[i+12].innerHTML];
+                let filtered = column.filter(num => num);
+                let newCol = filtered.concat(Array(4 - filtered.length).fill(''));
+                for (let j = 0; j < 4; j++) squares[i + j*4].innerHTML = newCol[j];
+            }
+        }
+
+        function combineColumn() {
+            for (let i = 0; i < 12; i++) {
+                if (squares[i].innerHTML === squares[i+4].innerHTML && squares[i].innerHTML !== '') {
+                    let combinedTotal = parseInt(squares[i].innerHTML) + parseInt(squares[i+4].innerHTML);
+                    squares[i].innerHTML = combinedTotal;
+                    squares[i+4].innerHTML = '';
+                    score += combinedTotal;
+                    scoreDisplay.innerHTML = score;
+                }
+            }
+        }
+
+        function control(e) {
+            if (e.keyCode === 39) { moveRight(); combineRow(); moveRight(); generate(); }
+            else if (e.keyCode === 37) { moveLeft(); combineRow(); moveLeft(); generate(); }
+            else if (e.keyCode === 38) { moveUp(); combineColumn(); moveUp(); generate(); }
+            else if (e.keyCode === 40) { moveDown(); combineColumn(); moveDown(); generate(); }
+        }
+        document.addEventListener('keyup', control);
+
+        function resetGame() {
+            gridDisplay.innerHTML = '';
+            squares = [];
+            score = 0;
+            scoreDisplay.innerHTML = 0;
+            createBoard();
+        }
+
+        function checkForGameOver() {
+            let zeros = 0;
+            for (let i=0; i < squares.length; i++) {
+                if (squares[i].innerHTML == '') zeros++;
+            }
+            if (zeros === 0) {
+                alert("Game Over!");
+                document.removeEventListener('keyup', control);
+            }
+        }
+
+        createBoard();
+    </script>
+</body>
+</html>
