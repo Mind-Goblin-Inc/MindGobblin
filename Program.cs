@@ -143,6 +143,51 @@ app.Use(async (ctx, next) =>
     Console.WriteLine($"[{DateTime.Now:HH:mm:ss}] {ctx.Request.Host} {ctx.Request.Path} -> {(ep?.DisplayName ?? "NO MATCH")} ({ctx.Response.StatusCode})");
 });
 
+// ---------- Local auth helpers ----------
+const int PasswordIterations = 120_000;
+const int PasswordSaltBytes = 16;
+const int PasswordHashBytes = 32;
+
+static string NormalizeUsername(string username) => username.Trim().ToLowerInvariant();
+
+static bool IsValidUsername(string username)
+{
+    if (string.IsNullOrWhiteSpace(username)) return false;
+    if (username.Length < 3 || username.Length > 32) return false;
+    return username.All(c => char.IsLetterOrDigit(c) || c is '_' or '-' or '.');
+}
+
+static bool IsValidPassword(string password)
+{
+    return !string.IsNullOrWhiteSpace(password) && password.Length >= 8 && password.Length <= 128;
+}
+
+static string HashPassword(string password, string saltBase64)
+{
+    var salt = Convert.FromBase64String(saltBase64);
+    var hash = Rfc2898DeriveBytes.Pbkdf2(password, salt, PasswordIterations, HashAlgorithmName.SHA256, PasswordHashBytes);
+    return Convert.ToBase64String(hash);
+}
+
+static bool SlowEquals(string a, string b)
+{
+    var left = Encoding.UTF8.GetBytes(a);
+    var right = Encoding.UTF8.GetBytes(b);
+    return CryptographicOperations.FixedTimeEquals(left, right);
+}
+
+static void SetAuthSession(HttpContext ctx, UserAccount user)
+{
+    ctx.Session.SetString("auth_user_id", user.Id.ToString());
+    ctx.Session.SetString("auth_username", user.Username);
+}
+
+static void ClearAuthSession(HttpContext ctx)
+{
+    ctx.Session.Remove("auth_user_id");
+    ctx.Session.Remove("auth_username");
+}
+
 // ---------- Minimal endpoints ----------
 app.MapGet("/health", () => new { ok = true, serverTime = DateTimeOffset.UtcNow });
 
@@ -190,6 +235,90 @@ app.MapGet("/debug/routes", (EndpointDataSource ds) =>
         .OfType<RouteEndpoint>()
         .Select(e => new { route = e.RoutePattern.RawText, methods = string.Join(",", e.Metadata.OfType<HttpMethodMetadata>().FirstOrDefault()?.HttpMethods ?? new[] { "ANY" }) });
     return Results.Ok(list);
+});
+
+// ---------- Local auth endpoints ----------
+app.MapPost("/api/auth/register", async (JakeServerDbContext db, HttpContext ctx, AuthRequest req) =>
+{
+    var username = (req.Username ?? "").Trim();
+    var password = req.Password ?? "";
+
+    if (!IsValidUsername(username))
+        return Results.BadRequest(new { error = "Username must be 3-32 chars and only contain letters, numbers, _, -, or ." });
+
+    if (!IsValidPassword(password))
+        return Results.BadRequest(new { error = "Password must be between 8 and 128 characters." });
+
+    var normalized = NormalizeUsername(username);
+    var exists = await db.UserAccounts.AnyAsync(u => u.UsernameNormalized == normalized);
+    if (exists)
+        return Results.Conflict(new { error = "Username is already taken." });
+
+    var salt = Convert.ToBase64String(RandomNumberGenerator.GetBytes(PasswordSaltBytes));
+    var hash = HashPassword(password, salt);
+
+    var user = new UserAccount
+    {
+        Username = username,
+        UsernameNormalized = normalized,
+        PasswordSalt = salt,
+        PasswordHash = hash,
+        CreatedUtc = DateTime.UtcNow,
+        LastLoginUtc = DateTime.UtcNow
+    };
+
+    db.UserAccounts.Add(user);
+    await db.SaveChangesAsync();
+    SetAuthSession(ctx, user);
+
+    return Results.Ok(new { ok = true, user = new { user.Id, user.Username } });
+});
+
+app.MapPost("/api/auth/login", async (JakeServerDbContext db, HttpContext ctx, AuthRequest req) =>
+{
+    var username = (req.Username ?? "").Trim();
+    var password = req.Password ?? "";
+    var normalized = NormalizeUsername(username);
+
+    var user = await db.UserAccounts.FirstOrDefaultAsync(u => u.UsernameNormalized == normalized);
+    if (user is null)
+        return Results.Unauthorized();
+
+    var computedHash = HashPassword(password, user.PasswordSalt);
+    if (!SlowEquals(computedHash, user.PasswordHash))
+        return Results.Unauthorized();
+
+    user.LastLoginUtc = DateTime.UtcNow;
+    await db.SaveChangesAsync();
+    SetAuthSession(ctx, user);
+
+    return Results.Ok(new { ok = true, user = new { user.Id, user.Username } });
+});
+
+app.MapPost("/api/auth/logout", (HttpContext ctx) =>
+{
+    ClearAuthSession(ctx);
+    return Results.Ok(new { ok = true });
+});
+
+app.MapGet("/api/auth/me", async (JakeServerDbContext db, HttpContext ctx) =>
+{
+    var userIdText = ctx.Session.GetString("auth_user_id");
+    if (!int.TryParse(userIdText, out var userId))
+        return Results.Json(new { loggedIn = false });
+
+    var user = await db.UserAccounts
+        .Where(u => u.Id == userId)
+        .Select(u => new { u.Id, u.Username, u.CreatedUtc, u.LastLoginUtc })
+        .FirstOrDefaultAsync();
+
+    if (user is null)
+    {
+        ClearAuthSession(ctx);
+        return Results.Json(new { loggedIn = false });
+    }
+
+    return Results.Json(new { loggedIn = true, user });
 });
 
 // ----------Royale Helpers-------------
@@ -1036,6 +1165,14 @@ public class JakeServerDbContext : DbContext
     public JakeServerDbContext(DbContextOptions<JakeServerDbContext> options) : base(options) { }
     public DbSet<TetrisScore> TetrisScores { get; set; } = default!;
     public DbSet<PongGameLobby> PongGameLobbies { get; set; } = default!;
+    public DbSet<UserAccount> UserAccounts { get; set; } = default!;
+
+    protected override void OnModelCreating(ModelBuilder modelBuilder)
+    {
+        modelBuilder.Entity<UserAccount>()
+            .HasIndex(u => u.UsernameNormalized)
+            .IsUnique();
+    }
 }
 
 // ---------- Tong's Tetris Score DB Model ----------
@@ -1060,9 +1197,21 @@ public class PongGameLobby
     public bool IsFull => !string.IsNullOrEmpty(HostConnectionId) && !string.IsNullOrEmpty(ChallengerConnectionId);
 }
 
+public class UserAccount
+{
+    public int Id { get; set; }
+    public string Username { get; set; } = "";
+    public string UsernameNormalized { get; set; } = "";
+    public string PasswordHash { get; set; } = "";
+    public string PasswordSalt { get; set; } = "";
+    public DateTime CreatedUtc { get; set; } = DateTime.UtcNow;
+    public DateTime LastLoginUtc { get; set; } = DateTime.UtcNow;
+}
+
 // ---------- DTOs ----------
 record EchoRequest(string Message);
 record ScoreRequest(string Username, int? Value);
+record AuthRequest(string Username, string Password);
 record Score
 {
     public string Username { get; set; } = default!;

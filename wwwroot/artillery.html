@@ -1,0 +1,1347 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Baroque Artillery (Single-File)</title>
+<style>
+  :root{
+    --bg0:#0b0f17;
+    --bg1:#141c2a;
+    --ink:#2b2016;
+    --paper:#e9ddc0;
+    --paper2:#d8c7a1;
+    --gold1:#f6e7a5;
+    --gold2:#caa247;
+    --gold3:#7a5a1c;
+    --crimson:#7b1e2b;
+    --emerald:#1b5b4a;
+    --uiShadow: 0 12px 30px rgba(0,0,0,.35);
+  }
+
+  html,body{
+    height:100%;
+    margin:0;
+    font-family: ui-serif, "Georgia", "Times New Roman", serif;
+    background:
+      radial-gradient(1200px 600px at 50% 0%, #1a2335 0%, #0b0f17 60%, #070a10 100%);
+    color:#f3ead7;
+    overflow:hidden;
+  }
+
+  /* Ornate frame */
+  .stage{
+    position:relative;
+    width:100%;
+    height:100%;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    padding:18px;
+    box-sizing:border-box;
+  }
+  .frame{
+    position:relative;
+    width:min(1100px, 96vw);
+    height:min(680px, 92vh);
+    border-radius:28px;
+    padding:18px;
+    box-sizing:border-box;
+    background:
+      linear-gradient(180deg, rgba(255,255,255,.06), rgba(0,0,0,.15));
+    box-shadow: 0 30px 90px rgba(0,0,0,.5);
+  }
+  .frame:before{
+    content:"";
+    position:absolute; inset:0;
+    border-radius:28px;
+    padding:14px;
+    background:
+      linear-gradient(135deg, var(--gold1), var(--gold2) 40%, var(--gold3) 70%, var(--gold2));
+    -webkit-mask:
+      linear-gradient(#000 0 0) content-box,
+      linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+            mask-composite: exclude;
+    box-shadow: inset 0 0 0 2px rgba(255,255,255,.10), inset 0 0 40px rgba(0,0,0,.35);
+    pointer-events:none;
+  }
+  .frame:after{
+    /* subtle filigree pattern on the frame */
+    content:"";
+    position:absolute; inset:14px;
+    border-radius:18px;
+    background:
+      radial-gradient(circle at 10% 15%, rgba(255,255,255,.10) 0 2px, transparent 3px),
+      radial-gradient(circle at 90% 12%, rgba(255,255,255,.10) 0 2px, transparent 3px),
+      radial-gradient(circle at 12% 88%, rgba(255,255,255,.10) 0 2px, transparent 3px),
+      radial-gradient(circle at 88% 90%, rgba(255,255,255,.10) 0 2px, transparent 3px),
+      repeating-linear-gradient(135deg, rgba(255,255,255,.03) 0 2px, transparent 2px 10px);
+    opacity:.45;
+    pointer-events:none;
+  }
+
+  canvas{
+    width:100%;
+    height:100%;
+    display:block;
+    border-radius:16px;
+    background:
+      radial-gradient(900px 520px at 50% 15%, #8aa0c9 0%, #435a84 35%, #1a2335 70%, #101624 100%);
+    box-shadow: inset 0 0 0 1px rgba(255,255,255,.08), inset 0 0 45px rgba(0,0,0,.35);
+  }
+
+  /* Parchment UI panel */
+  .hud{
+    position:absolute;
+    left:34px; top:34px;
+    width:min(360px, calc(100% - 68px));
+    background:
+      radial-gradient(800px 400px at 20% 10%, rgba(255,255,255,.35), transparent 55%),
+      linear-gradient(180deg, var(--paper), var(--paper2));
+    color:var(--ink);
+    border-radius:18px;
+    box-shadow: var(--uiShadow);
+    border:1px solid rgba(60,40,20,.35);
+    overflow:hidden;
+    user-select:none;
+  }
+  .hudHeader{
+    padding:12px 14px 10px 14px;
+    background:
+      linear-gradient(180deg, rgba(122,90,28,.22), rgba(0,0,0,0)),
+      repeating-linear-gradient(90deg, rgba(0,0,0,.06) 0 2px, transparent 2px 9px);
+    display:flex;
+    align-items:center;
+    gap:10px;
+  }
+  .seal{
+    width:26px; height:26px;
+    border-radius:999px;
+    background:
+      radial-gradient(circle at 30% 30%, rgba(255,255,255,.35), transparent 45%),
+      radial-gradient(circle at 50% 50%, #a62b3a 0%, #6f1824 70%);
+    box-shadow: inset 0 0 0 2px rgba(255,255,255,.18), 0 4px 10px rgba(0,0,0,.25);
+  }
+  .hudTitle{
+    font-weight:700;
+    letter-spacing:.4px;
+    font-size:14px;
+  }
+  .hudBody{
+    padding:12px 14px 14px 14px;
+    display:grid;
+    grid-template-columns: 1fr 1fr;
+    gap:10px 12px;
+    font-size:13px;
+    line-height:1.25;
+  }
+  .kv{
+    background: rgba(255,255,255,.22);
+    border:1px solid rgba(60,40,20,.18);
+    border-radius:14px;
+    padding:10px 10px;
+    box-shadow: inset 0 0 0 1px rgba(255,255,255,.18);
+  }
+  .k{ font-size:11px; opacity:.78; letter-spacing:.2px; }
+  .v{ font-size:15px; font-weight:700; margin-top:4px; }
+
+  .hudFooter{
+    padding:10px 14px 12px 14px;
+    display:flex;
+    gap:10px;
+    flex-wrap:wrap;
+    align-items:center;
+    border-top:1px solid rgba(60,40,20,.18);
+    background: rgba(0,0,0,.03);
+  }
+  button{
+    appearance:none;
+    border:1px solid rgba(60,40,20,.35);
+    background:
+      linear-gradient(180deg, rgba(255,255,255,.35), rgba(0,0,0,.05)),
+      linear-gradient(135deg, var(--gold1), var(--gold2));
+    color:#2a1c10;
+    border-radius:999px;
+    padding:8px 12px;
+    font: inherit;
+    font-size:12px;
+    font-weight:700;
+    letter-spacing:.2px;
+    box-shadow: 0 8px 18px rgba(0,0,0,.18), inset 0 0 0 1px rgba(255,255,255,.18);
+    cursor:pointer;
+  }
+  button:active{ transform: translateY(1px); }
+
+  .help{
+    position:absolute;
+    right:34px; top:34px;
+    width:min(420px, calc(100% - 68px));
+    background:
+      radial-gradient(900px 450px at 10% 10%, rgba(255,255,255,.38), transparent 60%),
+      linear-gradient(180deg, var(--paper), var(--paper2));
+    color:var(--ink);
+    border-radius:18px;
+    box-shadow: var(--uiShadow);
+    border:1px solid rgba(60,40,20,.35);
+    overflow:hidden;
+    user-select:none;
+    display:none;
+  }
+  .help.show{ display:block; }
+  .help .hudBody{ grid-template-columns:1fr; }
+  .mono{ font-family: ui-monospace, Menlo, Monaco, Consolas, monospace; font-size:12px; }
+  .small{ font-size:12px; opacity:.86; }
+
+  .toast{
+    position:absolute;
+    left:50%;
+    bottom:26px;
+    transform:translateX(-50%);
+    background: rgba(10,12,18,.65);
+    color:#f4ecd8;
+    border:1px solid rgba(255,255,255,.12);
+    padding:10px 14px;
+    border-radius:999px;
+    box-shadow: 0 14px 40px rgba(0,0,0,.35);
+    backdrop-filter: blur(6px);
+    font-size:13px;
+    letter-spacing:.2px;
+    opacity:0;
+    transition: opacity .22s ease;
+    pointer-events:none;
+  }
+  .toast.show{ opacity:1; }
+</style>
+</head>
+<body>
+<div class="stage">
+  <div class="frame">
+    <canvas id="c"></canvas>
+
+    <div class="hud" id="hud">
+      <div class="hudHeader">
+        <div class="seal"></div>
+        <div>
+          <div class="hudTitle">Baroque Artillery — “Duel of Courtiers”</div>
+          <div class="small">Turn-based cannon duels upon a crumbling earth.</div>
+        </div>
+      </div>
+      <div class="hudBody">
+        <div class="kv"><div class="k">ACTIVE HOUSE</div><div class="v" id="uiHouse">—</div></div>
+        <div class="kv"><div class="k">WIND</div><div class="v" id="uiWind">—</div></div>
+        <div class="kv"><div class="k">ANGLE</div><div class="v" id="uiAngle">—</div></div>
+        <div class="kv"><div class="k">POWER</div><div class="v" id="uiPower">—</div></div>
+        <div class="kv"><div class="k">CRIMSON HP</div><div class="v" id="uiHP0">—</div></div>
+        <div class="kv"><div class="k">EMERALD HP</div><div class="v" id="uiHP1">—</div></div>
+      </div>
+      <div class="hudFooter">
+        <button id="btnHelp">Instructions (H)</button>
+        <button id="btnRestart">Restart (R)</button>
+        <button id="btnEnd">End Turn (Enter)</button>
+      </div>
+    </div>
+
+    <div class="help" id="help">
+      <div class="hudHeader">
+        <div class="seal"></div>
+        <div>
+          <div class="hudTitle">How to Play</div>
+          <div class="small">A gentle duel of angles, wind, and collapse.</div>
+        </div>
+      </div>
+      <div class="hudBody">
+        <div class="kv">
+          <div class="k">AIM & FIRE</div>
+          <div class="v mono">Mouse: drag from your cannon to aim + set power, release to fire</div>
+          <div class="small">Or use keys: <span class="mono">W/S</span> power, <span class="mono">A/D</span> angle, <span class="mono">Space</span> fire</div>
+        </div>
+        <div class="kv">
+          <div class="k">MOVE (BEFORE FIRING)</div>
+          <div class="v mono">← / →</div>
+          <div class="small">Shuffle along the terrain—mind the cliffs.</div>
+        </div>
+        <div class="kv">
+          <div class="k">TURN FLOW</div>
+          <div class="small">
+            Fire once per turn. Terrain deforms; falling is lethal if you plunge below the world.
+            Wind changes each turn. Knockback matters as much as damage.
+          </div>
+        </div>
+        <div class="kv">
+          <div class="k">HOTKEYS</div>
+          <div class="v mono">H help • R restart • Enter end turn • M mute</div>
+        </div>
+      </div>
+      <div class="hudFooter">
+        <button id="btnCloseHelp">Close</button>
+      </div>
+    </div>
+
+    <div class="toast" id="toast">—</div>
+  </div>
+</div>
+
+<script>
+(() => {
+  // ===== Canvas + DPI =====
+  const canvas = document.getElementById('c');
+  const ctx = canvas.getContext('2d');
+
+  function clamp(v,a,b){ return Math.max(a, Math.min(b, v)); }
+  function lerp(a,b,t){ return a + (b-a)*t; }
+  function rand(a,b){ return a + Math.random()*(b-a); }
+  function sign(x){ return x<0?-1:1; }
+  function hypot(x,y){ return Math.hypot(x,y); }
+
+  // ===== UI =====
+  const uiHouse = document.getElementById('uiHouse');
+  const uiWind  = document.getElementById('uiWind');
+  const uiAngle = document.getElementById('uiAngle');
+  const uiPower = document.getElementById('uiPower');
+  const uiHP0   = document.getElementById('uiHP0');
+  const uiHP1   = document.getElementById('uiHP1');
+  const btnHelp = document.getElementById('btnHelp');
+  const btnRestart = document.getElementById('btnRestart');
+  const btnEnd = document.getElementById('btnEnd');
+  const help = document.getElementById('help');
+  const btnCloseHelp = document.getElementById('btnCloseHelp');
+  const toast = document.getElementById('toast');
+
+  function showToast(msg, ms=1400){
+    toast.textContent = msg;
+    toast.classList.add('show');
+    clearTimeout(showToast._t);
+    showToast._t = setTimeout(()=>toast.classList.remove('show'), ms);
+  }
+
+  btnHelp.onclick = () => toggleHelp();
+  btnCloseHelp.onclick = () => toggleHelp(false);
+  btnRestart.onclick = () => restart();
+  btnEnd.onclick = () => { if(state === "aim") endTurn(); };
+
+  function toggleHelp(force){
+    const willShow = (force !== undefined) ? force : !help.classList.contains('show');
+    help.classList.toggle('show', willShow);
+  }
+
+  // ===== Audio (tiny, optional) =====
+  let muted = false;
+  let audioCtx = null;
+  function beep(freq=220, dur=0.08, type="triangle", gain=0.05){
+    if(muted) return;
+    try{
+      if(!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      const t0 = audioCtx.currentTime;
+      const o = audioCtx.createOscillator();
+      const g = audioCtx.createGain();
+      o.type = type;
+      o.frequency.setValueAtTime(freq, t0);
+      g.gain.setValueAtTime(gain, t0);
+      g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+      o.connect(g).connect(audioCtx.destination);
+      o.start(t0);
+      o.stop(t0 + dur);
+    } catch {}
+  }
+
+  // ===== Game config =====
+  const HOUSES = [
+    { name: "House Crimson", color: "#7b1e2b", trim:"#f6e7a5" },
+    { name: "House Emerald", color: "#1b5b4a", trim:"#f6e7a5" }
+  ];
+
+  const G = 560;              // gravity (px/s^2)
+  const WIND_MAX = 180;       // wind accel (px/s^2)
+  const PROJECTILE_SPEED = 520; // base muzzle velocity
+  const TURN_TIME_SOFT = 25;  // not enforced hard; UI feel
+  const PLAYER_R = 13;
+  const MOVE_SPEED = 95;      // px/s (while grounded)
+  const FRICTION = 0.88;
+  const REST_VEL = 7;         // px/s threshold to consider "rested"
+  const WORLD_FLOOR_KILL = 42; // if y > h + this -> dead
+
+  // Terrain mask resolution (lower = faster, chunkier)
+  let scale = 2;              // pixels per terrain cell
+  let w=0,h=0,dpr=1;
+  let gridW=0,gridH=0;
+  let terrain = null;         // Uint8Array mask 1=solid
+  let terrainDirty = true;
+  let terrainCanvas = document.createElement('canvas');
+  let terrainCtx = terrainCanvas.getContext('2d');
+  let terrainImageData = null;
+
+  // Stars / background ornaments
+  let stars = [];
+  function buildStars(){
+    stars = [];
+    const n = 170;
+    for(let i=0;i<n;i++){
+      stars.push({
+        x: Math.random(),
+        y: Math.random(),
+        r: Math.random()*1.2 + 0.2,
+        a: Math.random()*0.55 + 0.15
+      });
+    }
+  }
+
+  // ===== State =====
+  let players = [];
+  let projectile = null;
+  let active = 0;
+  let wind = 0;
+
+  let aimAngle = 35 * Math.PI/180; // relative to facing
+  let aimPower = 0.72;             // 0..1
+  let firedThisTurn = false;
+
+  let state = "aim"; // "aim" | "projectile" | "resolve" | "gameover"
+  let winner = null;
+
+  // Mouse aiming
+  let mouse = { x:0, y:0, down:false, dragging:false, startX:0, startY:0 };
+
+  // Keyboard
+  const keys = new Set();
+  window.addEventListener('keydown', (e)=>{
+    if(["ArrowLeft","ArrowRight","ArrowUp","ArrowDown"," ","Enter"].includes(e.key)) e.preventDefault();
+    if(e.repeat) return;
+    keys.add(e.key.toLowerCase());
+
+    if(e.key.toLowerCase() === 'h') toggleHelp();
+    if(e.key.toLowerCase() === 'r') restart();
+    if(e.key.toLowerCase() === 'm'){ muted = !muted; showToast(muted ? "Muted" : "Sound on"); }
+    if(e.key === 'Enter'){ if(state === "aim") endTurn(); }
+    if(e.key === ' '){ if(state === "aim") fire(); }
+  }, {passive:false});
+  window.addEventListener('keyup', (e)=>keys.delete(e.key.toLowerCase()));
+
+  // ===== Terrain helpers =====
+  function idx(gx,gy){ return gy*gridW + gx; }
+  function inBoundsG(gx,gy){ return gx>=0 && gy>=0 && gx<gridW && gy<gridH; }
+  function isSolidPx(x,y){
+    const gx = (x/scale)|0, gy = (y/scale)|0;
+    if(!inBoundsG(gx,gy)) return false;
+    return terrain[idx(gx,gy)] === 1;
+  }
+
+  function findGroundY(x){
+    const gx = clamp((x/scale)|0, 0, gridW-1);
+    // find first solid cell from top
+    for(let gy=0; gy<gridH; gy++){
+      if(terrain[idx(gx,gy)]===1) return gy*scale;
+    }
+    return h; // none
+  }
+
+  function carveCircle(px,py,r){
+    const gx0 = ((px - r)/scale)|0, gx1 = ((px + r)/scale)|0;
+    const gy0 = ((py - r)/scale)|0, gy1 = ((py + r)/scale)|0;
+    const rr = (r/scale)*(r/scale);
+    for(let gy=gy0; gy<=gy1; gy++){
+      for(let gx=gx0; gx<=gx1; gx++){
+        if(!inBoundsG(gx,gy)) continue;
+        const dx = gx - (px/scale);
+        const dy = gy - (py/scale);
+        if(dx*dx + dy*dy <= rr){
+          terrain[idx(gx,gy)] = 0;
+        }
+      }
+    }
+    terrainDirty = true;
+  }
+
+  function generateTerrain(){
+    terrain = new Uint8Array(gridW*gridH);
+    // Height function: rolling hills + slight cliffs
+    const base = gridH*0.60;
+    const a1 = gridH*0.08;
+    const a2 = gridH*0.05;
+    const freq1 = 2*Math.PI / (gridW*0.95);
+    const freq2 = 2*Math.PI / (gridW*0.33);
+
+    // Simple pseudo-noise
+    const noise = (x)=>{
+      const s = Math.sin(x*12.9898)*43758.5453;
+      return s - Math.floor(s);
+    };
+
+    let heights = new Array(gridW);
+    for(let gx=0; gx<gridW; gx++){
+      const t = gx;
+      const n = (noise(gx*0.12) - 0.5) * (gridH*0.03);
+      let y = base + a1*Math.sin(t*freq1) + a2*Math.sin(t*freq2) + n;
+      // add a central "valley" for drama
+      const mid = gridW*0.5;
+      const d = Math.abs(gx-mid)/(gridW*0.5);
+      y += (d<0.42 ? (0.42-d)*gridH*0.07 : 0);
+      heights[gx] = clamp(y, gridH*0.35, gridH*0.88)|0;
+    }
+
+    for(let gx=0; gx<gridW; gx++){
+      const groundY = heights[gx];
+      for(let gy=groundY; gy<gridH; gy++){
+        terrain[idx(gx,gy)] = 1;
+      }
+    }
+
+    // Add a few "rock" ridges (still destructible but looks chunky)
+    const ridges = 7;
+    for(let i=0;i<ridges;i++){
+      const cx = rand(gridW*0.1, gridW*0.9);
+      const cy = rand(gridH*0.55, gridH*0.78);
+      const rr = rand(gridW*0.03, gridW*0.07);
+      const ry = rand(gridH*0.03, gridH*0.08);
+      for(let gy=0; gy<gridH; gy++){
+        for(let gx=0; gx<gridW; gx++){
+          const dx = (gx-cx)/rr, dy=(gy-cy)/ry;
+          if(dx*dx + dy*dy < 1.0){
+            terrain[idx(gx,gy)] = 1;
+          }
+        }
+      }
+    }
+
+    terrainDirty = true;
+  }
+
+  function rebuildTerrainBitmap(){
+    terrainCanvas.width = gridW;
+    terrainCanvas.height = gridH;
+    terrainImageData = terrainCtx.createImageData(gridW, gridH);
+    const data = terrainImageData.data;
+
+    // A little baroque "engraving" feel via hatching + vignetting
+    for(let gy=0; gy<gridH; gy++){
+      for(let gx=0; gx<gridW; gx++){
+        const i = (gy*gridW + gx)*4;
+        if(terrain[idx(gx,gy)] === 1){
+          const yNorm = gy/gridH;
+          const shade = 1.0 - yNorm*0.55;
+
+          const hatch = ((gx + gy*2) % 10) < 2 ? 0.10 : 0;
+          const hatch2 = ((gx*2 - gy) % 17) < 2 ? 0.07 : 0;
+
+          const vign = 1.0 - 0.25 * ((gx/gridW - 0.5)**2 + (gy/gridH - 0.7)**2);
+
+          // Earthy umber
+          let r = 120 * shade * vign;
+          let g = 92  * shade * vign;
+          let b = 62  * shade * vign;
+
+          r += 35*hatch + 20*hatch2;
+          g += 30*hatch + 15*hatch2;
+          b += 18*hatch + 10*hatch2;
+
+          data[i+0] = clamp(r, 0, 255);
+          data[i+1] = clamp(g, 0, 255);
+          data[i+2] = clamp(b, 0, 255);
+          data[i+3] = 255;
+        } else {
+          data[i+3] = 0;
+        }
+      }
+    }
+
+    terrainCtx.putImageData(terrainImageData, 0, 0);
+    terrainDirty = false;
+  }
+
+  // ===== Players =====
+  function makePlayer(team, x){
+    const p = {
+      team,
+      x,
+      y: 0,
+      vx: 0, vy: 0,
+      r: PLAYER_R,
+      hp: 100,
+      alive: true,
+      facing: team===0 ? 1 : -1, // 1=right, -1=left
+      fired: false
+    };
+    p.y = findGroundY(x) - p.r - 1;
+    return p;
+  }
+
+  function settlePlayer(p, dt){
+    if(!p.alive) return;
+
+    // If below world -> dead
+    if(p.y > h + WORLD_FLOOR_KILL){
+      p.alive = false;
+      p.hp = 0;
+      return;
+    }
+
+    // Ground collision/fall
+    const belowY = p.y + p.r + 1;
+    const grounded = isSolidPx(p.x, belowY);
+
+    if(!grounded){
+      p.vy += G * dt;
+    } else {
+      // push out of ground if embedded
+      let push = 0;
+      while(isSolidPx(p.x, p.y + p.r) && push < 20){
+        p.y -= 1;
+        push++;
+      }
+      // friction on ground
+      p.vx *= Math.pow(FRICTION, dt*60);
+      // stop downward
+      if(p.vy > 0) p.vy = 0;
+    }
+
+    // Integrate
+    p.x += p.vx * dt;
+    p.y += p.vy * dt;
+
+    // Clamp to world sides
+    p.x = clamp(p.x, p.r+2, w - p.r - 2);
+
+    // Side collision: if moving into solid, nudge out
+    const sideProbeY = p.y;
+    const sideProbeX = p.x + sign(p.vx||1) * (p.r+1);
+    if(isSolidPx(sideProbeX, sideProbeY)){
+      p.x -= sign(p.vx||1) * 2;
+      p.vx *= -0.25;
+    }
+
+    // Keep above terrain if embedded (after carving)
+    let tries = 0;
+    while(isSolidPx(p.x, p.y + p.r) && tries < 30){
+      p.y -= 1;
+      p.vy = Math.min(p.vy, 0);
+      tries++;
+    }
+  }
+
+  function applyExplosion(px,py, radius, dmgMax, impulse){
+    carveCircle(px, py, radius);
+
+    for(const p of players){
+      if(!p.alive) continue;
+      const dx = p.x - px;
+      const dy = p.y - py;
+      const d = Math.hypot(dx,dy);
+      if(d <= radius + p.r){
+        const t = clamp(1 - d/(radius + p.r), 0, 1);
+        const dmg = dmgMax * (0.35 + 0.65*t);
+        p.hp = Math.max(0, p.hp - dmg);
+        if(p.hp <= 0){ p.alive = false; }
+        // Knockback
+        const nx = (dx/(d||1));
+        const ny = (dy/(d||1));
+        p.vx += nx * impulse * (0.35 + 0.65*t);
+        p.vy += ny * impulse * (0.35 + 0.65*t) - 60*t; // lift a bit
+      }
+    }
+  }
+
+  // ===== Projectile =====
+  function fire(){
+    if(state !== "aim") return;
+    if(!players[active].alive) return;
+    if(firedThisTurn) return;
+
+    const p = players[active];
+    firedThisTurn = true;
+    p.fired = true;
+
+    const muzzle = getMuzzle(p);
+    const dir = getAimDir(p);
+    const speed = PROJECTILE_SPEED * (0.25 + 0.75*aimPower);
+
+    projectile = {
+      x: muzzle.x,
+      y: muzzle.y,
+      vx: dir.x * speed,
+      vy: dir.y * speed,
+      r: 3.5,
+      alive: true,
+      time: 0
+    };
+
+    state = "projectile";
+    beep(360, 0.06, "square", 0.035);
+  }
+
+  function explodeAt(x,y){
+    // Explosion tuning
+    const R = 46;
+    applyExplosion(x,y, R, 48, 260);
+    // A little “secondary dust” crater
+    applyExplosion(x + rand(-10,10), y + rand(-6,6), R*0.65, 18, 120);
+
+    beep(110, 0.10, "sawtooth", 0.045);
+    state = "resolve";
+    resolveTimer = 0;
+  }
+
+  // ===== Aim mechanics =====
+  function getAimDir(p){
+    // Facing sets "forward" direction; angle is measured up from horizontal
+    const a = aimAngle;
+    const x = Math.cos(a) * p.facing;
+    const y = -Math.sin(a);
+    return { x, y };
+  }
+
+  function getMuzzle(p){
+    const dir = getAimDir(p);
+    const len = p.r + 10;
+    return { x: p.x + dir.x*len, y: p.y + dir.y*len };
+  }
+
+  // ===== Turn logic =====
+  let resolveTimer = 0;
+  function startTurn(team){
+    active = team;
+    firedThisTurn = false;
+    players[active].fired = false;
+
+    // new wind each turn
+    wind = rand(-WIND_MAX, WIND_MAX);
+    // slight aim defaults based on side
+    aimAngle = clamp(aimAngle, 10*Math.PI/180, 82*Math.PI/180);
+    aimPower = clamp(aimPower, 0.15, 1.0);
+
+    showToast(`${HOUSES[active].name} to act.`);
+  }
+
+  function endTurn(){
+    if(state !== "aim") return;
+    // allow ending even if not fired (sometimes tactical)
+    startTurn(1 - active);
+  }
+
+  function checkVictory(){
+    const alive = players.filter(p => p.alive);
+    if(alive.length <= 1){
+      state = "gameover";
+      winner = alive.length ? alive[0].team : null;
+      showToast(winner===null ? "Both houses fall to ruin." : `${HOUSES[winner].name} prevails!`, 2400);
+      beep(520, 0.12, "triangle", 0.05);
+    }
+  }
+
+  // ===== Input: mouse aim =====
+  function getCanvasXY(ev){
+    const r = canvas.getBoundingClientRect();
+    const x = (ev.clientX - r.left) / r.width * w;
+    const y = (ev.clientY - r.top) / r.height * h;
+    return {x,y};
+  }
+
+  canvas.addEventListener('pointerdown', (e)=>{
+    canvas.setPointerCapture(e.pointerId);
+    const p = getCanvasXY(e);
+    mouse.down = true;
+    mouse.dragging = false;
+    mouse.startX = p.x;
+    mouse.startY = p.y;
+    mouse.x = p.x;
+    mouse.y = p.y;
+  });
+
+  canvas.addEventListener('pointermove', (e)=>{
+    const p = getCanvasXY(e);
+    mouse.x = p.x; mouse.y = p.y;
+    if(!mouse.down) return;
+    const dx = mouse.x - mouse.startX;
+    const dy = mouse.y - mouse.startY;
+    if(dx*dx + dy*dy > 36) mouse.dragging = true;
+
+    if(state === "aim" && players[active].alive){
+      // Aim from player position by dragging direction
+      const pl = players[active];
+      const ax = mouse.x - pl.x;
+      const ay = mouse.y - pl.y;
+      const angleWorld = Math.atan2(-ay, ax); // y up
+      // Convert to "up from horizontal"
+      // If facing left, mirror
+      const mirrored = (pl.facing === 1) ? angleWorld : Math.PI - angleWorld;
+      aimAngle = clamp(mirrored, 8*Math.PI/180, 86*Math.PI/180);
+
+      const dist = Math.hypot(ax, ay);
+      aimPower = clamp(dist / 220, 0.12, 1.0);
+    }
+  });
+
+  canvas.addEventListener('pointerup', (e)=>{
+    if(!mouse.down) return;
+    mouse.down = false;
+    if(state === "aim" && players[active].alive){
+      // If dragged, release to fire
+      if(mouse.dragging){
+        fire();
+      }
+    }
+  });
+
+  // ===== Resize / setup =====
+  function resize(){
+    const r = canvas.getBoundingClientRect();
+    dpr = Math.max(1, Math.min(2.5, window.devicePixelRatio || 1));
+    canvas.width = Math.floor(r.width * dpr);
+    canvas.height = Math.floor(r.height * dpr);
+    ctx.setTransform(dpr,0,0,dpr,0,0);
+
+    w = Math.floor(r.width);
+    h = Math.floor(r.height);
+
+    // Choose scale so grid stays reasonable
+    scale = (w*h > 900*600) ? 2 : 2;
+    gridW = Math.floor(w/scale);
+    gridH = Math.floor(h/scale);
+
+    buildStars();
+    restart();
+  }
+  window.addEventListener('resize', resize);
+
+  // ===== Drawing (baroque-ish) =====
+  function drawBackground(){
+    // Sky gradient already in canvas CSS; add stars + rays + clouds in-canvas for parallax vibe
+    ctx.save();
+
+    // soft vignette
+    ctx.globalAlpha = 0.22;
+    const vg = ctx.createRadialGradient(w*0.5, h*0.35, 50, w*0.5, h*0.35, Math.max(w,h)*0.75);
+    vg.addColorStop(0, "rgba(0,0,0,0)");
+    vg.addColorStop(1, "rgba(0,0,0,1)");
+    ctx.fillStyle = vg;
+    ctx.fillRect(0,0,w,h);
+    ctx.globalAlpha = 1;
+
+    // “heavenly” rays
+    ctx.globalAlpha = 0.08;
+    ctx.translate(w*0.5, h*0.05);
+    for(let i=0;i<18;i++){
+      const a = (i/18)*Math.PI*2;
+      ctx.rotate((Math.PI*2)/18);
+      ctx.beginPath();
+      ctx.moveTo(0,0);
+      ctx.lineTo(w*0.9, -22);
+      ctx.lineTo(w*0.9, 22);
+      ctx.closePath();
+      ctx.fillStyle = "rgba(255,240,200,1)";
+      ctx.fill();
+    }
+    ctx.setTransform(dpr,0,0,dpr,0,0);
+    ctx.globalAlpha = 1;
+
+    // stars (subtle)
+    ctx.globalAlpha = 0.65;
+    for(const s of stars){
+      const x = s.x*w, y=s.y*h*0.65;
+      ctx.beginPath();
+      ctx.arc(x,y,s.r,0,Math.PI*2);
+      ctx.fillStyle = `rgba(255,255,255,${s.a})`;
+      ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+
+    // clouds
+    ctx.globalAlpha = 0.10;
+    for(let i=0;i<6;i++){
+      const cx = (i/6)*w + (performance.now()*0.006*(i%2?1:-1))%w;
+      const cy = h*0.14 + i*18;
+      const cw = 240, ch=70;
+      const g = ctx.createRadialGradient(cx,cy,10,cx,cy, cw);
+      g.addColorStop(0, "rgba(255,255,255,.85)");
+      g.addColorStop(1, "rgba(255,255,255,0)");
+      ctx.fillStyle = g;
+      ctx.fillRect(cx-cw, cy-ch, cw*2, ch*2);
+    }
+    ctx.globalAlpha = 1;
+
+    ctx.restore();
+  }
+
+  function drawTerrain(){
+    if(terrainDirty) rebuildTerrainBitmap();
+    ctx.save();
+    ctx.imageSmoothingEnabled = true;
+    // draw scaled up from grid canvas to main
+    ctx.drawImage(terrainCanvas, 0, 0, gridW, gridH, 0, 0, w, h);
+
+    // A “cut-engraving” outline at the surface
+    ctx.globalAlpha = 0.22;
+    ctx.lineWidth = 2;
+    ctx.strokeStyle = "rgba(20,12,8,1)";
+    ctx.beginPath();
+    // sample surface by scanning for each few pixels
+    for(let x=0; x<w; x+=6){
+      const y = findGroundY(x);
+      if(x===0) ctx.moveTo(x,y);
+      else ctx.lineTo(x,y);
+    }
+    ctx.stroke();
+
+    // gilded fog near horizon
+    ctx.globalAlpha = 0.10;
+    const fog = ctx.createLinearGradient(0,h*0.35,0,h*0.65);
+    fog.addColorStop(0,"rgba(245,231,165,0)");
+    fog.addColorStop(1,"rgba(245,231,165,1)");
+    ctx.fillStyle = fog;
+    ctx.fillRect(0,h*0.35,w,h*0.32);
+
+    ctx.restore();
+  }
+
+  function drawFiligreeHUDOverlay(){
+    // Tiny corner ornament on canvas for vibe (not UI panel)
+    ctx.save();
+    ctx.globalAlpha = 0.55;
+    ctx.lineWidth = 1.2;
+    ctx.strokeStyle = "rgba(246,231,165,0.55)";
+    const drawCorner = (x,y,flipX,flipY)=>{
+      ctx.save();
+      ctx.translate(x,y);
+      ctx.scale(flipX, flipY);
+      ctx.beginPath();
+      ctx.moveTo(0,0);
+      ctx.bezierCurveTo(40,6, 70,30, 88,62);
+      ctx.bezierCurveTo(58,46, 36,40, 18,44);
+      ctx.bezierCurveTo(35,28, 40,14, 38,0);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.arc(22,22,8,0,Math.PI*2);
+      ctx.stroke();
+      ctx.restore();
+    };
+    drawCorner(22,22,1,1);
+    drawCorner(w-22,22,-1,1);
+    drawCorner(22,h-22,1,-1);
+    drawCorner(w-22,h-22,-1,-1);
+    ctx.restore();
+  }
+
+  function drawPlayer(p){
+    if(!p.alive) return;
+    const house = HOUSES[p.team];
+    ctx.save();
+
+    // shadow
+    ctx.globalAlpha = 0.22;
+    ctx.fillStyle = "rgba(0,0,0,1)";
+    ctx.beginPath();
+    ctx.ellipse(p.x, p.y + p.r + 8, p.r*1.1, p.r*0.45, 0, 0, Math.PI*2);
+    ctx.fill();
+    ctx.globalAlpha = 1;
+
+    // body (cannon base) - carved look
+    const baseW = p.r*2.1, baseH = p.r*1.2;
+    const bx = p.x - baseW/2, by = p.y + p.r*0.2;
+
+    ctx.fillStyle = house.color;
+    ctx.strokeStyle = "rgba(0,0,0,0.35)";
+    ctx.lineWidth = 1.5;
+
+    roundRect(ctx, bx, by, baseW, baseH, 8);
+    ctx.fill();
+    ctx.stroke();
+
+    // gilded trim
+    ctx.strokeStyle = "rgba(246,231,165,0.85)";
+    ctx.lineWidth = 1;
+    roundRect(ctx, bx+2, by+2, baseW-4, baseH-4, 7);
+    ctx.stroke();
+
+    // wheel-ish flourish
+    ctx.beginPath();
+    ctx.arc(p.x - p.r*0.55, by + baseH*0.70, p.r*0.35, 0, Math.PI*2);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(p.x + p.r*0.55, by + baseH*0.70, p.r*0.35, 0, Math.PI*2);
+    ctx.stroke();
+
+    // barrel
+    const dir = getAimDir(p);
+    const barrelLen = p.r*1.55;
+    const barrelW = 6.5;
+    ctx.save();
+    ctx.translate(p.x, p.y);
+    const theta = Math.atan2(dir.y, dir.x);
+    ctx.rotate(theta);
+    ctx.fillStyle = "#2f3136";
+    ctx.strokeStyle = "rgba(0,0,0,.45)";
+    ctx.lineWidth = 1.2;
+
+    roundRect(ctx, 0, -barrelW/2, barrelLen, barrelW, 3.2);
+    ctx.fill(); ctx.stroke();
+
+    // little gold band
+    ctx.strokeStyle = "rgba(246,231,165,.85)";
+    ctx.beginPath();
+    ctx.moveTo(barrelLen*0.55, -barrelW/2);
+    ctx.lineTo(barrelLen*0.55, barrelW/2);
+    ctx.stroke();
+
+    ctx.restore();
+
+    // plume / banner
+    ctx.globalAlpha = 0.85;
+    ctx.strokeStyle = `rgba(246,231,165,0.55)`;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(p.x, p.y - p.r*0.5);
+    ctx.bezierCurveTo(p.x + p.facing*12, p.y - p.r*1.3, p.x - p.facing*10, p.y - p.r*1.8, p.x + p.facing*10, p.y - p.r*2.3);
+    ctx.stroke();
+
+    // HP halo
+    ctx.globalAlpha = 1;
+    const hpT = clamp(p.hp/100, 0, 1);
+    ctx.lineWidth = 3;
+    ctx.strokeStyle = `rgba(246,231,165,0.55)`;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, p.r+7, -Math.PI*0.75, -Math.PI*0.75 + Math.PI*1.5*hpT);
+    ctx.stroke();
+
+    ctx.restore();
+  }
+
+  function drawAim(){
+    if(state !== "aim") return;
+    const p = players[active];
+    if(!p.alive) return;
+
+    const house = HOUSES[p.team];
+    const dir = getAimDir(p);
+    const muzzle = getMuzzle(p);
+    const len = 110 + 70*aimPower;
+
+    ctx.save();
+    // elegant aim line
+    ctx.globalAlpha = 0.85;
+    ctx.strokeStyle = "rgba(246,231,165,0.85)";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(muzzle.x, muzzle.y);
+    ctx.lineTo(muzzle.x + dir.x*len, muzzle.y + dir.y*len);
+    ctx.stroke();
+
+    // little fleur tip
+    ctx.globalAlpha = 0.95;
+    ctx.fillStyle = "rgba(246,231,165,0.95)";
+    ctx.beginPath();
+    ctx.arc(muzzle.x + dir.x*len, muzzle.y + dir.y*len, 3.2, 0, Math.PI*2);
+    ctx.fill();
+
+    // ballistic preview dots (light assist)
+    ctx.globalAlpha = 0.22;
+    const speed = PROJECTILE_SPEED * (0.25 + 0.75*aimPower);
+    let px = muzzle.x, py = muzzle.y;
+    let vx = dir.x*speed, vy=dir.y*speed;
+    const dt = 0.05;
+    for(let i=0;i<16;i++){
+      vx += (wind) * dt;
+      vy += (G) * dt;
+      px += vx*dt;
+      py += vy*dt;
+      if(px<0||px>w||py<0||py>h) break;
+      ctx.beginPath();
+      ctx.arc(px,py,2.2,0,Math.PI*2);
+      ctx.fillStyle = `rgba(255,255,255,1)`;
+      ctx.fill();
+      if(isSolidPx(px,py)) break;
+    }
+
+    ctx.restore();
+  }
+
+  function drawProjectile(){
+    if(!projectile || !projectile.alive) return;
+    ctx.save();
+    ctx.globalAlpha = 0.95;
+    ctx.fillStyle = "rgba(255,245,210,1)";
+    ctx.beginPath();
+    ctx.arc(projectile.x, projectile.y, projectile.r, 0, Math.PI*2);
+    ctx.fill();
+
+    // tiny glow
+    ctx.globalAlpha = 0.25;
+    ctx.beginPath();
+    ctx.arc(projectile.x, projectile.y, projectile.r*3.2, 0, Math.PI*2);
+    ctx.fillStyle = "rgba(246,231,165,1)";
+    ctx.fill();
+
+    ctx.restore();
+  }
+
+  function drawGameOver(){
+    if(state !== "gameover") return;
+    ctx.save();
+    ctx.globalAlpha = 0.78;
+    ctx.fillStyle = "rgba(0,0,0,1)";
+    ctx.fillRect(0,0,w,h);
+    ctx.globalAlpha = 1;
+
+    // parchment plaque
+    const pw = Math.min(560, w*0.82);
+    const ph = 220;
+    const x = (w-pw)/2;
+    const y = (h-ph)/2;
+
+    // shadow
+    ctx.globalAlpha = 0.35;
+    roundRect(ctx, x+10, y+14, pw, ph, 20);
+    ctx.fillStyle = "rgba(0,0,0,1)";
+    ctx.fill();
+    ctx.globalAlpha = 1;
+
+    // plaque
+    const grad = ctx.createLinearGradient(0,y,0,y+ph);
+    grad.addColorStop(0, "#efe2c3");
+    grad.addColorStop(1, "#d4c19a");
+    ctx.fillStyle = grad;
+    ctx.strokeStyle = "rgba(60,40,20,.35)";
+    ctx.lineWidth = 2;
+    roundRect(ctx, x, y, pw, ph, 20);
+    ctx.fill(); ctx.stroke();
+
+    // gold inset
+    ctx.strokeStyle = "rgba(246,231,165,.85)";
+    ctx.lineWidth = 2;
+    roundRect(ctx, x+10, y+10, pw-20, ph-20, 16);
+    ctx.stroke();
+
+    // text
+    ctx.fillStyle = "#2b2016";
+    ctx.textAlign = "center";
+    ctx.font = "700 28px Georgia, serif";
+    const title = (winner===null) ? "Mutual Ruin" : `${HOUSES[winner].name} Triumphs`;
+    ctx.fillText(title, w/2, y+78);
+
+    ctx.font = "16px Georgia, serif";
+    ctx.globalAlpha = 0.85;
+    ctx.fillText("Press R to begin anew. (Or click Restart.)", w/2, y+122);
+
+    ctx.globalAlpha = 0.9;
+    ctx.font = "italic 14px Georgia, serif";
+    ctx.fillText("“Angles are arguments; wind is gossip.”", w/2, y+164);
+
+    ctx.restore();
+  }
+
+  function roundRect(ctx,x,y,w,h,r){
+    r = Math.min(r, w/2, h/2);
+    ctx.beginPath();
+    ctx.moveTo(x+r,y);
+    ctx.arcTo(x+w,y,x+w,y+h,r);
+    ctx.arcTo(x+w,y+h,x,y+h,r);
+    ctx.arcTo(x,y+h,x,y,r);
+    ctx.arcTo(x,y,x+w,y,r);
+    ctx.closePath();
+  }
+
+  // ===== Update =====
+  let last = performance.now();
+  function tick(now){
+    const dt = clamp((now-last)/1000, 0, 0.033);
+    last = now;
+
+    update(dt);
+    render();
+
+    requestAnimationFrame(tick);
+  }
+
+  function update(dt){
+    // Update UI
+    uiHouse.textContent = HOUSES[active].name;
+    uiHouse.style.color = HOUSES[active].color;
+    const windSign = wind>=0 ? "→" : "←";
+    uiWind.textContent = `${windSign} ${Math.abs(wind).toFixed(0)}`;
+    uiAngle.textContent = `${(aimAngle*180/Math.PI).toFixed(0)}°`;
+    uiPower.textContent = `${Math.round(aimPower*100)}%`;
+    uiHP0.textContent = `${Math.max(0, players[0]?.hp|0)}`;
+    uiHP1.textContent = `${Math.max(0, players[1]?.hp|0)}`;
+
+    if(state === "gameover"){
+      return;
+    }
+
+    // Movement and aim keys
+    if(state === "aim"){
+      const p = players[active];
+      if(p && p.alive){
+        // Move left/right before firing
+        if(!firedThisTurn){
+          const grounded = isSolidPx(p.x, p.y + p.r + 2);
+          if(grounded){
+            if(keys.has("arrowleft")) p.vx = lerp(p.vx, -MOVE_SPEED, 0.20);
+            if(keys.has("arrowright")) p.vx = lerp(p.vx, MOVE_SPEED, 0.20);
+          }
+        }
+
+        // Aim keys
+        if(keys.has("a")) aimAngle = clamp(aimAngle + (1.25*dt), 8*Math.PI/180, 86*Math.PI/180);
+        if(keys.has("d")) aimAngle = clamp(aimAngle - (1.25*dt), 8*Math.PI/180, 86*Math.PI/180);
+        if(keys.has("w")) aimPower = clamp(aimPower + (0.85*dt), 0.12, 1.0);
+        if(keys.has("s")) aimPower = clamp(aimPower - (0.85*dt), 0.12, 1.0);
+      }
+    }
+
+    // Physics settle for players always
+    for(const p of players) settlePlayer(p, dt);
+
+    // Projectile sim
+    if(state === "projectile" && projectile && projectile.alive){
+      projectile.time += dt;
+
+      // substep for reliable collision
+      const steps = Math.ceil((Math.hypot(projectile.vx, projectile.vy) * dt) / 8);
+      const subdt = dt / Math.max(1, steps);
+
+      for(let i=0;i<steps;i++){
+        projectile.vx += wind * subdt;
+        projectile.vy += G * subdt;
+        projectile.x += projectile.vx * subdt;
+        projectile.y += projectile.vy * subdt;
+
+        // out of bounds => explode softly at edge (or vanish)
+        if(projectile.x < -40 || projectile.x > w+40 || projectile.y > h+60 || projectile.y < -80){
+          projectile.alive = false;
+          state = "resolve";
+          resolveTimer = 0;
+          break;
+        }
+
+        // hit terrain?
+        if(isSolidPx(projectile.x, projectile.y)){
+          projectile.alive = false;
+          explodeAt(projectile.x, projectile.y);
+          break;
+        }
+
+        // hit player?
+        for(const p of players){
+          if(!p.alive) continue;
+          const d = Math.hypot(p.x - projectile.x, p.y - projectile.y);
+          if(d <= p.r + projectile.r + 1){
+            projectile.alive = false;
+            explodeAt(projectile.x, projectile.y);
+            break;
+          }
+        }
+        if(!projectile.alive) break;
+      }
+    }
+
+    // Resolve: wait until both players are roughly at rest, then swap turn
+    if(state === "resolve"){
+      resolveTimer += dt;
+      const rested = players.every(p => {
+        if(!p.alive) return true;
+        const grounded = isSolidPx(p.x, p.y + p.r + 2);
+        return grounded && Math.hypot(p.vx,p.vy) < REST_VEL;
+      });
+
+      checkVictory();
+      if(state === "gameover") return;
+
+      if((rested && resolveTimer > 0.35) || resolveTimer > 3.0){
+        // next turn
+        projectile = null;
+        startTurn(1 - active);
+        state = "aim";
+      }
+    }
+
+    // After any major event, check victory
+    checkVictory();
+  }
+
+  // ===== Render =====
+  function render(){
+    ctx.clearRect(0,0,w,h);
+    drawBackground();
+    drawTerrain();
+    drawFiligreeHUDOverlay();
+
+    // Players
+    for(const p of players) drawPlayer(p);
+
+    // Aim + projectile
+    drawAim();
+    drawProjectile();
+
+    // Wind ribbon (tiny on-canvas ornament)
+    drawWindRibbon();
+
+    drawGameOver();
+  }
+
+  function drawWindRibbon(){
+    ctx.save();
+    ctx.globalAlpha = 0.65;
+    const x = w*0.5, y = 22;
+    const ww = 220, hh = 18;
+
+    // small gilded ribbon
+    ctx.fillStyle = "rgba(0,0,0,0.22)";
+    roundRect(ctx, x-ww/2+2, y-2, ww, hh, 10);
+    ctx.fill();
+
+    ctx.fillStyle = "rgba(246,231,165,0.20)";
+    roundRect(ctx, x-ww/2, y-4, ww, hh, 10);
+    ctx.fill();
+
+    ctx.strokeStyle = "rgba(246,231,165,0.35)";
+    ctx.lineWidth = 1;
+    roundRect(ctx, x-ww/2, y-4, ww, hh, 10);
+    ctx.stroke();
+
+    ctx.fillStyle = "rgba(255,255,255,0.85)";
+    ctx.font = "12px Georgia, serif";
+    ctx.textAlign = "center";
+    const s = wind>=0 ? "WIND →" : "WIND ←";
+    ctx.fillText(`${s}  ${Math.abs(wind).toFixed(0)}`, x, y+9);
+
+    ctx.restore();
+  }
+
+  // ===== Restart =====
+  function restart(){
+    // Terrain + players
+    generateTerrain();
+
+    players = [
+      makePlayer(0, w*0.18),
+      makePlayer(1, w*0.82)
+    ];
+
+    // Slightly adjust to safe ground if they spawned in air
+    for(const p of players){
+      p.y = findGroundY(p.x) - p.r - 1;
+      p.vx = 0; p.vy = 0;
+      p.hp = 100;
+      p.alive = true;
+    }
+
+    projectile = null;
+    winner = null;
+    state = "aim";
+    active = 0;
+    firedThisTurn = false;
+
+    // Default aim: toward enemy
+    aimAngle = 40 * Math.PI/180;
+    aimPower = 0.72;
+
+    wind = rand(-WIND_MAX, WIND_MAX);
+    showToast("A new duel begins.");
+  }
+
+  // Start
+  resize();
+  requestAnimationFrame(tick);
+
+})();
+</script>
+</body>
+</html>
