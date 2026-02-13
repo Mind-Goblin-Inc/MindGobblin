@@ -469,7 +469,10 @@
               <div class="muted">${teamA.map((p) => p.playerName).join(" + ")} vs ${teamB.map((p) => p.playerName).join(" + ")}</div>
               <div class="muted">Score ${g.teamAScore}-${g.teamBScore}, Winner Team ${g.winnerTeam}</div>
             </div>
-            <button class="editGameBtn" data-id="${g.id}">Edit</button>
+            <div class="row">
+              <button class="editGameBtn" data-id="${g.id}">Edit</button>
+              <button class="warn delGameBtn" data-id="${g.id}">Remove</button>
+            </div>
           </div>
           <div id="edit-${g.id}" style="display:none; margin-top:0.5rem;">
             <div class="grid2">
@@ -519,6 +522,20 @@
           });
           if (!res.ok) {
             alert(res.data?.error || "Failed to update game.");
+            return;
+          }
+          await loadGroupData(state.group.id);
+        });
+      });
+
+      wrap.querySelectorAll(".delGameBtn").forEach((btn) => {
+        btn.addEventListener("click", async () => {
+          const gameId = btn.dataset.id;
+          const ok = confirm("Delete this game? This cannot be undone.");
+          if (!ok) return;
+          const res = await api(`/api/euchre/groups/${state.group.id}/games/${gameId}`, { method: "DELETE" });
+          if (!res.ok) {
+            alert(res.data?.error || "Failed to delete game.");
             return;
           }
           await loadGroupData(state.group.id);
@@ -584,10 +601,12 @@
       const meRes = await api("/api/auth/me");
       if (!meRes.ok || !meRes.data?.loggedIn) {
         byId("authText").textContent = "You are not logged in.";
+        byId("authCard").style.display = "";
         return;
       }
       state.me = meRes.data.user;
       byId("authText").textContent = `Logged in as ${state.me.username}`;
+      byId("authCard").style.display = "none";
       byId("groupsCard").style.display = "";
       await loadGroups();
     }
