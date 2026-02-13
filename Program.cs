@@ -188,6 +188,12 @@ static void ClearAuthSession(HttpContext ctx)
     ctx.Session.Remove("auth_username");
 }
 
+static int? GetAuthenticatedUserId(HttpContext ctx)
+{
+    var userIdText = ctx.Session.GetString("auth_user_id");
+    return int.TryParse(userIdText, out var userId) ? userId : null;
+}
+
 // ---------- Minimal endpoints ----------
 app.MapGet("/health", () => new { ok = true, serverTime = DateTimeOffset.UtcNow });
 
@@ -319,6 +325,456 @@ app.MapGet("/api/auth/me", async (JakeServerDbContext db, HttpContext ctx) =>
     }
 
     return Results.Json(new { loggedIn = true, user });
+});
+
+// ---------- Euchre tracker helpers ----------
+async Task<bool> CanAccessEuchreGroup(JakeServerDbContext db, int groupId, int userId)
+{
+    return await db.EuchreGroups.AnyAsync(g => g.Id == groupId && (
+        g.CreatedByUserId == userId ||
+        db.EuchreGroupEditors.Any(e => e.EuchreGroupId == g.Id && e.UserAccountId == userId)
+    ));
+}
+
+async Task<bool> CanManageEuchreGroup(JakeServerDbContext db, int groupId, int userId)
+{
+    return await db.EuchreGroups.AnyAsync(g => g.Id == groupId && g.CreatedByUserId == userId);
+}
+
+// ---------- Euchre tracker endpoints ----------
+app.MapGet("/api/euchre/groups", async (JakeServerDbContext db, HttpContext ctx) =>
+{
+    var userId = GetAuthenticatedUserId(ctx);
+    if (!userId.HasValue) return Results.Unauthorized();
+
+    var groups = await db.EuchreGroups
+        .Where(g => g.CreatedByUserId == userId.Value ||
+                    db.EuchreGroupEditors.Any(e => e.EuchreGroupId == g.Id && e.UserAccountId == userId.Value))
+        .OrderBy(g => g.Name)
+        .Select(g => new
+        {
+            g.Id,
+            g.Name,
+            g.CreatedUtc,
+            canManage = g.CreatedByUserId == userId.Value
+        })
+        .ToListAsync();
+
+    return Results.Ok(groups);
+});
+
+app.MapPost("/api/euchre/groups", async (JakeServerDbContext db, HttpContext ctx, EuchreCreateGroupRequest req) =>
+{
+    var userId = GetAuthenticatedUserId(ctx);
+    if (!userId.HasValue) return Results.Unauthorized();
+
+    var name = (req.Name ?? "").Trim();
+    if (name.Length < 3 || name.Length > 80)
+        return Results.BadRequest(new { error = "Group name must be 3-80 characters." });
+
+    var group = new EuchreGroup
+    {
+        Name = name,
+        CreatedByUserId = userId.Value,
+        CreatedUtc = DateTime.UtcNow
+    };
+
+    db.EuchreGroups.Add(group);
+    await db.SaveChangesAsync();
+    return Results.Ok(new { group.Id, group.Name, canManage = true });
+});
+
+app.MapGet("/api/euchre/groups/{groupId:int}", async (JakeServerDbContext db, HttpContext ctx, int groupId) =>
+{
+    var userId = GetAuthenticatedUserId(ctx);
+    if (!userId.HasValue) return Results.Unauthorized();
+
+    if (!await CanAccessEuchreGroup(db, groupId, userId.Value))
+        return Results.Forbid();
+
+    var group = await db.EuchreGroups
+        .Where(g => g.Id == groupId)
+        .Select(g => new
+        {
+            g.Id,
+            g.Name,
+            g.CreatedUtc,
+            canManage = g.CreatedByUserId == userId.Value
+        })
+        .FirstOrDefaultAsync();
+
+    if (group is null) return Results.NotFound();
+    return Results.Ok(group);
+});
+
+app.MapGet("/api/euchre/groups/{groupId:int}/editors", async (JakeServerDbContext db, HttpContext ctx, int groupId) =>
+{
+    var userId = GetAuthenticatedUserId(ctx);
+    if (!userId.HasValue) return Results.Unauthorized();
+
+    if (!await CanAccessEuchreGroup(db, groupId, userId.Value))
+        return Results.Forbid();
+
+    var editors = await db.EuchreGroupEditors
+        .Where(e => e.EuchreGroupId == groupId)
+        .OrderBy(e => e.UserAccount.Username)
+        .Select(e => new
+        {
+            userId = e.UserAccountId,
+            username = e.UserAccount.Username
+        })
+        .ToListAsync();
+
+    return Results.Ok(editors);
+});
+
+app.MapPost("/api/euchre/groups/{groupId:int}/editors", async (JakeServerDbContext db, HttpContext ctx, int groupId, EuchreAddEditorRequest req) =>
+{
+    var userId = GetAuthenticatedUserId(ctx);
+    if (!userId.HasValue) return Results.Unauthorized();
+
+    if (!await CanManageEuchreGroup(db, groupId, userId.Value))
+        return Results.Forbid();
+
+    var usernameNorm = NormalizeUsername(req.Username ?? "");
+    var target = await db.UserAccounts.FirstOrDefaultAsync(u => u.UsernameNormalized == usernameNorm);
+    if (target is null) return Results.BadRequest(new { error = "Account not found." });
+
+    var isOwner = await db.EuchreGroups.AnyAsync(g => g.Id == groupId && g.CreatedByUserId == target.Id);
+    if (isOwner) return Results.Ok(new { ok = true });
+
+    var exists = await db.EuchreGroupEditors.AnyAsync(e => e.EuchreGroupId == groupId && e.UserAccountId == target.Id);
+    if (!exists)
+    {
+        db.EuchreGroupEditors.Add(new EuchreGroupEditor
+        {
+            EuchreGroupId = groupId,
+            UserAccountId = target.Id,
+            AddedUtc = DateTime.UtcNow
+        });
+        await db.SaveChangesAsync();
+    }
+
+    return Results.Ok(new { ok = true });
+});
+
+app.MapDelete("/api/euchre/groups/{groupId:int}/editors/{editorUserId:int}", async (JakeServerDbContext db, HttpContext ctx, int groupId, int editorUserId) =>
+{
+    var userId = GetAuthenticatedUserId(ctx);
+    if (!userId.HasValue) return Results.Unauthorized();
+
+    if (!await CanManageEuchreGroup(db, groupId, userId.Value))
+        return Results.Forbid();
+
+    var row = await db.EuchreGroupEditors.FirstOrDefaultAsync(e => e.EuchreGroupId == groupId && e.UserAccountId == editorUserId);
+    if (row is null) return Results.NotFound();
+
+    db.EuchreGroupEditors.Remove(row);
+    await db.SaveChangesAsync();
+    return Results.Ok(new { ok = true });
+});
+
+app.MapGet("/api/euchre/groups/{groupId:int}/players", async (JakeServerDbContext db, HttpContext ctx, int groupId) =>
+{
+    var userId = GetAuthenticatedUserId(ctx);
+    if (!userId.HasValue) return Results.Unauthorized();
+
+    if (!await CanAccessEuchreGroup(db, groupId, userId.Value))
+        return Results.Forbid();
+
+    var players = await db.EuchrePlayers
+        .Where(p => p.EuchreGroupId == groupId)
+        .OrderBy(p => p.Name)
+        .Select(p => new { p.Id, p.Name, p.CreatedUtc })
+        .ToListAsync();
+
+    return Results.Ok(players);
+});
+
+app.MapPost("/api/euchre/groups/{groupId:int}/players", async (JakeServerDbContext db, HttpContext ctx, int groupId, EuchreCreatePlayerRequest req) =>
+{
+    var userId = GetAuthenticatedUserId(ctx);
+    if (!userId.HasValue) return Results.Unauthorized();
+
+    if (!await CanAccessEuchreGroup(db, groupId, userId.Value))
+        return Results.Forbid();
+
+    var name = (req.Name ?? "").Trim();
+    if (name.Length < 1 || name.Length > 50)
+        return Results.BadRequest(new { error = "Player name must be 1-50 characters." });
+
+    var exists = await db.EuchrePlayers.AnyAsync(p => p.EuchreGroupId == groupId && p.Name.ToLower() == name.ToLower());
+    if (exists) return Results.Conflict(new { error = "Player already exists in this group." });
+
+    var player = new EuchrePlayer
+    {
+        EuchreGroupId = groupId,
+        Name = name,
+        CreatedUtc = DateTime.UtcNow
+    };
+    db.EuchrePlayers.Add(player);
+    await db.SaveChangesAsync();
+
+    return Results.Ok(new { player.Id, player.Name });
+});
+
+app.MapDelete("/api/euchre/groups/{groupId:int}/players/{playerId:int}", async (JakeServerDbContext db, HttpContext ctx, int groupId, int playerId) =>
+{
+    var userId = GetAuthenticatedUserId(ctx);
+    if (!userId.HasValue) return Results.Unauthorized();
+
+    if (!await CanAccessEuchreGroup(db, groupId, userId.Value))
+        return Results.Forbid();
+
+    var inUse = await db.EuchreGameParticipants.AnyAsync(p => p.EuchrePlayerId == playerId);
+    if (inUse) return Results.BadRequest(new { error = "Cannot remove player that exists in recorded games." });
+
+    var player = await db.EuchrePlayers.FirstOrDefaultAsync(p => p.Id == playerId && p.EuchreGroupId == groupId);
+    if (player is null) return Results.NotFound();
+
+    db.EuchrePlayers.Remove(player);
+    await db.SaveChangesAsync();
+    return Results.Ok(new { ok = true });
+});
+
+app.MapGet("/api/euchre/groups/{groupId:int}/games", async (JakeServerDbContext db, HttpContext ctx, int groupId) =>
+{
+    var userId = GetAuthenticatedUserId(ctx);
+    if (!userId.HasValue) return Results.Unauthorized();
+
+    if (!await CanAccessEuchreGroup(db, groupId, userId.Value))
+        return Results.Forbid();
+
+    var games = await db.EuchreGames
+        .Where(g => g.EuchreGroupId == groupId)
+        .OrderByDescending(g => g.PlayedAtUtc)
+        .Select(g => new
+        {
+            g.Id,
+            g.PlayedAtUtc,
+            g.TeamAScore,
+            g.TeamBScore,
+            g.WinnerTeam,
+            participants = g.Participants
+                .OrderBy(p => p.Team)
+                .ThenBy(p => p.Id)
+                .Select(p => new { playerId = p.EuchrePlayerId, playerName = p.EuchrePlayer.Name, p.Team })
+                .ToList()
+        })
+        .ToListAsync();
+
+    return Results.Ok(games);
+});
+
+app.MapPost("/api/euchre/groups/{groupId:int}/games", async (JakeServerDbContext db, HttpContext ctx, int groupId, EuchreGameUpsertRequest req) =>
+{
+    var userId = GetAuthenticatedUserId(ctx);
+    if (!userId.HasValue) return Results.Unauthorized();
+
+    if (!await CanAccessEuchreGroup(db, groupId, userId.Value))
+        return Results.Forbid();
+
+    var teamAIds = (req.TeamAPlayerIds ?? Array.Empty<int>()).Distinct().ToArray();
+    var teamBIds = (req.TeamBPlayerIds ?? Array.Empty<int>()).Distinct().ToArray();
+    if (teamAIds.Length != 2 || teamBIds.Length != 2)
+        return Results.BadRequest(new { error = "Each team must have exactly 2 unique players." });
+
+    if (teamAIds.Intersect(teamBIds).Any())
+        return Results.BadRequest(new { error = "A player cannot be on both teams." });
+
+    var winnerTeam = (req.WinnerTeam ?? "").Trim().ToUpperInvariant();
+    if (winnerTeam is not ("A" or "B"))
+        return Results.BadRequest(new { error = "WinnerTeam must be A or B." });
+
+    var allIds = teamAIds.Concat(teamBIds).ToArray();
+    var validCount = await db.EuchrePlayers.CountAsync(p => p.EuchreGroupId == groupId && allIds.Contains(p.Id));
+    if (validCount != 4)
+        return Results.BadRequest(new { error = "All selected players must belong to this group." });
+
+    var game = new EuchreGame
+    {
+        EuchreGroupId = groupId,
+        CreatedByUserId = userId.Value,
+        PlayedAtUtc = req.PlayedAtUtc?.UtcDateTime ?? DateTime.UtcNow,
+        TeamAScore = Math.Max(0, req.TeamAScore),
+        TeamBScore = Math.Max(0, req.TeamBScore),
+        WinnerTeam = winnerTeam
+    };
+
+    db.EuchreGames.Add(game);
+    await db.SaveChangesAsync();
+
+    var participants = teamAIds.Select(id => new EuchreGameParticipant
+    {
+        EuchreGameId = game.Id,
+        EuchrePlayerId = id,
+        Team = "A"
+    }).Concat(teamBIds.Select(id => new EuchreGameParticipant
+    {
+        EuchreGameId = game.Id,
+        EuchrePlayerId = id,
+        Team = "B"
+    }));
+
+    db.EuchreGameParticipants.AddRange(participants);
+    await db.SaveChangesAsync();
+    return Results.Ok(new { game.Id });
+});
+
+app.MapPut("/api/euchre/groups/{groupId:int}/games/{gameId:int}", async (JakeServerDbContext db, HttpContext ctx, int groupId, int gameId, EuchreGameUpsertRequest req) =>
+{
+    var userId = GetAuthenticatedUserId(ctx);
+    if (!userId.HasValue) return Results.Unauthorized();
+
+    if (!await CanAccessEuchreGroup(db, groupId, userId.Value))
+        return Results.Forbid();
+
+    var game = await db.EuchreGames
+        .Include(g => g.Participants)
+        .FirstOrDefaultAsync(g => g.Id == gameId && g.EuchreGroupId == groupId);
+
+    if (game is null) return Results.NotFound();
+
+    var teamAIds = (req.TeamAPlayerIds ?? Array.Empty<int>()).Distinct().ToArray();
+    var teamBIds = (req.TeamBPlayerIds ?? Array.Empty<int>()).Distinct().ToArray();
+    if (teamAIds.Length != 2 || teamBIds.Length != 2)
+        return Results.BadRequest(new { error = "Each team must have exactly 2 unique players." });
+
+    if (teamAIds.Intersect(teamBIds).Any())
+        return Results.BadRequest(new { error = "A player cannot be on both teams." });
+
+    var winnerTeam = (req.WinnerTeam ?? "").Trim().ToUpperInvariant();
+    if (winnerTeam is not ("A" or "B"))
+        return Results.BadRequest(new { error = "WinnerTeam must be A or B." });
+
+    var allIds = teamAIds.Concat(teamBIds).ToArray();
+    var validCount = await db.EuchrePlayers.CountAsync(p => p.EuchreGroupId == groupId && allIds.Contains(p.Id));
+    if (validCount != 4)
+        return Results.BadRequest(new { error = "All selected players must belong to this group." });
+
+    game.TeamAScore = Math.Max(0, req.TeamAScore);
+    game.TeamBScore = Math.Max(0, req.TeamBScore);
+    game.WinnerTeam = winnerTeam;
+    game.PlayedAtUtc = req.PlayedAtUtc?.UtcDateTime ?? game.PlayedAtUtc;
+
+    db.EuchreGameParticipants.RemoveRange(game.Participants);
+    db.EuchreGameParticipants.AddRange(teamAIds.Select(id => new EuchreGameParticipant
+    {
+        EuchreGameId = game.Id,
+        EuchrePlayerId = id,
+        Team = "A"
+    }));
+    db.EuchreGameParticipants.AddRange(teamBIds.Select(id => new EuchreGameParticipant
+    {
+        EuchreGameId = game.Id,
+        EuchrePlayerId = id,
+        Team = "B"
+    }));
+
+    await db.SaveChangesAsync();
+    return Results.Ok(new { ok = true });
+});
+
+app.MapGet("/api/euchre/groups/{groupId:int}/stats", async (JakeServerDbContext db, HttpContext ctx, int groupId) =>
+{
+    var userId = GetAuthenticatedUserId(ctx);
+    if (!userId.HasValue) return Results.Unauthorized();
+
+    if (!await CanAccessEuchreGroup(db, groupId, userId.Value))
+        return Results.Forbid();
+
+    var players = await db.EuchrePlayers
+        .Where(p => p.EuchreGroupId == groupId)
+        .Select(p => new { p.Id, p.Name })
+        .ToListAsync();
+
+    var games = await db.EuchreGames
+        .Where(g => g.EuchreGroupId == groupId)
+        .Include(g => g.Participants)
+        .ThenInclude(p => p.EuchrePlayer)
+        .OrderByDescending(g => g.PlayedAtUtc)
+        .ToListAsync();
+
+    var playerStats = players.Select(p => new EuchrePlayerStatDto(p.Id, p.Name, 0, 0)).ToDictionary(x => x.PlayerId);
+    var duoStats = new Dictionary<string, EuchreDuoStatMutable>(StringComparer.Ordinal);
+
+    foreach (var game in games)
+    {
+        var winnerTeam = game.WinnerTeam;
+        if (winnerTeam is not ("A" or "B")) continue;
+
+        foreach (var part in game.Participants)
+        {
+            if (!playerStats.TryGetValue(part.EuchrePlayerId, out var current)) continue;
+            var won = part.Team == winnerTeam;
+            playerStats[part.EuchrePlayerId] = current with
+            {
+                Wins = current.Wins + (won ? 1 : 0),
+                Losses = current.Losses + (won ? 0 : 1)
+            };
+        }
+
+        foreach (var team in new[] { "A", "B" })
+        {
+            var duo = game.Participants.Where(p => p.Team == team).OrderBy(p => p.EuchrePlayerId).ToList();
+            if (duo.Count != 2) continue;
+            var duoKey = $"{duo[0].EuchrePlayerId}:{duo[1].EuchrePlayerId}";
+            if (!duoStats.TryGetValue(duoKey, out var ds))
+            {
+                ds = new EuchreDuoStatMutable
+                {
+                    PlayerAId = duo[0].EuchrePlayerId,
+                    PlayerAName = duo[0].EuchrePlayer.Name,
+                    PlayerBId = duo[1].EuchrePlayerId,
+                    PlayerBName = duo[1].EuchrePlayer.Name
+                };
+                duoStats[duoKey] = ds;
+            }
+
+            if (team == winnerTeam) ds.Wins++;
+            else ds.Losses++;
+        }
+    }
+
+    var playerStatsOut = playerStats.Values
+        .OrderByDescending(p => p.Wins)
+        .ThenBy(p => p.Losses)
+        .ThenBy(p => p.Name)
+        .Select(p => new
+        {
+            p.PlayerId,
+            p.Name,
+            p.Wins,
+            p.Losses,
+            totalGames = p.Wins + p.Losses,
+            winRate = (p.Wins + p.Losses) == 0 ? 0 : Math.Round((double)p.Wins / (p.Wins + p.Losses), 3)
+        })
+        .ToList();
+
+    var duoStatsOut = duoStats.Values
+        .OrderByDescending(d => d.Wins)
+        .ThenBy(d => d.Losses)
+        .ThenBy(d => d.PlayerAName)
+        .ThenBy(d => d.PlayerBName)
+        .Select(d => new
+        {
+            d.PlayerAId,
+            d.PlayerAName,
+            d.PlayerBId,
+            d.PlayerBName,
+            d.Wins,
+            d.Losses,
+            totalGames = d.Wins + d.Losses,
+            winRate = (d.Wins + d.Losses) == 0 ? 0 : Math.Round((double)d.Wins / (d.Wins + d.Losses), 3)
+        })
+        .ToList();
+
+    return Results.Ok(new
+    {
+        totalGames = games.Count,
+        playerStats = playerStatsOut,
+        duoStats = duoStatsOut
+    });
 });
 
 // ----------Royale Helpers-------------
@@ -1166,11 +1622,76 @@ public class JakeServerDbContext : DbContext
     public DbSet<TetrisScore> TetrisScores { get; set; } = default!;
     public DbSet<PongGameLobby> PongGameLobbies { get; set; } = default!;
     public DbSet<UserAccount> UserAccounts { get; set; } = default!;
+    public DbSet<EuchreGroup> EuchreGroups { get; set; } = default!;
+    public DbSet<EuchreGroupEditor> EuchreGroupEditors { get; set; } = default!;
+    public DbSet<EuchrePlayer> EuchrePlayers { get; set; } = default!;
+    public DbSet<EuchreGame> EuchreGames { get; set; } = default!;
+    public DbSet<EuchreGameParticipant> EuchreGameParticipants { get; set; } = default!;
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.Entity<UserAccount>()
             .HasIndex(u => u.UsernameNormalized)
+            .IsUnique();
+
+        modelBuilder.Entity<EuchreGroup>()
+            .HasOne(g => g.CreatedByUser)
+            .WithMany()
+            .HasForeignKey(g => g.CreatedByUserId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<EuchreGroupEditor>()
+            .HasIndex(e => new { e.EuchreGroupId, e.UserAccountId })
+            .IsUnique();
+
+        modelBuilder.Entity<EuchreGroupEditor>()
+            .HasOne(e => e.EuchreGroup)
+            .WithMany(g => g.Editors)
+            .HasForeignKey(e => e.EuchreGroupId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<EuchreGroupEditor>()
+            .HasOne(e => e.UserAccount)
+            .WithMany()
+            .HasForeignKey(e => e.UserAccountId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<EuchrePlayer>()
+            .HasIndex(p => new { p.EuchreGroupId, p.Name })
+            .IsUnique();
+
+        modelBuilder.Entity<EuchrePlayer>()
+            .HasOne(p => p.EuchreGroup)
+            .WithMany(g => g.Players)
+            .HasForeignKey(p => p.EuchreGroupId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<EuchreGame>()
+            .HasOne(g => g.EuchreGroup)
+            .WithMany(gr => gr.Games)
+            .HasForeignKey(g => g.EuchreGroupId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<EuchreGame>()
+            .HasOne(g => g.CreatedByUser)
+            .WithMany()
+            .HasForeignKey(g => g.CreatedByUserId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<EuchreGameParticipant>()
+            .HasOne(p => p.EuchreGame)
+            .WithMany(g => g.Participants)
+            .HasForeignKey(p => p.EuchreGameId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<EuchreGameParticipant>()
+            .HasOne(p => p.EuchrePlayer)
+            .WithMany(pl => pl.GameParticipants)
+            .HasForeignKey(p => p.EuchrePlayerId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<EuchreGameParticipant>()
+            .HasIndex(p => new { p.EuchreGameId, p.EuchrePlayerId })
             .IsUnique();
     }
 }
@@ -1208,13 +1729,84 @@ public class UserAccount
     public DateTime LastLoginUtc { get; set; } = DateTime.UtcNow;
 }
 
+public class EuchreGroup
+{
+    public int Id { get; set; }
+    public string Name { get; set; } = "";
+    public int CreatedByUserId { get; set; }
+    public UserAccount CreatedByUser { get; set; } = default!;
+    public DateTime CreatedUtc { get; set; } = DateTime.UtcNow;
+    public List<EuchreGroupEditor> Editors { get; set; } = new();
+    public List<EuchrePlayer> Players { get; set; } = new();
+    public List<EuchreGame> Games { get; set; } = new();
+}
+
+public class EuchreGroupEditor
+{
+    public int Id { get; set; }
+    public int EuchreGroupId { get; set; }
+    public EuchreGroup EuchreGroup { get; set; } = default!;
+    public int UserAccountId { get; set; }
+    public UserAccount UserAccount { get; set; } = default!;
+    public DateTime AddedUtc { get; set; } = DateTime.UtcNow;
+}
+
+public class EuchrePlayer
+{
+    public int Id { get; set; }
+    public int EuchreGroupId { get; set; }
+    public EuchreGroup EuchreGroup { get; set; } = default!;
+    public string Name { get; set; } = "";
+    public DateTime CreatedUtc { get; set; } = DateTime.UtcNow;
+    public List<EuchreGameParticipant> GameParticipants { get; set; } = new();
+}
+
+public class EuchreGame
+{
+    public int Id { get; set; }
+    public int EuchreGroupId { get; set; }
+    public EuchreGroup EuchreGroup { get; set; } = default!;
+    public int CreatedByUserId { get; set; }
+    public UserAccount CreatedByUser { get; set; } = default!;
+    public DateTime PlayedAtUtc { get; set; } = DateTime.UtcNow;
+    public int TeamAScore { get; set; }
+    public int TeamBScore { get; set; }
+    public string WinnerTeam { get; set; } = "A"; // A or B
+    public List<EuchreGameParticipant> Participants { get; set; } = new();
+}
+
+public class EuchreGameParticipant
+{
+    public int Id { get; set; }
+    public int EuchreGameId { get; set; }
+    public EuchreGame EuchreGame { get; set; } = default!;
+    public int EuchrePlayerId { get; set; }
+    public EuchrePlayer EuchrePlayer { get; set; } = default!;
+    public string Team { get; set; } = "A"; // A or B
+}
+
 // ---------- DTOs ----------
 record EchoRequest(string Message);
 record ScoreRequest(string Username, int? Value);
 record AuthRequest(string Username, string Password);
+record EuchreCreateGroupRequest(string Name);
+record EuchreAddEditorRequest(string Username);
+record EuchreCreatePlayerRequest(string Name);
+record EuchreGameUpsertRequest(int[] TeamAPlayerIds, int[] TeamBPlayerIds, int TeamAScore, int TeamBScore, string WinnerTeam, DateTimeOffset? PlayedAtUtc);
+record EuchrePlayerStatDto(int PlayerId, string Name, int Wins, int Losses);
 record Score
 {
     public string Username { get; set; } = default!;
     public int Value { get; set; }
     public DateTimeOffset At { get; set; }
+}
+
+class EuchreDuoStatMutable
+{
+    public int PlayerAId { get; set; }
+    public string PlayerAName { get; set; } = "";
+    public int PlayerBId { get; set; }
+    public string PlayerBName { get; set; } = "";
+    public int Wins { get; set; }
+    public int Losses { get; set; }
 }
