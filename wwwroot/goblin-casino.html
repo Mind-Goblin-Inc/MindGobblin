@@ -1,0 +1,588 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Goblin Casino</title>
+  <link rel="icon" type="image/png" href="img/mindgoblin.png" />
+  <style>
+    :root {
+      --bg-deep: #090f0b;
+      --bg-forest: #102218;
+      --bg-moss: #1a3321;
+      --gold: #d7b462;
+      --gold-dim: #9b7a31;
+      --ink: #e9ddbe;
+      --ember: #d46a42;
+      --emerald: #3ad68f;
+      --card: #17291f;
+      --card-2: #1f3529;
+      --line: #355541;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      color: var(--ink);
+      font-family: "Cinzel", "Garamond", serif;
+      background:
+        radial-gradient(1200px 480px at 20% -20%, rgba(212, 106, 66, 0.2), transparent 55%),
+        radial-gradient(900px 440px at 85% -15%, rgba(58, 214, 143, 0.18), transparent 60%),
+        linear-gradient(170deg, var(--bg-forest), var(--bg-deep));
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    .mist {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      opacity: 0.35;
+      background:
+        radial-gradient(500px 100px at 10% 30%, rgba(255,255,255,.08), transparent 70%),
+        radial-gradient(650px 130px at 80% 55%, rgba(255,255,255,.07), transparent 70%),
+        radial-gradient(400px 80px at 35% 85%, rgba(255,255,255,.06), transparent 70%);
+      animation: drift 16s ease-in-out infinite alternate;
+    }
+    @keyframes drift {
+      from { transform: translateY(0px); }
+      to { transform: translateY(-12px); }
+    }
+
+    .wrap {
+      width: min(1180px, 100%);
+      margin: 0 auto;
+      padding: 1rem;
+      position: relative;
+      z-index: 1;
+    }
+
+    .hero {
+      border: 1px solid var(--line);
+      border-radius: 22px;
+      overflow: hidden;
+      background: linear-gradient(160deg, rgba(23,41,31,.96), rgba(13,22,17,.96));
+      box-shadow: 0 22px 60px rgba(0,0,0,.45), inset 0 0 0 1px rgba(255,255,255,.03);
+      margin-bottom: 1rem;
+    }
+
+    .hero-top {
+      display: grid;
+      grid-template-columns: 120px 1fr auto;
+      gap: 1rem;
+      align-items: center;
+      padding: 1rem;
+      border-bottom: 1px solid var(--line);
+      background: linear-gradient(90deg, rgba(212,106,66,.18), rgba(58,214,143,.08));
+    }
+
+    .sigil {
+      width: 120px;
+      height: 120px;
+      border-radius: 20px;
+      border: 1px solid rgba(215,180,98,.5);
+      background: #0e1a13;
+      object-fit: cover;
+      box-shadow: 0 0 0 4px rgba(0,0,0,.22), 0 12px 28px rgba(0,0,0,.35);
+    }
+
+    h1 {
+      margin: 0;
+      font-size: clamp(1.4rem, 4.8vw, 2.4rem);
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      color: #f2e4bf;
+    }
+
+    .sub {
+      margin-top: 0.4rem;
+      color: #d8ccab;
+      font-family: "Cormorant Garamond", "Garamond", serif;
+      font-size: clamp(1rem, 2.7vw, 1.2rem);
+    }
+
+    .actions {
+      display: flex;
+      flex-direction: column;
+      gap: 0.45rem;
+      align-items: stretch;
+      min-width: 170px;
+    }
+    .bank {
+      border: 1px solid rgba(215,180,98,.4);
+      background: rgba(10,18,13,.72);
+      border-radius: 999px;
+      padding: .4rem .7rem;
+      display: inline-flex;
+      align-items: center;
+      gap: .45rem;
+      font-size: .86rem;
+      letter-spacing: .03em;
+    }
+    .bank img {
+      width: 16px;
+      height: 16px;
+      object-fit: contain;
+    }
+
+    .btn {
+      border: 1px solid var(--gold-dim);
+      background: linear-gradient(170deg, #3a2c14, #2c210f);
+      color: #f0ddb0;
+      border-radius: 999px;
+      text-decoration: none;
+      text-align: center;
+      padding: 0.48rem 0.9rem;
+      font-size: 0.92rem;
+      letter-spacing: 0.03em;
+      transition: transform .15s ease, box-shadow .2s ease, border-color .2s ease;
+    }
+    .btn:hover {
+      transform: translateY(-1px);
+      border-color: var(--gold);
+      box-shadow: 0 8px 22px rgba(0,0,0,.35);
+    }
+
+    .asset-note {
+      margin: 0;
+      padding: 0.7rem 1rem;
+      color: #c5b894;
+      border-top: 1px dashed rgba(215,180,98,.4);
+      font-size: 0.88rem;
+      background: rgba(10,18,13,.6);
+    }
+
+    .tables-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 0.85rem;
+    }
+
+    .table-card {
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      background:
+        radial-gradient(200px 140px at 100% 0%, rgba(58,214,143,.12), transparent 75%),
+        linear-gradient(170deg, var(--card-2), var(--card));
+      overflow: hidden;
+      box-shadow: inset 0 0 0 1px rgba(255,255,255,.03), 0 12px 30px rgba(0,0,0,.3);
+      display: flex;
+      flex-direction: column;
+      min-height: 280px;
+    }
+
+    .table-head {
+      padding: 0.78rem;
+      border-bottom: 1px solid var(--line);
+      display: grid;
+      grid-template-columns: 76px 1fr;
+      gap: 0.6rem;
+      align-items: center;
+      background: linear-gradient(120deg, rgba(212,106,66,.15), rgba(0,0,0,0));
+    }
+
+    .icon-wrap {
+      width: 76px;
+      height: 76px;
+      border-radius: 12px;
+      border: 1px solid rgba(215,180,98,.35);
+      background: #0f1c14;
+      overflow: hidden;
+      display: grid;
+      place-items: center;
+      position: relative;
+    }
+    .icon-wrap img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      opacity: .9;
+    }
+    .icon-tag {
+      position: absolute;
+      right: 4px;
+      bottom: 4px;
+      font-size: 0.6rem;
+      border-radius: 999px;
+      padding: 0.15rem 0.33rem;
+      border: 1px solid rgba(215,180,98,.5);
+      background: rgba(10,17,13,.85);
+      color: var(--gold);
+      letter-spacing: .05em;
+    }
+
+    .table-name {
+      margin: 0;
+      font-size: 1.05rem;
+      letter-spacing: .04em;
+      color: #f6e9c7;
+      text-transform: uppercase;
+    }
+
+    .table-body {
+      padding: 0.78rem;
+      display: grid;
+      gap: 0.65rem;
+      flex: 1;
+      align-content: start;
+    }
+    .wager-row {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+      gap: .5rem;
+    }
+    .wager-row.single {
+      grid-template-columns: 1fr;
+    }
+    .wager-row input, .wager-row select {
+      width: 100%;
+      border-radius: 9px;
+      border: 1px solid #4e695a;
+      background: #0f1d15;
+      color: #ecdfbd;
+      padding: .45rem .5rem;
+      font: inherit;
+      font-size: .85rem;
+    }
+    .result {
+      min-height: 1.1rem;
+      font-size: .84rem;
+      color: #d5c39b;
+      letter-spacing: .02em;
+    }
+    .result.win { color: #93f0c5; }
+    .result.lose { color: #f4a281; }
+
+    .desc {
+      margin: 0;
+      font-size: 0.92rem;
+      color: #d5c8a7;
+      line-height: 1.35;
+      font-family: "Cormorant Garamond", "Garamond", serif;
+    }
+
+    .meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: .4rem;
+    }
+
+    .chip {
+      border: 1px solid rgba(58,214,143,.35);
+      color: #a5e8c8;
+      background: rgba(58,214,143,.08);
+      border-radius: 999px;
+      padding: .2rem .48rem;
+      font-size: .72rem;
+      letter-spacing: .04em;
+      text-transform: uppercase;
+    }
+
+    .play-btn {
+      margin-top: auto;
+      border: 1px solid #4f7b62;
+      background: linear-gradient(170deg, #244332, #1a3023);
+      color: #d4f3e3;
+      border-radius: 10px;
+      padding: .52rem .7rem;
+      text-transform: uppercase;
+      letter-spacing: .05em;
+      font-size: .79rem;
+      text-align: center;
+      cursor: pointer;
+    }
+    .play-btn:hover {
+      border-color: var(--emerald);
+      color: #e9fff4;
+    }
+
+    .footer-note {
+      margin: 1rem 0 .4rem;
+      text-align: center;
+      color: #b9ad8e;
+      font-size: .87rem;
+      letter-spacing: .03em;
+    }
+
+    @media (max-width: 920px) {
+      .hero-top {
+        grid-template-columns: 92px 1fr;
+      }
+      .actions {
+        grid-column: 1 / -1;
+        flex-direction: row;
+        flex-wrap: wrap;
+      }
+      .sigil {
+        width: 92px;
+        height: 92px;
+      }
+      .tables-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="mist" aria-hidden="true"></div>
+  <div class="wrap">
+    <section class="hero">
+      <div class="hero-top">
+        <img class="sigil" src="img/casino/hero-sigil.png" onerror="this.src='img/springgoblin.png'" alt="Goblin Casino crest placeholder">
+        <div>
+          <h1>Goblin Casino</h1>
+          <div class="sub">A den of clinkbit chaos, crooked luck, and suspiciously fair tables.</div>
+        </div>
+        <div class="actions">
+          <div class="bank"><img src="img/clinkbit.png" alt="Clinkbit"><span id="bankValue">--</span> clinkbits</div>
+          <a class="btn" href="index.html">Back to MindGobblin</a>
+          <a class="btn" href="#tables">Jump to Tables</a>
+        </div>
+      </div>
+      <p class="asset-note">
+        Placeholder art is active now. Replace with your own PNGs under
+        <code>wwwroot/img/casino/</code> using the filenames shown in each table.
+      </p>
+    </section>
+
+    <section id="tables" class="tables-grid">
+      <article class="table-card">
+        <header class="table-head">
+          <div class="icon-wrap"><img src="img/casino/dice-duel.png" onerror="this.src='img/bee.png'" alt="Dice Duel icon"><span class="icon-tag">IMG</span></div>
+          <h2 class="table-name">Goblin Dice Duel</h2>
+        </header>
+        <div class="table-body">
+          <p class="desc">Call high, call low, or nail the exact total. One throw settles the wager in a shower of bone dice and bad manners.</p>
+          <div class="meta"><span class="chip">Fast rounds</span><span class="chip">High variance</span><span class="chip">1vHouse</span></div>
+          <div class="wager-row">
+            <input id="diceBet" type="number" min="1" value="10" />
+            <select id="diceChoice">
+              <option value="high">High (8-12)</option>
+              <option value="low">Low (2-6)</option>
+              <option value="exact">Exact Total</option>
+            </select>
+          </div>
+          <div class="wager-row single">
+            <input id="diceExact" type="number" min="2" max="12" value="7" />
+          </div>
+          <button class="play-btn" id="dicePlayBtn" type="button">Roll Dice</button>
+          <div id="diceResult" class="result">Choose bet and roll.</div>
+        </div>
+      </article>
+
+      <article class="table-card">
+        <header class="table-head">
+          <div class="icon-wrap"><img src="img/casino/mushroom-slots.png" onerror="this.src='img/gnomesandtheirmushroomhome.png'" alt="Mushroom Slots icon"><span class="icon-tag">IMG</span></div>
+          <h2 class="table-name">Mushroom Slots</h2>
+        </header>
+        <div class="table-body">
+          <p class="desc">Spin triple reels packed with spores, coins, and trouble. Match symbols to crack open clinkbit payouts.</p>
+          <div class="meta"><span class="chip">Classic slots</span><span class="chip">Combo payouts</span><span class="chip">Casual</span></div>
+          <div class="wager-row single">
+            <input id="slotsBet" type="number" min="1" value="10" />
+          </div>
+          <button class="play-btn" id="slotsPlayBtn" type="button">Spin Reels</button>
+          <div id="slotsResult" class="result">Place your wager to spin.</div>
+        </div>
+      </article>
+
+      <article class="table-card">
+        <header class="table-head">
+          <div class="icon-wrap"><img src="img/casino/chest-pick.png" onerror="this.src='img/pumpkin.png'" alt="Treasure Chest Pick icon"><span class="icon-tag">IMG</span></div>
+          <h2 class="table-name">Treasure Chest Pick</h2>
+        </header>
+        <div class="table-body">
+          <p class="desc">Three cursed chests. One jackpot. Two deeply insulting outcomes. Pick fast before the goblin pit boss changes them.</p>
+          <div class="meta"><span class="chip">Simple choice</span><span class="chip">Big spikes</span><span class="chip">Instant</span></div>
+          <div class="wager-row">
+            <input id="chestBet" type="number" min="1" value="10" />
+            <select id="chestChoice">
+              <option value="1">Chest 1</option>
+              <option value="2">Chest 2</option>
+              <option value="3">Chest 3</option>
+            </select>
+          </div>
+          <button class="play-btn" id="chestPlayBtn" type="button">Open Chest</button>
+          <div id="chestResult" class="result">Choose chest and test your luck.</div>
+        </div>
+      </article>
+
+      <article class="table-card">
+        <header class="table-head">
+          <div class="icon-wrap"><img src="img/casino/card-flip.png" onerror="this.src='img/cat.png'" alt="Witch Card Flip icon"><span class="icon-tag">IMG</span></div>
+          <h2 class="table-name">Witch Card Flip</h2>
+        </header>
+        <div class="table-body">
+          <p class="desc">Predict the suit color and flip. Win small and stack streak bonuses, or lose your stake to a cackling dealer.</p>
+          <div class="meta"><span class="chip">Red/Black</span><span class="chip">Streak bonus</span><span class="chip">Low friction</span></div>
+          <button class="play-btn" type="button">Seat Unlocked Soon</button>
+        </div>
+      </article>
+
+      <article class="table-card">
+        <header class="table-head">
+          <div class="icon-wrap"><img src="img/casino/coin-toss.png" onerror="this.src='img/christmastree.png'" alt="Goblin Coin Toss icon"><span class="icon-tag">IMG</span></div>
+          <h2 class="table-name">Goblin Coin Toss</h2>
+        </header>
+        <div class="table-body">
+          <p class="desc">Heads or tails, double or nothing. Cash out whenever your nerve fails and the goblin crowd starts chanting.</p>
+          <div class="meta"><span class="chip">Double-or-nothing</span><span class="chip">Cash out loop</span><span class="chip">Tense</span></div>
+          <button class="play-btn" type="button">Seat Unlocked Soon</button>
+        </div>
+      </article>
+
+      <article class="table-card">
+        <header class="table-head">
+          <div class="icon-wrap"><img src="img/casino/tunnel-roulette.png" onerror="this.src='img/snowman.png'" alt="Tunnel Roulette icon"><span class="icon-tag">IMG</span></div>
+          <h2 class="table-name">Tunnel Roulette</h2>
+        </header>
+        <div class="table-body">
+          <p class="desc">A compact wheel with grimy pockets and suspicious lighting. Place your bet and hope the ball dislikes chaos today.</p>
+          <div class="meta"><span class="chip">Wheel game</span><span class="chip">Multi bet types</span><span class="chip">Spectacle</span></div>
+          <button class="play-btn" type="button">Seat Unlocked Soon</button>
+        </div>
+      </article>
+
+      <article class="table-card">
+        <header class="table-head">
+          <div class="icon-wrap"><img src="img/casino/bomb-bag.png" onerror="this.src='img/mindgoblin.png'" alt="Bomb Bag icon"><span class="icon-tag">IMG</span></div>
+          <h2 class="table-name">Bomb Bag</h2>
+        </header>
+        <div class="table-body">
+          <p class="desc">Crack open bag tiles for multipliers, but one bomb vaporizes the run. Stop early or get greedy.</p>
+          <div class="meta"><span class="chip">Risk ladder</span><span class="chip">Cash out</span><span class="chip">Skill-ish</span></div>
+          <button class="play-btn" type="button">Seat Unlocked Soon</button>
+        </div>
+      </article>
+
+      <article class="table-card">
+        <header class="table-head">
+          <div class="icon-wrap"><img src="img/casino/cauldron-crash.png" onerror="this.src='img/festivemindgoblin.png'" alt="Cauldron Crash icon"><span class="icon-tag">IMG</span></div>
+          <h2 class="table-name">Cauldron Crash</h2>
+        </header>
+        <div class="table-body">
+          <p class="desc">Multiplier rises while the cauldron boils. Cash out before it explodes and wipes your wager.</p>
+          <div class="meta"><span class="chip">Timing game</span><span class="chip">High tension</span><span class="chip">Crowd hype</span></div>
+          <button class="play-btn" type="button">Seat Unlocked Soon</button>
+        </div>
+      </article>
+
+      <article class="table-card">
+        <header class="table-head">
+          <div class="icon-wrap"><img src="img/casino/wheel-mischief.png" onerror="this.src='img/springgoblin.png'" alt="Wheel of Mischief icon"><span class="icon-tag">IMG</span></div>
+          <h2 class="table-name">Wheel of Mischief</h2>
+        </header>
+        <div class="table-body">
+          <p class="desc">A loud, uneven prize wheel with cursed wedges and tiny jackpots that feel gigantic at midnight.</p>
+          <div class="meta"><span class="chip">Spin game</span><span class="chip">Uneven weights</span><span class="chip">Showpiece</span></div>
+          <button class="play-btn" type="button">Seat Unlocked Soon</button>
+        </div>
+      </article>
+
+      <article class="table-card">
+        <header class="table-head">
+          <div class="icon-wrap"><img src="img/casino/liars-bones.png" onerror="this.src='img/mindgobblin.jpg'" alt="Liar's Bones icon"><span class="icon-tag">IMG</span></div>
+          <h2 class="table-name">Liar's Bones</h2>
+        </header>
+        <div class="table-body">
+          <p class="desc">Dice bluffs against a house goblin that cheats only emotionally. Raise, call, or fold your clinkbits with dignity.</p>
+          <div class="meta"><span class="chip">Bluff-lite</span><span class="chip">Mind game</span><span class="chip">Table drama</span></div>
+          <button class="play-btn" type="button">Seat Unlocked Soon</button>
+        </div>
+      </article>
+    </section>
+
+    <p class="footer-note">Each table is scaffolded for gameplay wiring. This page is visual-first and mobile-friendly.</p>
+  </div>
+  <script>
+    const bankValue = document.getElementById("bankValue");
+    const fmt = (n) => new Intl.NumberFormat().format(n);
+
+    async function fetchJson(url, options) {
+      const res = await fetch(url, options);
+      let data = null;
+      try { data = await res.json(); } catch {}
+      return { ok: res.ok, data };
+    }
+
+    function setResult(id, text, state) {
+      const el = document.getElementById(id);
+      el.textContent = text;
+      el.classList.remove("win", "lose");
+      if (state) el.classList.add(state);
+    }
+
+    async function refreshBank() {
+      const me = await fetchJson("/api/clinkbits/me");
+      if (!me.ok) {
+        bankValue.textContent = "Login required";
+        return false;
+      }
+      bankValue.textContent = fmt(me.data.balance);
+      return true;
+    }
+
+    async function play(game, payload) {
+      const res = await fetchJson("/api/clinkbits/gamble", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ game, ...payload })
+      });
+      if (!res.ok) {
+        return { ok: false, error: res.data?.error || "Play failed." };
+      }
+      bankValue.textContent = fmt(res.data.balance);
+      return { ok: true, data: res.data };
+    }
+
+    document.getElementById("diceChoice").addEventListener("change", (e) => {
+      const exact = document.getElementById("diceExact");
+      exact.disabled = e.target.value !== "exact";
+    });
+
+    document.getElementById("dicePlayBtn").addEventListener("click", async () => {
+      const bet = Number(document.getElementById("diceBet").value);
+      const choice = document.getElementById("diceChoice").value;
+      const exactTotal = Number(document.getElementById("diceExact").value);
+      const res = await play("dice_duel", { bet, choice, exactTotal });
+      if (!res.ok) {
+        setResult("diceResult", res.error, "lose");
+        return;
+      }
+      const d = res.data.details;
+      const sign = res.data.delta >= 0 ? "+" : "";
+      const msg = `Rolled ${d.d1}+${d.d2}=${d.total}. ${res.data.won ? "You won" : "You lost"} ${sign}${res.data.delta} clinkbits.`;
+      setResult("diceResult", msg, res.data.won ? "win" : "lose");
+    });
+
+    document.getElementById("slotsPlayBtn").addEventListener("click", async () => {
+      const bet = Number(document.getElementById("slotsBet").value);
+      const res = await play("mushroom_slots", { bet });
+      if (!res.ok) {
+        setResult("slotsResult", res.error, "lose");
+        return;
+      }
+      const reels = res.data.details.reels.join(" | ");
+      const sign = res.data.delta >= 0 ? "+" : "";
+      const msg = `${reels}. ${res.data.won ? "Win" : "Loss"} ${sign}${res.data.delta} clinkbits.`;
+      setResult("slotsResult", msg, res.data.won ? "win" : "lose");
+    });
+
+    document.getElementById("chestPlayBtn").addEventListener("click", async () => {
+      const bet = Number(document.getElementById("chestBet").value);
+      const chest = Number(document.getElementById("chestChoice").value);
+      const res = await play("chest_pick", { bet, chest });
+      if (!res.ok) {
+        setResult("chestResult", res.error, "lose");
+        return;
+      }
+      const sign = res.data.delta >= 0 ? "+" : "";
+      const msg = `Chest ${res.data.details.chest}: ${res.data.details.outcome}. ${res.data.won ? "Win" : "Loss"} ${sign}${res.data.delta} clinkbits.`;
+      setResult("chestResult", msg, res.data.won ? "win" : "lose");
+    });
+
+    refreshBank();
+  </script>
+</body>
+</html>

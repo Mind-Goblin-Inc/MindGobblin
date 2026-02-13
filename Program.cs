@@ -457,6 +457,129 @@ app.MapGet("/api/clinkbits/transactions", async (JakeServerDbContext db, HttpCon
     return Results.Ok(rows);
 });
 
+app.MapPost("/api/clinkbits/gamble", async (JakeServerDbContext db, HttpContext ctx, ClinkbitGambleRequest req) =>
+{
+    var userId = GetAuthenticatedUserId(ctx);
+    if (!userId.HasValue) return Results.Unauthorized();
+
+    var bet = req.Bet;
+    if (bet < 1 || bet > 100000)
+        return Results.BadRequest(new { error = "Bet must be between 1 and 100000." });
+
+    var game = (req.Game ?? "").Trim().ToLowerInvariant();
+    int netDelta;
+    object details;
+    bool won = false;
+
+    switch (game)
+    {
+        case "dice_duel":
+        {
+            var choice = (req.Choice ?? "").Trim().ToLowerInvariant();
+            var d1 = RandomNumberGenerator.GetInt32(1, 7);
+            var d2 = RandomNumberGenerator.GetInt32(1, 7);
+            var total = d1 + d2;
+
+            if (choice == "exact")
+            {
+                var exact = req.ExactTotal ?? -1;
+                if (exact < 2 || exact > 12)
+                    return Results.BadRequest(new { error = "Exact total must be between 2 and 12." });
+
+                won = total == exact;
+                netDelta = won ? bet * 5 : -bet;
+                details = new { d1, d2, total, choice, exactTarget = exact };
+            }
+            else
+            {
+                if (choice is not ("high" or "low"))
+                    return Results.BadRequest(new { error = "Choice must be high, low, or exact." });
+
+                won = choice == "high" ? total >= 8 : total <= 6;
+                netDelta = won ? bet : -bet;
+                details = new { d1, d2, total, choice };
+            }
+            break;
+        }
+        case "mushroom_slots":
+        {
+            var symbols = new[] { "coin", "mushroom", "skull", "goblin", "crown", "clinkbit" };
+            var r1 = symbols[RandomNumberGenerator.GetInt32(0, symbols.Length)];
+            var r2 = symbols[RandomNumberGenerator.GetInt32(0, symbols.Length)];
+            var r3 = symbols[RandomNumberGenerator.GetInt32(0, symbols.Length)];
+
+            int profit = 0;
+            if (r1 == r2 && r2 == r3)
+            {
+                profit = r1 switch
+                {
+                    "crown" => bet * 10,
+                    "clinkbit" => bet * 8,
+                    "goblin" => bet * 6,
+                    "mushroom" => bet * 4,
+                    "coin" => bet * 3,
+                    _ => bet * 2
+                };
+            }
+            else if (r1 == r2 || r2 == r3 || r1 == r3)
+            {
+                profit = bet;
+            }
+
+            won = profit > 0;
+            netDelta = won ? profit : -bet;
+            details = new { reels = new[] { r1, r2, r3 } };
+            break;
+        }
+        case "chest_pick":
+        {
+            var chest = req.Chest ?? -1;
+            if (chest < 1 || chest > 3)
+                return Results.BadRequest(new { error = "Chest must be 1, 2, or 3." });
+
+            var roll = RandomNumberGenerator.GetInt32(0, 100);
+            var outcome = "empty";
+            int profit = 0;
+            if (roll >= 98)
+            {
+                outcome = "jackpot";
+                profit = bet * 8;
+            }
+            else if (roll >= 85)
+            {
+                outcome = "big";
+                profit = bet * 2;
+            }
+            else if (roll >= 50)
+            {
+                outcome = "small";
+                profit = Math.Max(1, bet / 2);
+            }
+
+            won = profit > 0;
+            netDelta = won ? profit : -bet;
+            details = new { chest, outcome };
+            break;
+        }
+        default:
+            return Results.BadRequest(new { error = "Unsupported game." });
+    }
+
+    var result = await ApplyClinkbits(db, userId.Value, netDelta, $"gamble_{game}");
+    if (!result.Ok) return Results.BadRequest(new { error = result.Error });
+
+    return Results.Ok(new
+    {
+        ok = true,
+        game,
+        bet,
+        won,
+        delta = netDelta,
+        balance = result.Balance,
+        details
+    });
+});
+
 // ---------- Euchre tracker helpers ----------
 async Task<bool> CanAccessEuchreGroup(JakeServerDbContext db, int groupId, int userId)
 {
@@ -1964,6 +2087,7 @@ record EuchreCreatePlayerRequest(string Name);
 record EuchreGameUpsertRequest(int[] TeamAPlayerIds, int[] TeamBPlayerIds, int TeamAScore, int TeamBScore, string WinnerTeam, DateTimeOffset? PlayedAtUtc);
 record EuchrePlayerStatDto(int PlayerId, string Name, int Wins, int Losses);
 record ClinkbitSpendRequest(int Amount, string? Reason);
+record ClinkbitGambleRequest(string Game, int Bet, string? Choice, int? ExactTotal, int? Chest);
 record Score
 {
     public string Username { get; set; } = default!;
