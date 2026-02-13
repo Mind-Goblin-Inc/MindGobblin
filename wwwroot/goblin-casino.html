@@ -125,6 +125,41 @@
       height: 16px;
       object-fit: contain;
     }
+    .floating-bank {
+      position: fixed;
+      right: 14px;
+      bottom: 14px;
+      z-index: 30;
+      border: 1px solid rgba(215,180,98,.55);
+      background: rgba(10,18,13,.92);
+      border-radius: 14px;
+      padding: .55rem .7rem;
+      box-shadow: 0 12px 30px rgba(0,0,0,.45);
+      display: flex;
+      align-items: center;
+      gap: .6rem;
+      min-width: 170px;
+    }
+    .floating-bank img {
+      width: 22px;
+      height: 22px;
+      object-fit: contain;
+    }
+    .floating-bank .label {
+      font-size: .7rem;
+      letter-spacing: .06em;
+      color: #bcae88;
+      text-transform: uppercase;
+      line-height: 1;
+    }
+    .floating-bank .value {
+      margin-top: .15rem;
+      font-size: 1.25rem;
+      font-weight: 700;
+      letter-spacing: .03em;
+      color: #f5e8c6;
+      line-height: 1;
+    }
 
     .btn {
       border: 1px solid var(--gold-dim);
@@ -300,6 +335,16 @@
       }
       .tables-grid {
         grid-template-columns: 1fr;
+      }
+      .floating-bank {
+        right: 10px;
+        left: 10px;
+        bottom: 10px;
+        min-width: 0;
+        justify-content: center;
+      }
+      .floating-bank .value {
+        font-size: 1.15rem;
       }
     }
   </style>
@@ -531,8 +576,16 @@
 
     <p class="footer-note">Each table is scaffolded for gameplay wiring. This page is visual-first and mobile-friendly.</p>
   </div>
+  <div class="floating-bank" aria-live="polite">
+    <img src="img/clinkbit.png" alt="Clinkbit">
+    <div>
+      <div class="label">Clinkbits</div>
+      <div id="floatingBankValue" class="value">--</div>
+    </div>
+  </div>
   <script>
     const bankValue = document.getElementById("bankValue");
+    const floatingBankValue = document.getElementById("floatingBankValue");
     const fmt = (n) => new Intl.NumberFormat().format(n);
 
     async function fetchJson(url, options) {
@@ -553,9 +606,12 @@
       const me = await fetchJson("/api/clinkbits/me");
       if (!me.ok) {
         bankValue.textContent = "Login required";
+        floatingBankValue.textContent = "--";
         return false;
       }
-      bankValue.textContent = fmt(me.data.balance);
+      const formatted = fmt(me.data.balance);
+      bankValue.textContent = formatted;
+      floatingBankValue.textContent = formatted;
       return true;
     }
 
@@ -568,7 +624,9 @@
       if (!res.ok) {
         return { ok: false, error: res.data?.error || "Play failed." };
       }
-      bankValue.textContent = fmt(res.data.balance);
+      const formatted = fmt(res.data.balance);
+      bankValue.textContent = formatted;
+      floatingBankValue.textContent = formatted;
       return { ok: true, data: res.data };
     }
 
