@@ -54,6 +54,28 @@
       align-items: center;
       position: relative;
     }
+    .currency-wrap {
+      display: none;
+      align-items: center;
+      gap: 0.45rem;
+      padding: 0.3rem 0.55rem;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 999px;
+      background: rgba(21, 28, 39, 0.88);
+      backdrop-filter: blur(4px);
+      color: var(--fg);
+      font-size: 0.88rem;
+    }
+    .currency-wrap img {
+      width: 16px;
+      height: 16px;
+      object-fit: contain;
+    }
+    .currency-wrap button {
+      border-radius: 999px;
+      padding: 0.18rem 0.5rem;
+      font-size: 0.78rem;
+    }
     .auth-actions a,
     .auth-actions button {
       background: transparent;
@@ -360,6 +382,11 @@
   <div class="auth-bar">
     <div id="authStatus" class="auth-status">Checking login status...</div>
     <div class="auth-actions">
+      <div id="currencyWrap" class="currency-wrap">
+        <img src="img/clinkbit.img" alt="Clinkbit">
+        <span id="clinkbitsValue">0</span>
+        <button id="claimClinkbitsBtn" type="button">Claim</button>
+      </div>
       <button id="authMenuBtn" type="button">Login</button>
       <button id="logoutBtn" type="button" style="display:none;">Logout</button>
       <div id="authMenu" class="auth-menu">
@@ -435,6 +462,9 @@
       const authMenuBtn = document.getElementById("authMenuBtn");
       const authMenu = document.getElementById("authMenu");
       const logoutBtn = document.getElementById("logoutBtn");
+      const currencyWrap = document.getElementById("currencyWrap");
+      const clinkbitsValue = document.getElementById("clinkbitsValue");
+      const claimClinkbitsBtn = document.getElementById("claimClinkbitsBtn");
       const showLoginTab = document.getElementById("showLoginTab");
       const showRegisterTab = document.getElementById("showRegisterTab");
       const loginForm = document.getElementById("loginForm");
@@ -470,17 +500,29 @@
           const res = await fetch("/api/auth/me");
           const data = await res.json();
           if (data.loggedIn && data.user) {
-            authStatus.textContent = data.user.username;
+            const currencyRes = await fetch("/api/clinkbits/me");
+            let clinkbits = null;
+            if (currencyRes.ok) {
+              clinkbits = await currencyRes.json();
+            }
+            const balanceText = clinkbits ? `${clinkbits.balance} clinkbits` : "clinkbits unavailable";
+            authStatus.textContent = `${data.user.username} • ${balanceText}`;
+            clinkbitsValue.textContent = clinkbits ? clinkbits.balance : "--";
+            claimClinkbitsBtn.disabled = !clinkbits || !clinkbits.canClaimNow;
+            claimClinkbitsBtn.textContent = clinkbits && clinkbits.canClaimNow ? "Claim" : "Claimed";
+            currencyWrap.style.display = "flex";
             authMenuBtn.style.display = "none";
             authMenu.classList.remove("open");
             logoutBtn.style.display = "";
           } else {
             authStatus.textContent = "";
+            currencyWrap.style.display = "none";
             authMenuBtn.style.display = "";
             logoutBtn.style.display = "none";
           }
         } catch {
           authStatus.textContent = "";
+          currencyWrap.style.display = "none";
         }
       }
 
@@ -537,6 +579,17 @@
 
       logoutBtn.addEventListener("click", async () => {
         await fetch("/api/auth/logout", { method: "POST" });
+        await refresh();
+      });
+
+      claimClinkbitsBtn.addEventListener("click", async () => {
+        const res = await fetch("/api/clinkbits/claim-daily", { method: "POST" });
+        if (res.ok) {
+          await refresh();
+          return;
+        }
+        const data = await res.json().catch(() => null);
+        if (data?.error) alert(data.error);
         await refresh();
       });
 
