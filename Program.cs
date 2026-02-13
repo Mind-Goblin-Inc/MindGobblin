@@ -147,6 +147,7 @@ app.Use(async (ctx, next) =>
 const int PasswordIterations = 120_000;
 const int PasswordSaltBytes = 16;
 const int PasswordHashBytes = 32;
+const int DailyClinkbitReward = 25;
 
 static string NormalizeUsername(string username) => username.Trim().ToLowerInvariant();
 
@@ -192,6 +193,34 @@ static int? GetAuthenticatedUserId(HttpContext ctx)
 {
     var userIdText = ctx.Session.GetString("auth_user_id");
     return int.TryParse(userIdText, out var userId) ? userId : null;
+}
+
+async Task<(bool Ok, string? Error, int Balance)> ApplyClinkbits(
+    JakeServerDbContext db,
+    int userId,
+    int amountDelta,
+    string reason)
+{
+    var user = await db.UserAccounts.FirstOrDefaultAsync(u => u.Id == userId);
+    if (user is null) return (false, "User not found.", 0);
+
+    var newBalance = user.ClinkbitsBalance + amountDelta;
+    if (newBalance < 0) return (false, "Insufficient clinkbits.", user.ClinkbitsBalance);
+
+    user.ClinkbitsBalance = newBalance;
+    user.ClinkbitsUpdatedUtc = DateTime.UtcNow;
+
+    db.ClinkbitTransactions.Add(new ClinkbitTransaction
+    {
+        UserAccountId = userId,
+        Amount = amountDelta,
+        BalanceAfter = newBalance,
+        Reason = reason,
+        CreatedUtc = DateTime.UtcNow
+    });
+
+    await db.SaveChangesAsync();
+    return (true, null, newBalance);
 }
 
 // ---------- Minimal endpoints ----------
@@ -270,7 +299,9 @@ app.MapPost("/api/auth/register", async (JakeServerDbContext db, HttpContext ctx
         PasswordSalt = salt,
         PasswordHash = hash,
         CreatedUtc = DateTime.UtcNow,
-        LastLoginUtc = DateTime.UtcNow
+        LastLoginUtc = DateTime.UtcNow,
+        ClinkbitsBalance = 0,
+        ClinkbitsUpdatedUtc = DateTime.UtcNow
     };
 
     db.UserAccounts.Add(user);
@@ -325,6 +356,105 @@ app.MapGet("/api/auth/me", async (JakeServerDbContext db, HttpContext ctx) =>
     }
 
     return Results.Json(new { loggedIn = true, user });
+});
+
+// ---------- Clinkbits currency endpoints ----------
+app.MapGet("/api/clinkbits/me", async (JakeServerDbContext db, HttpContext ctx) =>
+{
+    var userId = GetAuthenticatedUserId(ctx);
+    if (!userId.HasValue) return Results.Unauthorized();
+
+    var user = await db.UserAccounts
+        .Where(u => u.Id == userId.Value)
+        .Select(u => new { u.Id, u.ClinkbitsBalance })
+        .FirstOrDefaultAsync();
+
+    if (user is null) return Results.NotFound();
+
+    var lastDaily = await db.ClinkbitTransactions
+        .Where(t => t.UserAccountId == user.Id && t.Reason == "daily_claim")
+        .OrderByDescending(t => t.CreatedUtc)
+        .Select(t => (DateTime?)t.CreatedUtc)
+        .FirstOrDefaultAsync();
+
+    var now = DateTime.UtcNow;
+    var nextClaimUtc = !lastDaily.HasValue || lastDaily.Value.AddHours(24) <= now
+        ? now
+        : lastDaily.Value.AddHours(24);
+
+    return Results.Ok(new
+    {
+        balance = user.ClinkbitsBalance,
+        dailyReward = DailyClinkbitReward,
+        canClaimNow = nextClaimUtc <= now,
+        nextClaimUtc
+    });
+});
+
+app.MapPost("/api/clinkbits/claim-daily", async (JakeServerDbContext db, HttpContext ctx) =>
+{
+    var userId = GetAuthenticatedUserId(ctx);
+    if (!userId.HasValue) return Results.Unauthorized();
+
+    var lastDaily = await db.ClinkbitTransactions
+        .Where(t => t.UserAccountId == userId.Value && t.Reason == "daily_claim")
+        .OrderByDescending(t => t.CreatedUtc)
+        .Select(t => (DateTime?)t.CreatedUtc)
+        .FirstOrDefaultAsync();
+
+    var now = DateTime.UtcNow;
+    if (lastDaily.HasValue && lastDaily.Value.AddHours(24) > now)
+    {
+        return Results.BadRequest(new
+        {
+            error = "Daily clinkbits already claimed.",
+            nextClaimUtc = lastDaily.Value.AddHours(24)
+        });
+    }
+
+    var result = await ApplyClinkbits(db, userId.Value, DailyClinkbitReward, "daily_claim");
+    if (!result.Ok) return Results.BadRequest(new { error = result.Error });
+
+    return Results.Ok(new
+    {
+        ok = true,
+        awarded = DailyClinkbitReward,
+        balance = result.Balance
+    });
+});
+
+app.MapPost("/api/clinkbits/spend", async (JakeServerDbContext db, HttpContext ctx, ClinkbitSpendRequest req) =>
+{
+    var userId = GetAuthenticatedUserId(ctx);
+    if (!userId.HasValue) return Results.Unauthorized();
+
+    var amount = req.Amount;
+    if (amount <= 0 || amount > 100000)
+        return Results.BadRequest(new { error = "Amount must be between 1 and 100000." });
+
+    var reason = string.IsNullOrWhiteSpace(req.Reason) ? "spend" : req.Reason.Trim();
+    if (reason.Length > 120) reason = reason[..120];
+
+    var result = await ApplyClinkbits(db, userId.Value, -amount, reason);
+    if (!result.Ok) return Results.BadRequest(new { error = result.Error });
+
+    return Results.Ok(new { ok = true, spent = amount, balance = result.Balance });
+});
+
+app.MapGet("/api/clinkbits/transactions", async (JakeServerDbContext db, HttpContext ctx, int? limit) =>
+{
+    var userId = GetAuthenticatedUserId(ctx);
+    if (!userId.HasValue) return Results.Unauthorized();
+
+    var n = Math.Clamp(limit ?? 20, 1, 100);
+    var rows = await db.ClinkbitTransactions
+        .Where(t => t.UserAccountId == userId.Value)
+        .OrderByDescending(t => t.CreatedUtc)
+        .Take(n)
+        .Select(t => new { t.Id, t.Amount, t.BalanceAfter, t.Reason, t.CreatedUtc })
+        .ToListAsync();
+
+    return Results.Ok(rows);
 });
 
 // ---------- Euchre tracker helpers ----------
@@ -1643,6 +1773,7 @@ public class JakeServerDbContext : DbContext
     public DbSet<EuchrePlayer> EuchrePlayers { get; set; } = default!;
     public DbSet<EuchreGame> EuchreGames { get; set; } = default!;
     public DbSet<EuchreGameParticipant> EuchreGameParticipants { get; set; } = default!;
+    public DbSet<ClinkbitTransaction> ClinkbitTransactions { get; set; } = default!;
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -1709,6 +1840,15 @@ public class JakeServerDbContext : DbContext
         modelBuilder.Entity<EuchreGameParticipant>()
             .HasIndex(p => new { p.EuchreGameId, p.EuchrePlayerId })
             .IsUnique();
+
+        modelBuilder.Entity<ClinkbitTransaction>()
+            .HasOne(t => t.UserAccount)
+            .WithMany()
+            .HasForeignKey(t => t.UserAccountId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<ClinkbitTransaction>()
+            .HasIndex(t => new { t.UserAccountId, t.CreatedUtc });
     }
 }
 
@@ -1743,6 +1883,19 @@ public class UserAccount
     public string PasswordSalt { get; set; } = "";
     public DateTime CreatedUtc { get; set; } = DateTime.UtcNow;
     public DateTime LastLoginUtc { get; set; } = DateTime.UtcNow;
+    public int ClinkbitsBalance { get; set; } = 0;
+    public DateTime ClinkbitsUpdatedUtc { get; set; } = DateTime.UtcNow;
+}
+
+public class ClinkbitTransaction
+{
+    public int Id { get; set; }
+    public int UserAccountId { get; set; }
+    public UserAccount UserAccount { get; set; } = default!;
+    public int Amount { get; set; }
+    public int BalanceAfter { get; set; }
+    public string Reason { get; set; } = "";
+    public DateTime CreatedUtc { get; set; } = DateTime.UtcNow;
 }
 
 public class EuchreGroup
@@ -1810,6 +1963,7 @@ record EuchreAddEditorRequest(string Username);
 record EuchreCreatePlayerRequest(string Name);
 record EuchreGameUpsertRequest(int[] TeamAPlayerIds, int[] TeamBPlayerIds, int TeamAScore, int TeamBScore, string WinnerTeam, DateTimeOffset? PlayedAtUtc);
 record EuchrePlayerStatDto(int PlayerId, string Name, int Wins, int Losses);
+record ClinkbitSpendRequest(int Amount, string? Reason);
 record Score
 {
     public string Username { get; set; } = default!;
