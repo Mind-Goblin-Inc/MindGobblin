@@ -1,0 +1,697 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Euchre Tracker</title>
+  <style>
+    :root {
+      --bg: #0b0f17;
+      --fg: #eaeaea;
+      --card: #151c27;
+      --line: #2b3442;
+      --accent: #3ff0c1;
+      --danger: #ff8f8f;
+      --muted: #9fb0c9;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+      background: var(--bg);
+      color: var(--fg);
+      min-height: 100vh;
+    }
+    .wrap {
+      width: min(980px, 100%);
+      margin: 0 auto;
+      padding: 0.9rem;
+    }
+    .card {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 0.9rem;
+      margin-bottom: 0.8rem;
+    }
+    .top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.6rem;
+      margin-bottom: 0.8rem;
+    }
+    h1, h2, h3 { margin: 0; }
+    h1 { font-size: 1.25rem; }
+    h2 { font-size: 1.02rem; margin-bottom: 0.5rem; }
+    .muted { color: var(--muted); }
+    .row { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+    input, select, button {
+      border: 1px solid var(--line);
+      background: #0f151f;
+      color: var(--fg);
+      border-radius: 8px;
+      padding: 0.55rem 0.62rem;
+      font: inherit;
+    }
+    input, select { width: 100%; }
+    button {
+      cursor: pointer;
+      background: var(--card);
+    }
+    button.primary {
+      background: var(--accent);
+      color: #08111a;
+      border-color: transparent;
+      font-weight: 700;
+    }
+    button.warn {
+      color: var(--danger);
+      border-color: rgba(255, 143, 143, 0.5);
+    }
+    .tabs {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 0.4rem;
+      margin-bottom: 0.7rem;
+    }
+    .tabs button.active {
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+    .section { display: none; }
+    .section.active { display: block; }
+    .grid2 {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 0.6rem;
+    }
+    .score-box {
+      display: grid;
+      grid-template-columns: 1fr auto 1fr;
+      align-items: center;
+      gap: 0.4rem;
+      margin-top: 0.4rem;
+    }
+    .score-num {
+      text-align: center;
+      font-size: 1.5rem;
+      font-weight: 700;
+      padding: 0.4rem;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #0f151f;
+    }
+    .pill {
+      border-radius: 999px;
+      padding: 0.28rem 0.55rem;
+      border: 1px solid var(--line);
+      font-size: 0.84rem;
+      display: inline-block;
+    }
+    .list { display: grid; gap: 0.45rem; }
+    .item {
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 0.55rem;
+      background: #111927;
+    }
+    .table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.9rem;
+    }
+    .table th, .table td {
+      border-bottom: 1px solid var(--line);
+      text-align: left;
+      padding: 0.4rem;
+    }
+    .msg { min-height: 1.1rem; font-size: 0.9rem; margin-top: 0.35rem; color: var(--danger); }
+    .msg.ok { color: var(--accent); }
+
+    @media (max-width: 760px) {
+      .tabs { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .grid2 { grid-template-columns: 1fr; }
+      .top { align-items: flex-start; flex-direction: column; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="top">
+      <div>
+        <h1>Euchre Tracker</h1>
+        <div class="muted">Track players, rotating duos, and win/loss stats.</div>
+      </div>
+      <a href="index.html" class="pill" style="color:var(--accent); text-decoration:none;">Back Home</a>
+    </div>
+
+    <div id="authCard" class="card">
+      <div id="authText">Checking account...</div>
+      <div class="muted">You must be logged in from the home page dropdown first.</div>
+    </div>
+
+    <div id="groupsCard" class="card" style="display:none;">
+      <h2>Your Euchre Groups</h2>
+      <div class="row">
+        <input id="newGroupName" placeholder="New group name" />
+        <button id="createGroupBtn" class="primary">Create Group</button>
+      </div>
+      <div id="groupMsg" class="msg"></div>
+      <div id="groupsList" class="list"></div>
+    </div>
+
+    <div id="groupDetail" style="display:none;">
+      <div class="card">
+        <div class="top" style="margin:0;">
+          <div>
+            <h2 id="groupTitle">Group</h2>
+            <div id="groupMeta" class="muted"></div>
+          </div>
+          <button id="backToGroupsBtn">Back To Groups</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="tabs">
+          <button data-tab="stats" class="tabBtn active">Stats</button>
+          <button data-tab="create" class="tabBtn">Create Game</button>
+          <button data-tab="games" class="tabBtn">Manage Games</button>
+          <button data-tab="users" class="tabBtn">Manage Users</button>
+        </div>
+
+        <div id="tab-stats" class="section active">
+          <div id="statsSummary" class="muted"></div>
+          <h3 style="margin-top:0.6rem;">Player Stats</h3>
+          <div id="playerStatsWrap"></div>
+          <h3 style="margin-top:0.8rem;">Duo Stats</h3>
+          <div id="duoStatsWrap"></div>
+        </div>
+
+        <div id="tab-create" class="section">
+          <div class="grid2">
+            <div class="card" style="margin:0;">
+              <h3>Team A</h3>
+              <label>A1</label><select id="selA1"></select>
+              <label>A2</label><select id="selA2"></select>
+            </div>
+            <div class="card" style="margin:0;">
+              <h3>Team B</h3>
+              <label>B1</label><select id="selB1"></select>
+              <label>B2</label><select id="selB2"></select>
+            </div>
+          </div>
+
+          <div class="card" style="margin-top:0.6rem;">
+            <h3>Score (manual tracking)</h3>
+            <div class="grid2">
+              <div>
+                <div class="muted">Team A</div>
+                <div class="score-box">
+                  <button id="aDec">-</button>
+                  <div id="aScore" class="score-num">0</div>
+                  <button id="aInc">+</button>
+                </div>
+              </div>
+              <div>
+                <div class="muted">Team B</div>
+                <div class="score-box">
+                  <button id="bDec">-</button>
+                  <div id="bScore" class="score-num">0</div>
+                  <button id="bInc">+</button>
+                </div>
+              </div>
+            </div>
+            <div style="margin-top:0.6rem;">
+              <label>Winner</label>
+              <div class="row">
+                <label><input type="radio" name="winnerTeam" value="A" checked /> Team A</label>
+                <label><input type="radio" name="winnerTeam" value="B" /> Team B</label>
+              </div>
+            </div>
+            <button id="saveGameBtn" class="primary" style="margin-top:0.65rem;">End Game And Save</button>
+            <div id="createGameMsg" class="msg"></div>
+          </div>
+        </div>
+
+        <div id="tab-games" class="section">
+          <div id="gamesList" class="list"></div>
+        </div>
+
+        <div id="tab-users" class="section">
+          <div class="grid2">
+            <div class="card" style="margin:0;">
+              <h3>Players (non-account)</h3>
+              <div class="row">
+                <input id="newPlayerName" placeholder="Add player name" />
+                <button id="addPlayerBtn" class="primary">Add</button>
+              </div>
+              <div id="playersMsg" class="msg"></div>
+              <div id="playersList" class="list"></div>
+            </div>
+            <div class="card" style="margin:0;">
+              <h3>Editors (account users)</h3>
+              <div id="editorControls" style="display:none;">
+                <div class="row">
+                  <input id="newEditorUsername" placeholder="Account username" />
+                  <button id="addEditorBtn" class="primary">Add</button>
+                </div>
+              </div>
+              <div id="editorsMsg" class="msg"></div>
+              <div id="editorsList" class="list"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const state = {
+      me: null,
+      groups: [],
+      group: null,
+      canManage: false,
+      players: [],
+      games: [],
+      editors: [],
+      createScoreA: 0,
+      createScoreB: 0
+    };
+
+    const byId = (id) => document.getElementById(id);
+
+    async function api(url, options = {}) {
+      const res = await fetch(url, {
+        headers: { "content-type": "application/json", ...(options.headers || {}) },
+        ...options
+      });
+      let data = null;
+      try { data = await res.json(); } catch {}
+      return { ok: res.ok, status: res.status, data };
+    }
+
+    function setMsg(id, text, ok = false) {
+      const el = byId(id);
+      el.textContent = text || "";
+      el.classList.toggle("ok", !!ok);
+    }
+
+    function setTab(tabName) {
+      document.querySelectorAll(".tabBtn").forEach((btn) => {
+        btn.classList.toggle("active", btn.dataset.tab === tabName);
+      });
+      document.querySelectorAll(".section").forEach((s) => s.classList.remove("active"));
+      byId(`tab-${tabName}`).classList.add("active");
+    }
+
+    function formatPct(v) {
+      return `${Math.round((v || 0) * 100)}%`;
+    }
+
+    function renderGroups() {
+      const list = byId("groupsList");
+      list.innerHTML = "";
+      if (!state.groups.length) {
+        list.innerHTML = `<div class="muted">No groups yet. Create your first group.</div>`;
+        return;
+      }
+      state.groups.forEach((g) => {
+        const el = document.createElement("div");
+        el.className = "item";
+        el.innerHTML = `
+          <div class="row" style="justify-content:space-between; align-items:center;">
+            <div>
+              <strong>${g.name}</strong>
+              <div class="muted">${g.canManage ? "Owner" : "Editor"}</div>
+            </div>
+            <button data-id="${g.id}" class="openGroupBtn primary">Open</button>
+          </div>
+        `;
+        list.appendChild(el);
+      });
+      list.querySelectorAll(".openGroupBtn").forEach((btn) => {
+        btn.addEventListener("click", () => openGroup(Number(btn.dataset.id)));
+      });
+    }
+
+    function playerOptionsHtml(selectedId) {
+      return [
+        `<option value="">Select player</option>`,
+        ...state.players.map((p) => `<option value="${p.id}" ${selectedId === p.id ? "selected" : ""}>${p.name}</option>`)
+      ].join("");
+    }
+
+    function syncCreateSelectors() {
+      ["selA1", "selA2", "selB1", "selB2"].forEach((id) => {
+        const el = byId(id);
+        const prev = Number(el.value) || null;
+        el.innerHTML = playerOptionsHtml(prev);
+      });
+    }
+
+    function renderPlayers() {
+      const list = byId("playersList");
+      list.innerHTML = "";
+      state.players.forEach((p) => {
+        const item = document.createElement("div");
+        item.className = "item";
+        item.innerHTML = `
+          <div class="row" style="justify-content:space-between; align-items:center;">
+            <div>${p.name}</div>
+            <button class="warn delPlayerBtn" data-id="${p.id}">Remove</button>
+          </div>
+        `;
+        list.appendChild(item);
+      });
+      list.querySelectorAll(".delPlayerBtn").forEach((btn) => {
+        btn.addEventListener("click", async () => {
+          const playerId = Number(btn.dataset.id);
+          const res = await api(`/api/euchre/groups/${state.group.id}/players/${playerId}`, { method: "DELETE" });
+          if (!res.ok) {
+            setMsg("playersMsg", res.data?.error || "Unable to remove player.");
+            return;
+          }
+          await loadGroupData(state.group.id);
+        });
+      });
+      syncCreateSelectors();
+    }
+
+    function renderEditors() {
+      const list = byId("editorsList");
+      list.innerHTML = "";
+      if (!state.editors.length) {
+        list.innerHTML = `<div class="muted">No extra editors.</div>`;
+      }
+      state.editors.forEach((e) => {
+        const item = document.createElement("div");
+        item.className = "item";
+        item.innerHTML = `
+          <div class="row" style="justify-content:space-between; align-items:center;">
+            <div>${e.username}</div>
+            ${state.canManage ? `<button class="warn delEditorBtn" data-id="${e.userId}">Remove</button>` : ``}
+          </div>
+        `;
+        list.appendChild(item);
+      });
+
+      list.querySelectorAll(".delEditorBtn").forEach((btn) => {
+        btn.addEventListener("click", async () => {
+          const editorId = Number(btn.dataset.id);
+          const res = await api(`/api/euchre/groups/${state.group.id}/editors/${editorId}`, { method: "DELETE" });
+          if (!res.ok) {
+            setMsg("editorsMsg", res.data?.error || "Unable to remove editor.");
+            return;
+          }
+          await loadGroupData(state.group.id);
+        });
+      });
+    }
+
+    function renderStats(stats) {
+      byId("statsSummary").textContent = `Games recorded: ${stats.totalGames}`;
+
+      const playerRows = (stats.playerStats || []).map((p) => `
+        <tr>
+          <td>${p.name}</td>
+          <td>${p.wins}</td>
+          <td>${p.losses}</td>
+          <td>${p.totalGames}</td>
+          <td>${formatPct(p.winRate)}</td>
+        </tr>
+      `).join("");
+      byId("playerStatsWrap").innerHTML = `
+        <table class="table">
+          <thead><tr><th>Player</th><th>W</th><th>L</th><th>Games</th><th>Win Rate</th></tr></thead>
+          <tbody>${playerRows || `<tr><td colspan="5" class="muted">No data yet.</td></tr>`}</tbody>
+        </table>
+      `;
+
+      const duoRows = (stats.duoStats || []).map((d) => `
+        <tr>
+          <td>${d.playerAName} + ${d.playerBName}</td>
+          <td>${d.wins}</td>
+          <td>${d.losses}</td>
+          <td>${d.totalGames}</td>
+          <td>${formatPct(d.winRate)}</td>
+        </tr>
+      `).join("");
+      byId("duoStatsWrap").innerHTML = `
+        <table class="table">
+          <thead><tr><th>Duo</th><th>W</th><th>L</th><th>Games</th><th>Win Rate</th></tr></thead>
+          <tbody>${duoRows || `<tr><td colspan="5" class="muted">No duo data yet.</td></tr>`}</tbody>
+        </table>
+      `;
+    }
+
+    function gameParticipantsByTeam(game, team) {
+      return (game.participants || []).filter((p) => p.team === team);
+    }
+
+    function renderGames() {
+      const wrap = byId("gamesList");
+      wrap.innerHTML = "";
+      if (!state.games.length) {
+        wrap.innerHTML = `<div class="muted">No games recorded yet.</div>`;
+        return;
+      }
+
+      state.games.forEach((g) => {
+        const teamA = gameParticipantsByTeam(g, "A");
+        const teamB = gameParticipantsByTeam(g, "B");
+        const card = document.createElement("div");
+        card.className = "item";
+        card.innerHTML = `
+          <div class="row" style="justify-content:space-between;">
+            <div>
+              <strong>${new Date(g.playedAtUtc).toLocaleString()}</strong>
+              <div class="muted">${teamA.map((p) => p.playerName).join(" + ")} vs ${teamB.map((p) => p.playerName).join(" + ")}</div>
+              <div class="muted">Score ${g.teamAScore}-${g.teamBScore}, Winner Team ${g.winnerTeam}</div>
+            </div>
+            <button class="editGameBtn" data-id="${g.id}">Edit</button>
+          </div>
+          <div id="edit-${g.id}" style="display:none; margin-top:0.5rem;">
+            <div class="grid2">
+              <div>
+                <label>A1</label><select id="g${g.id}a1">${playerOptionsHtml(teamA[0]?.playerId)}</select>
+                <label>A2</label><select id="g${g.id}a2">${playerOptionsHtml(teamA[1]?.playerId)}</select>
+              </div>
+              <div>
+                <label>B1</label><select id="g${g.id}b1">${playerOptionsHtml(teamB[0]?.playerId)}</select>
+                <label>B2</label><select id="g${g.id}b2">${playerOptionsHtml(teamB[1]?.playerId)}</select>
+              </div>
+            </div>
+            <div class="row" style="margin-top:0.45rem;">
+              <input id="g${g.id}as" type="number" min="0" value="${g.teamAScore}" style="max-width:110px;" />
+              <input id="g${g.id}bs" type="number" min="0" value="${g.teamBScore}" style="max-width:110px;" />
+              <select id="g${g.id}w" style="max-width:130px;">
+                <option value="A" ${g.winnerTeam === "A" ? "selected" : ""}>Winner A</option>
+                <option value="B" ${g.winnerTeam === "B" ? "selected" : ""}>Winner B</option>
+              </select>
+              <button class="primary saveGameEditBtn" data-id="${g.id}">Save</button>
+            </div>
+          </div>
+        `;
+        wrap.appendChild(card);
+      });
+
+      wrap.querySelectorAll(".editGameBtn").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          const target = byId(`edit-${btn.dataset.id}`);
+          target.style.display = target.style.display === "none" ? "" : "none";
+        });
+      });
+
+      wrap.querySelectorAll(".saveGameEditBtn").forEach((btn) => {
+        btn.addEventListener("click", async () => {
+          const id = btn.dataset.id;
+          const payload = {
+            teamAPlayerIds: [Number(byId(`g${id}a1`).value), Number(byId(`g${id}a2`).value)],
+            teamBPlayerIds: [Number(byId(`g${id}b1`).value), Number(byId(`g${id}b2`).value)],
+            teamAScore: Number(byId(`g${id}as`).value) || 0,
+            teamBScore: Number(byId(`g${id}bs`).value) || 0,
+            winnerTeam: byId(`g${id}w`).value
+          };
+          const res = await api(`/api/euchre/groups/${state.group.id}/games/${id}`, {
+            method: "PUT",
+            body: JSON.stringify(payload)
+          });
+          if (!res.ok) {
+            alert(res.data?.error || "Failed to update game.");
+            return;
+          }
+          await loadGroupData(state.group.id);
+        });
+      });
+    }
+
+    async function loadGroupData(groupId) {
+      const [groupRes, playersRes, editorsRes, gamesRes, statsRes] = await Promise.all([
+        api(`/api/euchre/groups/${groupId}`),
+        api(`/api/euchre/groups/${groupId}/players`),
+        api(`/api/euchre/groups/${groupId}/editors`),
+        api(`/api/euchre/groups/${groupId}/games`),
+        api(`/api/euchre/groups/${groupId}/stats`)
+      ]);
+
+      if (!groupRes.ok) {
+        alert("Unable to open group.");
+        return;
+      }
+      state.group = groupRes.data;
+      state.canManage = !!groupRes.data.canManage;
+      state.players = playersRes.ok ? playersRes.data : [];
+      state.editors = editorsRes.ok ? editorsRes.data : [];
+      state.games = gamesRes.ok ? gamesRes.data : [];
+
+      byId("groupTitle").textContent = groupRes.data.name;
+      byId("groupMeta").textContent = state.canManage ? "You are group owner" : "You are group editor";
+      byId("groupsCard").style.display = "none";
+      byId("groupDetail").style.display = "";
+      byId("editorControls").style.display = state.canManage ? "" : "none";
+
+      renderPlayers();
+      renderEditors();
+      renderGames();
+      if (statsRes.ok) renderStats(statsRes.data);
+      syncCreateSelectors();
+      setTab("stats");
+    }
+
+    async function openGroup(groupId) {
+      await loadGroupData(groupId);
+    }
+
+    async function loadGroups() {
+      const res = await api("/api/euchre/groups");
+      if (!res.ok) return;
+      state.groups = res.data || [];
+      renderGroups();
+    }
+
+    function updateCreateScores() {
+      byId("aScore").textContent = state.createScoreA;
+      byId("bScore").textContent = state.createScoreB;
+    }
+
+    function selectedWinnerTeam() {
+      const checked = document.querySelector('input[name="winnerTeam"]:checked');
+      return checked ? checked.value : "A";
+    }
+
+    async function init() {
+      const meRes = await api("/api/auth/me");
+      if (!meRes.ok || !meRes.data?.loggedIn) {
+        byId("authText").textContent = "You are not logged in.";
+        return;
+      }
+      state.me = meRes.data.user;
+      byId("authText").textContent = `Logged in as ${state.me.username}`;
+      byId("groupsCard").style.display = "";
+      await loadGroups();
+    }
+
+    byId("createGroupBtn").addEventListener("click", async () => {
+      const name = byId("newGroupName").value.trim();
+      if (!name) {
+        setMsg("groupMsg", "Group name is required.");
+        return;
+      }
+      const res = await api("/api/euchre/groups", {
+        method: "POST",
+        body: JSON.stringify({ name })
+      });
+      if (!res.ok) {
+        setMsg("groupMsg", res.data?.error || "Failed to create group.");
+        return;
+      }
+      byId("newGroupName").value = "";
+      setMsg("groupMsg", "Group created.", true);
+      await loadGroups();
+    });
+
+    byId("backToGroupsBtn").addEventListener("click", async () => {
+      byId("groupDetail").style.display = "none";
+      byId("groupsCard").style.display = "";
+      await loadGroups();
+    });
+
+    document.querySelectorAll(".tabBtn").forEach((btn) => {
+      btn.addEventListener("click", () => setTab(btn.dataset.tab));
+    });
+
+    byId("addPlayerBtn").addEventListener("click", async () => {
+      const name = byId("newPlayerName").value.trim();
+      if (!name) {
+        setMsg("playersMsg", "Player name is required.");
+        return;
+      }
+      const res = await api(`/api/euchre/groups/${state.group.id}/players`, {
+        method: "POST",
+        body: JSON.stringify({ name })
+      });
+      if (!res.ok) {
+        setMsg("playersMsg", res.data?.error || "Failed to add player.");
+        return;
+      }
+      byId("newPlayerName").value = "";
+      setMsg("playersMsg", "Player added.", true);
+      await loadGroupData(state.group.id);
+    });
+
+    byId("addEditorBtn").addEventListener("click", async () => {
+      const username = byId("newEditorUsername").value.trim();
+      if (!username) {
+        setMsg("editorsMsg", "Username is required.");
+        return;
+      }
+      const res = await api(`/api/euchre/groups/${state.group.id}/editors`, {
+        method: "POST",
+        body: JSON.stringify({ username })
+      });
+      if (!res.ok) {
+        setMsg("editorsMsg", res.data?.error || "Failed to add editor.");
+        return;
+      }
+      byId("newEditorUsername").value = "";
+      setMsg("editorsMsg", "Editor added.", true);
+      await loadGroupData(state.group.id);
+    });
+
+    byId("aInc").addEventListener("click", () => { state.createScoreA++; updateCreateScores(); });
+    byId("aDec").addEventListener("click", () => { state.createScoreA = Math.max(0, state.createScoreA - 1); updateCreateScores(); });
+    byId("bInc").addEventListener("click", () => { state.createScoreB++; updateCreateScores(); });
+    byId("bDec").addEventListener("click", () => { state.createScoreB = Math.max(0, state.createScoreB - 1); updateCreateScores(); });
+
+    byId("saveGameBtn").addEventListener("click", async () => {
+      const teamAPlayerIds = [Number(byId("selA1").value), Number(byId("selA2").value)];
+      const teamBPlayerIds = [Number(byId("selB1").value), Number(byId("selB2").value)];
+      const payload = {
+        teamAPlayerIds,
+        teamBPlayerIds,
+        teamAScore: state.createScoreA,
+        teamBScore: state.createScoreB,
+        winnerTeam: selectedWinnerTeam()
+      };
+      const res = await api(`/api/euchre/groups/${state.group.id}/games`, {
+        method: "POST",
+        body: JSON.stringify(payload)
+      });
+      if (!res.ok) {
+        setMsg("createGameMsg", res.data?.error || "Failed to save game.");
+        return;
+      }
+      setMsg("createGameMsg", "Game saved.", true);
+      state.createScoreA = 0;
+      state.createScoreB = 0;
+      updateCreateScores();
+      await loadGroupData(state.group.id);
+      setTab("stats");
+    });
+
+    updateCreateScores();
+    init();
+  </script>
+</body>
+</html>
