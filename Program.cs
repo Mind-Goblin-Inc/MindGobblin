@@ -561,6 +561,149 @@ app.MapPost("/api/clinkbits/gamble", async (JakeServerDbContext db, HttpContext 
             details = new { chest, outcome };
             break;
         }
+        case "witch_card_flip":
+        {
+            var color = (req.Color ?? "").Trim().ToLowerInvariant();
+            if (color is not ("red" or "black"))
+                return Results.BadRequest(new { error = "Color must be red or black." });
+
+            var suits = new[] { "hearts", "diamonds", "clubs", "spades" };
+            var ranks = new[] { "A", "2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K" };
+            var suit = suits[RandomNumberGenerator.GetInt32(0, suits.Length)];
+            var rank = ranks[RandomNumberGenerator.GetInt32(0, ranks.Length)];
+            var drawnColor = (suit == "hearts" || suit == "diamonds") ? "red" : "black";
+
+            won = drawnColor == color;
+            netDelta = won ? bet : -bet;
+            details = new { pick = color, card = $"{rank} of {suit}", drawnColor };
+            break;
+        }
+        case "coin_toss":
+        {
+            var call = (req.Call ?? "").Trim().ToLowerInvariant();
+            if (call is not ("heads" or "tails"))
+                return Results.BadRequest(new { error = "Call must be heads or tails." });
+
+            var landed = RandomNumberGenerator.GetInt32(0, 2) == 0 ? "heads" : "tails";
+            won = call == landed;
+            netDelta = won ? bet : -bet;
+            details = new { call, landed };
+            break;
+        }
+        case "tunnel_roulette":
+        {
+            var pocket = req.Pocket ?? -1;
+            if (pocket < 0 || pocket > 9)
+                return Results.BadRequest(new { error = "Pocket must be between 0 and 9." });
+
+            var landed = RandomNumberGenerator.GetInt32(0, 10);
+            won = pocket == landed;
+            netDelta = won ? bet * 8 : -bet;
+            details = new { pick = pocket, landed };
+            break;
+        }
+        case "bomb_bag":
+        {
+            var safePicks = req.SafePicks ?? 1;
+            if (safePicks < 1 || safePicks > 5)
+                return Results.BadRequest(new { error = "Safe picks must be between 1 and 5." });
+
+            const int totalTiles = 20;
+            const int bombs = 3;
+            var bag = Enumerable.Repeat(0, totalTiles - bombs).Concat(Enumerable.Repeat(1, bombs)).ToList();
+            var hitBombAt = -1;
+            for (var i = 1; i <= safePicks; i++)
+            {
+                var idx = RandomNumberGenerator.GetInt32(0, bag.Count);
+                var hit = bag[idx] == 1;
+                bag.RemoveAt(idx);
+                if (hit)
+                {
+                    hitBombAt = i;
+                    break;
+                }
+            }
+
+            won = hitBombAt == -1;
+            netDelta = won ? bet * safePicks : -bet;
+            details = new { safePicks, hitBombAt };
+            break;
+        }
+        case "cauldron_crash":
+        {
+            var cashout = req.CashoutMultiplier ?? 2.0m;
+            if (cashout < 1.2m || cashout > 10m)
+                return Results.BadRequest(new { error = "Cashout multiplier must be between 1.2 and 10." });
+
+            // 1.00 to ~10.00, skewed toward low multipliers.
+            var r = RandomNumberGenerator.GetInt32(1, 10001) / 10000.0;
+            var crashDouble = 1.0 + (Math.Pow(r, 2.2) * 9.0);
+            var crash = Math.Round((decimal)crashDouble, 2);
+
+            won = cashout <= crash;
+            var profit = (int)Math.Floor(bet * (double)(cashout - 1m));
+            netDelta = won ? Math.Max(1, profit) : -bet;
+            details = new { cashout, crash };
+            break;
+        }
+        case "wheel_mischief":
+        {
+            var wheel = new (string Label, int Multiplier, int Weight)[]
+            {
+                ("x0", 0, 30),
+                ("x1", 1, 35),
+                ("x2", 2, 20),
+                ("x3", 3, 10),
+                ("x5", 5, 4),
+                ("x10", 10, 1)
+            };
+            var totalWeight = wheel.Sum(w => w.Weight);
+            var roll = RandomNumberGenerator.GetInt32(0, totalWeight);
+            var cursor = 0;
+            var landed = wheel[0];
+            foreach (var sector in wheel)
+            {
+                cursor += sector.Weight;
+                if (roll < cursor)
+                {
+                    landed = sector;
+                    break;
+                }
+            }
+
+            won = landed.Multiplier > 0;
+            netDelta = won ? bet * landed.Multiplier : -bet;
+            details = new { sector = landed.Label, multiplier = landed.Multiplier };
+            break;
+        }
+        case "liars_bones":
+        {
+            var pick = (req.Call ?? "").Trim().ToLowerInvariant();
+            if (pick is not ("player" or "house"))
+                return Results.BadRequest(new { error = "Call must be player or house." });
+
+            var p1 = RandomNumberGenerator.GetInt32(1, 7);
+            var p2 = RandomNumberGenerator.GetInt32(1, 7);
+            var h1 = RandomNumberGenerator.GetInt32(1, 7);
+            var h2 = RandomNumberGenerator.GetInt32(1, 7);
+            var pTotal = p1 + p2;
+            var hTotal = h1 + h2;
+
+            if (pTotal == hTotal)
+            {
+                won = false;
+                netDelta = 0; // push on tie
+                details = new { pick, player = new[] { p1, p2 }, house = new[] { h1, h2 }, playerTotal = pTotal, houseTotal = hTotal, outcome = "push" };
+            }
+            else
+            {
+                var winner = pTotal > hTotal ? "player" : "house";
+                won = pick == winner;
+                netDelta = won ? bet : -bet;
+                details = new { pick, player = new[] { p1, p2 }, house = new[] { h1, h2 }, playerTotal = pTotal, houseTotal = hTotal, winner };
+            }
+            break;
+        }
         default:
             return Results.BadRequest(new { error = "Unsupported game." });
     }
@@ -2087,7 +2230,7 @@ record EuchreCreatePlayerRequest(string Name);
 record EuchreGameUpsertRequest(int[] TeamAPlayerIds, int[] TeamBPlayerIds, int TeamAScore, int TeamBScore, string WinnerTeam, DateTimeOffset? PlayedAtUtc);
 record EuchrePlayerStatDto(int PlayerId, string Name, int Wins, int Losses);
 record ClinkbitSpendRequest(int Amount, string? Reason);
-record ClinkbitGambleRequest(string Game, int Bet, string? Choice, int? ExactTotal, int? Chest);
+record ClinkbitGambleRequest(string Game, int Bet, string? Choice, int? ExactTotal, int? Chest, string? Color, string? Call, int? Pocket, int? SafePicks, decimal? CashoutMultiplier);
 record Score
 {
     public string Username { get; set; } = default!;

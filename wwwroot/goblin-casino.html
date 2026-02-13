@@ -144,14 +144,6 @@
       box-shadow: 0 8px 22px rgba(0,0,0,.35);
     }
 
-    .asset-note {
-      margin: 0;
-      padding: 0.7rem 1rem;
-      color: #c5b894;
-      border-top: 1px dashed rgba(215,180,98,.4);
-      font-size: 0.88rem;
-      background: rgba(10,18,13,.6);
-    }
 
     .tables-grid {
       display: grid;
@@ -198,18 +190,6 @@
       height: 100%;
       object-fit: cover;
       opacity: .9;
-    }
-    .icon-tag {
-      position: absolute;
-      right: 4px;
-      bottom: 4px;
-      font-size: 0.6rem;
-      border-radius: 999px;
-      padding: 0.15rem 0.33rem;
-      border: 1px solid rgba(215,180,98,.5);
-      background: rgba(10,17,13,.85);
-      color: var(--gold);
-      letter-spacing: .05em;
     }
 
     .table-name {
@@ -340,16 +320,12 @@
           <a class="btn" href="#tables">Jump to Tables</a>
         </div>
       </div>
-      <p class="asset-note">
-        Placeholder art is active now. Replace with your own PNGs under
-        <code>wwwroot/img/casino/</code> using the filenames shown in each table.
-      </p>
     </section>
 
     <section id="tables" class="tables-grid">
       <article class="table-card">
         <header class="table-head">
-          <div class="icon-wrap"><img src="img/casino/dice-duel.png" onerror="this.src='img/bee.png'" alt="Dice Duel icon"><span class="icon-tag">IMG</span></div>
+          <div class="icon-wrap"><img src="img/casino/dice-duel.png" onerror="this.src='img/bee.png'" alt="Dice Duel icon"></div>
           <h2 class="table-name">Goblin Dice Duel</h2>
         </header>
         <div class="table-body">
@@ -373,7 +349,7 @@
 
       <article class="table-card">
         <header class="table-head">
-          <div class="icon-wrap"><img src="img/casino/mushroom-slots.png" onerror="this.src='img/gnomesandtheirmushroomhome.png'" alt="Mushroom Slots icon"><span class="icon-tag">IMG</span></div>
+          <div class="icon-wrap"><img src="img/casino/mushroom-slots.png" onerror="this.src='img/gnomesandtheirmushroomhome.png'" alt="Mushroom Slots icon"></div>
           <h2 class="table-name">Mushroom Slots</h2>
         </header>
         <div class="table-body">
@@ -389,7 +365,7 @@
 
       <article class="table-card">
         <header class="table-head">
-          <div class="icon-wrap"><img src="img/casino/chest-pick.png" onerror="this.src='img/pumpkin.png'" alt="Treasure Chest Pick icon"><span class="icon-tag">IMG</span></div>
+          <div class="icon-wrap"><img src="img/casino/chest-pick.png" onerror="this.src='img/pumpkin.png'" alt="Treasure Chest Pick icon"></div>
           <h2 class="table-name">Treasure Chest Pick</h2>
         </header>
         <div class="table-body">
@@ -410,85 +386,145 @@
 
       <article class="table-card">
         <header class="table-head">
-          <div class="icon-wrap"><img src="img/casino/card-flip.png" onerror="this.src='img/cat.png'" alt="Witch Card Flip icon"><span class="icon-tag">IMG</span></div>
+          <div class="icon-wrap"><img src="img/casino/card-flip.png" onerror="this.src='img/cat.png'" alt="Witch Card Flip icon"></div>
           <h2 class="table-name">Witch Card Flip</h2>
         </header>
         <div class="table-body">
           <p class="desc">Predict the suit color and flip. Win small and stack streak bonuses, or lose your stake to a cackling dealer.</p>
           <div class="meta"><span class="chip">Red/Black</span><span class="chip">Streak bonus</span><span class="chip">Low friction</span></div>
-          <button class="play-btn" type="button">Seat Unlocked Soon</button>
+          <div class="wager-row">
+            <input id="witchBet" type="number" min="1" value="10" />
+            <select id="witchColor">
+              <option value="red">Red</option>
+              <option value="black">Black</option>
+            </select>
+          </div>
+          <button class="play-btn" id="witchPlayBtn" type="button">Flip Card</button>
+          <div id="witchResult" class="result">Choose color and flip.</div>
         </div>
       </article>
 
       <article class="table-card">
         <header class="table-head">
-          <div class="icon-wrap"><img src="img/casino/coin-toss.png" onerror="this.src='img/christmastree.png'" alt="Goblin Coin Toss icon"><span class="icon-tag">IMG</span></div>
+          <div class="icon-wrap"><img src="img/casino/coin-toss.png" onerror="this.src='img/christmastree.png'" alt="Goblin Coin Toss icon"></div>
           <h2 class="table-name">Goblin Coin Toss</h2>
         </header>
         <div class="table-body">
           <p class="desc">Heads or tails, double or nothing. Cash out whenever your nerve fails and the goblin crowd starts chanting.</p>
           <div class="meta"><span class="chip">Double-or-nothing</span><span class="chip">Cash out loop</span><span class="chip">Tense</span></div>
-          <button class="play-btn" type="button">Seat Unlocked Soon</button>
+          <div class="wager-row">
+            <input id="coinBet" type="number" min="1" value="10" />
+            <select id="coinCall">
+              <option value="heads">Heads</option>
+              <option value="tails">Tails</option>
+            </select>
+          </div>
+          <button class="play-btn" id="coinPlayBtn" type="button">Flip Coin</button>
+          <div id="coinResult" class="result">Call heads or tails.</div>
         </div>
       </article>
 
       <article class="table-card">
         <header class="table-head">
-          <div class="icon-wrap"><img src="img/casino/tunnel-roulette.png" onerror="this.src='img/snowman.png'" alt="Tunnel Roulette icon"><span class="icon-tag">IMG</span></div>
+          <div class="icon-wrap"><img src="img/casino/tunnel-roulette.png" onerror="this.src='img/snowman.png'" alt="Tunnel Roulette icon"></div>
           <h2 class="table-name">Tunnel Roulette</h2>
         </header>
         <div class="table-body">
           <p class="desc">A compact wheel with grimy pockets and suspicious lighting. Place your bet and hope the ball dislikes chaos today.</p>
           <div class="meta"><span class="chip">Wheel game</span><span class="chip">Multi bet types</span><span class="chip">Spectacle</span></div>
-          <button class="play-btn" type="button">Seat Unlocked Soon</button>
+          <div class="wager-row">
+            <input id="rouletteBet" type="number" min="1" value="10" />
+            <select id="roulettePocket">
+              <option value="0">Pocket 0</option>
+              <option value="1">Pocket 1</option>
+              <option value="2">Pocket 2</option>
+              <option value="3">Pocket 3</option>
+              <option value="4">Pocket 4</option>
+              <option value="5">Pocket 5</option>
+              <option value="6">Pocket 6</option>
+              <option value="7">Pocket 7</option>
+              <option value="8">Pocket 8</option>
+              <option value="9">Pocket 9</option>
+            </select>
+          </div>
+          <button class="play-btn" id="roulettePlayBtn" type="button">Spin Wheel</button>
+          <div id="rouletteResult" class="result">Pick a pocket and spin.</div>
         </div>
       </article>
 
       <article class="table-card">
         <header class="table-head">
-          <div class="icon-wrap"><img src="img/casino/bomb-bag.png" onerror="this.src='img/mindgoblin.png'" alt="Bomb Bag icon"><span class="icon-tag">IMG</span></div>
+          <div class="icon-wrap"><img src="img/casino/bomb-bag.png" onerror="this.src='img/mindgoblin.png'" alt="Bomb Bag icon"></div>
           <h2 class="table-name">Bomb Bag</h2>
         </header>
         <div class="table-body">
           <p class="desc">Crack open bag tiles for multipliers, but one bomb vaporizes the run. Stop early or get greedy.</p>
           <div class="meta"><span class="chip">Risk ladder</span><span class="chip">Cash out</span><span class="chip">Skill-ish</span></div>
-          <button class="play-btn" type="button">Seat Unlocked Soon</button>
+          <div class="wager-row">
+            <input id="bombBet" type="number" min="1" value="10" />
+            <select id="bombPicks">
+              <option value="1">1 safe pick</option>
+              <option value="2">2 safe picks</option>
+              <option value="3">3 safe picks</option>
+              <option value="4">4 safe picks</option>
+              <option value="5">5 safe picks</option>
+            </select>
+          </div>
+          <button class="play-btn" id="bombPlayBtn" type="button">Open Bag</button>
+          <div id="bombResult" class="result">Choose safe picks and pray.</div>
         </div>
       </article>
 
       <article class="table-card">
         <header class="table-head">
-          <div class="icon-wrap"><img src="img/casino/cauldron-crash.png" onerror="this.src='img/festivemindgoblin.png'" alt="Cauldron Crash icon"><span class="icon-tag">IMG</span></div>
+          <div class="icon-wrap"><img src="img/casino/cauldron-crash.png" onerror="this.src='img/festivemindgoblin.png'" alt="Cauldron Crash icon"></div>
           <h2 class="table-name">Cauldron Crash</h2>
         </header>
         <div class="table-body">
           <p class="desc">Multiplier rises while the cauldron boils. Cash out before it explodes and wipes your wager.</p>
           <div class="meta"><span class="chip">Timing game</span><span class="chip">High tension</span><span class="chip">Crowd hype</span></div>
-          <button class="play-btn" type="button">Seat Unlocked Soon</button>
+          <div class="wager-row">
+            <input id="crashBet" type="number" min="1" value="10" />
+            <input id="crashCashout" type="number" min="1.2" max="10" step="0.1" value="2.0" />
+          </div>
+          <button class="play-btn" id="crashPlayBtn" type="button">Stir Cauldron</button>
+          <div id="crashResult" class="result">Set your cashout multiplier.</div>
         </div>
       </article>
 
       <article class="table-card">
         <header class="table-head">
-          <div class="icon-wrap"><img src="img/casino/wheel-mischief.png" onerror="this.src='img/springgoblin.png'" alt="Wheel of Mischief icon"><span class="icon-tag">IMG</span></div>
+          <div class="icon-wrap"><img src="img/casino/wheel-mischief.png" onerror="this.src='img/springgoblin.png'" alt="Wheel of Mischief icon"></div>
           <h2 class="table-name">Wheel of Mischief</h2>
         </header>
         <div class="table-body">
           <p class="desc">A loud, uneven prize wheel with cursed wedges and tiny jackpots that feel gigantic at midnight.</p>
           <div class="meta"><span class="chip">Spin game</span><span class="chip">Uneven weights</span><span class="chip">Showpiece</span></div>
-          <button class="play-btn" type="button">Seat Unlocked Soon</button>
+          <div class="wager-row single">
+            <input id="wheelBet" type="number" min="1" value="10" />
+          </div>
+          <button class="play-btn" id="wheelPlayBtn" type="button">Spin Mischief Wheel</button>
+          <div id="wheelResult" class="result">Spin for weighted rewards.</div>
         </div>
       </article>
 
       <article class="table-card">
         <header class="table-head">
-          <div class="icon-wrap"><img src="img/casino/liars-bones.png" onerror="this.src='img/mindgobblin.jpg'" alt="Liar's Bones icon"><span class="icon-tag">IMG</span></div>
+          <div class="icon-wrap"><img src="img/casino/liars-bones.png" onerror="this.src='img/mindgobblin.jpg'" alt="Liar's Bones icon"></div>
           <h2 class="table-name">Liar's Bones</h2>
         </header>
         <div class="table-body">
           <p class="desc">Dice bluffs against a house goblin that cheats only emotionally. Raise, call, or fold your clinkbits with dignity.</p>
           <div class="meta"><span class="chip">Bluff-lite</span><span class="chip">Mind game</span><span class="chip">Table drama</span></div>
-          <button class="play-btn" type="button">Seat Unlocked Soon</button>
+          <div class="wager-row">
+            <input id="bonesBet" type="number" min="1" value="10" />
+            <select id="bonesCall">
+              <option value="player">Back Player</option>
+              <option value="house">Back House</option>
+            </select>
+          </div>
+          <button class="play-btn" id="bonesPlayBtn" type="button">Roll Bones</button>
+          <div id="bonesResult" class="result">Choose your side.</div>
         </div>
       </article>
     </section>
@@ -580,6 +616,98 @@
       const sign = res.data.delta >= 0 ? "+" : "";
       const msg = `Chest ${res.data.details.chest}: ${res.data.details.outcome}. ${res.data.won ? "Win" : "Loss"} ${sign}${res.data.delta} clinkbits.`;
       setResult("chestResult", msg, res.data.won ? "win" : "lose");
+    });
+
+    document.getElementById("witchPlayBtn").addEventListener("click", async () => {
+      const bet = Number(document.getElementById("witchBet").value);
+      const color = document.getElementById("witchColor").value;
+      const res = await play("witch_card_flip", { bet, color });
+      if (!res.ok) {
+        setResult("witchResult", res.error, "lose");
+        return;
+      }
+      const sign = res.data.delta >= 0 ? "+" : "";
+      const msg = `${res.data.details.card} (${res.data.details.drawnColor}). ${res.data.won ? "Win" : "Loss"} ${sign}${res.data.delta} clinkbits.`;
+      setResult("witchResult", msg, res.data.won ? "win" : "lose");
+    });
+
+    document.getElementById("coinPlayBtn").addEventListener("click", async () => {
+      const bet = Number(document.getElementById("coinBet").value);
+      const call = document.getElementById("coinCall").value;
+      const res = await play("coin_toss", { bet, call });
+      if (!res.ok) {
+        setResult("coinResult", res.error, "lose");
+        return;
+      }
+      const sign = res.data.delta >= 0 ? "+" : "";
+      const msg = `Called ${res.data.details.call}, landed ${res.data.details.landed}. ${res.data.won ? "Win" : "Loss"} ${sign}${res.data.delta} clinkbits.`;
+      setResult("coinResult", msg, res.data.won ? "win" : "lose");
+    });
+
+    document.getElementById("roulettePlayBtn").addEventListener("click", async () => {
+      const bet = Number(document.getElementById("rouletteBet").value);
+      const pocket = Number(document.getElementById("roulettePocket").value);
+      const res = await play("tunnel_roulette", { bet, pocket });
+      if (!res.ok) {
+        setResult("rouletteResult", res.error, "lose");
+        return;
+      }
+      const sign = res.data.delta >= 0 ? "+" : "";
+      const msg = `Picked ${res.data.details.pick}, landed ${res.data.details.landed}. ${res.data.won ? "Win" : "Loss"} ${sign}${res.data.delta} clinkbits.`;
+      setResult("rouletteResult", msg, res.data.won ? "win" : "lose");
+    });
+
+    document.getElementById("bombPlayBtn").addEventListener("click", async () => {
+      const bet = Number(document.getElementById("bombBet").value);
+      const safePicks = Number(document.getElementById("bombPicks").value);
+      const res = await play("bomb_bag", { bet, safePicks });
+      if (!res.ok) {
+        setResult("bombResult", res.error, "lose");
+        return;
+      }
+      const sign = res.data.delta >= 0 ? "+" : "";
+      const detail = res.data.won ? `Survived ${res.data.details.safePicks} picks.` : `Bomb on pick ${res.data.details.hitBombAt}.`;
+      const msg = `${detail} ${res.data.won ? "Win" : "Loss"} ${sign}${res.data.delta} clinkbits.`;
+      setResult("bombResult", msg, res.data.won ? "win" : "lose");
+    });
+
+    document.getElementById("crashPlayBtn").addEventListener("click", async () => {
+      const bet = Number(document.getElementById("crashBet").value);
+      const cashoutMultiplier = Number(document.getElementById("crashCashout").value);
+      const res = await play("cauldron_crash", { bet, cashoutMultiplier });
+      if (!res.ok) {
+        setResult("crashResult", res.error, "lose");
+        return;
+      }
+      const sign = res.data.delta >= 0 ? "+" : "";
+      const msg = `Cashout ${res.data.details.cashout}x, crash at ${res.data.details.crash}x. ${res.data.won ? "Win" : "Loss"} ${sign}${res.data.delta} clinkbits.`;
+      setResult("crashResult", msg, res.data.won ? "win" : "lose");
+    });
+
+    document.getElementById("wheelPlayBtn").addEventListener("click", async () => {
+      const bet = Number(document.getElementById("wheelBet").value);
+      const res = await play("wheel_mischief", { bet });
+      if (!res.ok) {
+        setResult("wheelResult", res.error, "lose");
+        return;
+      }
+      const sign = res.data.delta >= 0 ? "+" : "";
+      const msg = `Landed ${res.data.details.sector}. ${res.data.won ? "Win" : "Loss"} ${sign}${res.data.delta} clinkbits.`;
+      setResult("wheelResult", msg, res.data.won ? "win" : "lose");
+    });
+
+    document.getElementById("bonesPlayBtn").addEventListener("click", async () => {
+      const bet = Number(document.getElementById("bonesBet").value);
+      const call = document.getElementById("bonesCall").value;
+      const res = await play("liars_bones", { bet, call });
+      if (!res.ok) {
+        setResult("bonesResult", res.error, "lose");
+        return;
+      }
+      const d = res.data.details;
+      const sign = res.data.delta >= 0 ? "+" : "";
+      const msg = `Player ${d.playerTotal} vs House ${d.houseTotal} (${d.outcome || d.winner}). ${res.data.delta === 0 ? "Push" : (res.data.won ? "Win" : "Loss")} ${sign}${res.data.delta} clinkbits.`;
+      setResult("bonesResult", msg, res.data.delta === 0 ? "" : (res.data.won ? "win" : "lose"));
     });
 
     refreshBank();
