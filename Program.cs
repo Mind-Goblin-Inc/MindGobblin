@@ -675,6 +675,22 @@ app.MapPut("/api/euchre/groups/{groupId:int}/games/{gameId:int}", async (JakeSer
     return Results.Ok(new { ok = true });
 });
 
+app.MapDelete("/api/euchre/groups/{groupId:int}/games/{gameId:int}", async (JakeServerDbContext db, HttpContext ctx, int groupId, int gameId) =>
+{
+    var userId = GetAuthenticatedUserId(ctx);
+    if (!userId.HasValue) return Results.Unauthorized();
+
+    if (!await CanAccessEuchreGroup(db, groupId, userId.Value))
+        return Results.Forbid();
+
+    var game = await db.EuchreGames.FirstOrDefaultAsync(g => g.Id == gameId && g.EuchreGroupId == groupId);
+    if (game is null) return Results.NotFound();
+
+    db.EuchreGames.Remove(game);
+    await db.SaveChangesAsync();
+    return Results.Ok(new { ok = true });
+});
+
 app.MapGet("/api/euchre/groups/{groupId:int}/stats", async (JakeServerDbContext db, HttpContext ctx, int groupId) =>
 {
     var userId = GetAuthenticatedUserId(ctx);
