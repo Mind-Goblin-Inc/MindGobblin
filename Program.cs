@@ -457,6 +457,30 @@ app.MapGet("/api/clinkbits/transactions", async (JakeServerDbContext db, HttpCon
     return Results.Ok(rows);
 });
 
+app.MapPost("/api/clinkbits/dev/grant", async (JakeServerDbContext db, HttpContext ctx, ClinkbitGrantRequest req) =>
+{
+    var userId = GetAuthenticatedUserId(ctx);
+    if (!userId.HasValue) return Results.Unauthorized();
+
+    var amount = req.Amount;
+    if (amount == 0 || Math.Abs(amount) > 1_000_000)
+        return Results.BadRequest(new { error = "Amount must be non-zero and <= 1000000 in absolute value." });
+
+    var reason = string.IsNullOrWhiteSpace(req.Reason) ? "dev_grant" : req.Reason.Trim();
+    if (reason.Length > 120) reason = reason[..120];
+
+    var result = await ApplyClinkbits(db, userId.Value, amount, $"dev_{reason}");
+    if (!result.Ok) return Results.BadRequest(new { error = result.Error });
+
+    return Results.Ok(new
+    {
+        ok = true,
+        granted = amount,
+        balance = result.Balance,
+        reason
+    });
+});
+
 app.MapPost("/api/clinkbits/gamble", async (JakeServerDbContext db, HttpContext ctx, ClinkbitGambleRequest req) =>
 {
     var userId = GetAuthenticatedUserId(ctx);
@@ -2230,6 +2254,7 @@ record EuchreCreatePlayerRequest(string Name);
 record EuchreGameUpsertRequest(int[] TeamAPlayerIds, int[] TeamBPlayerIds, int TeamAScore, int TeamBScore, string WinnerTeam, DateTimeOffset? PlayedAtUtc);
 record EuchrePlayerStatDto(int PlayerId, string Name, int Wins, int Losses);
 record ClinkbitSpendRequest(int Amount, string? Reason);
+record ClinkbitGrantRequest(int Amount, string? Reason);
 record ClinkbitGambleRequest(string Game, int Bet, string? Choice, int? ExactTotal, int? Chest, string? Color, string? Call, int? Pocket, int? SafePicks, decimal? CashoutMultiplier);
 record Score
 {
