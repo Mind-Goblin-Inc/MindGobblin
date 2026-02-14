@@ -150,7 +150,7 @@ app.Use(async (ctx, next) =>
 
 // ---------- Local auth helpers ----------
 const int PasswordSaltBytes = 16;
-const int DailyClinkbitReward = 25;
+const int DailyClinkbitReward = 100;
 
 // ---------- Minimal endpoints ----------
 app.MapGet("/health", () => new { ok = true, serverTime = DateTimeOffset.UtcNow });
@@ -307,15 +307,30 @@ app.MapGet("/api/clinkbits/me", async (MindGoblinDbContext db, HttpContext ctx) 
         .FirstOrDefaultAsync();
 
     var now = DateTime.UtcNow;
-    var nextClaimUtc = !lastDaily.HasValue || lastDaily.Value.AddHours(24) <= now
-        ? now
-        : lastDaily.Value.AddHours(24);
+    TimeZoneInfo centralTz;
+    try { centralTz = TimeZoneInfo.FindSystemTimeZoneById("America/Chicago"); }
+    catch { centralTz = TimeZoneInfo.FindSystemTimeZoneById("Central Standard Time"); }
+
+    var nowCentral = TimeZoneInfo.ConvertTimeFromUtc(now, centralTz);
+    var todayCentral = DateOnly.FromDateTime(nowCentral);
+
+    DateOnly? lastDayCentral = null;
+    if (lastDaily.HasValue)
+    {
+        var lastUtc = DateTime.SpecifyKind(lastDaily.Value, DateTimeKind.Utc);
+        var lastCentral = TimeZoneInfo.ConvertTimeFromUtc(lastUtc, centralTz);
+        lastDayCentral = DateOnly.FromDateTime(lastCentral);
+    }
+
+    var canClaimNow = !lastDayCentral.HasValue || lastDayCentral.Value != todayCentral;
+    var nextCentralMidnight = todayCentral.AddDays(1).ToDateTime(TimeOnly.MinValue);
+    var nextClaimUtc = canClaimNow ? now : TimeZoneInfo.ConvertTimeToUtc(nextCentralMidnight, centralTz);
 
     return Results.Ok(new
     {
         balance = user.ClinkbitsBalance,
         dailyReward = DailyClinkbitReward,
-        canClaimNow = nextClaimUtc <= now,
+        canClaimNow,
         nextClaimUtc
     });
 });
@@ -332,12 +347,28 @@ app.MapPost("/api/clinkbits/claim-daily", async (MindGoblinDbContext db, HttpCon
         .FirstOrDefaultAsync();
 
     var now = DateTime.UtcNow;
-    if (lastDaily.HasValue && lastDaily.Value.AddHours(24) > now)
+    TimeZoneInfo centralTz;
+    try { centralTz = TimeZoneInfo.FindSystemTimeZoneById("America/Chicago"); }
+    catch { centralTz = TimeZoneInfo.FindSystemTimeZoneById("Central Standard Time"); }
+
+    var nowCentral = TimeZoneInfo.ConvertTimeFromUtc(now, centralTz);
+    var todayCentral = DateOnly.FromDateTime(nowCentral);
+
+    DateOnly? lastDayCentral = null;
+    if (lastDaily.HasValue)
     {
+        var lastUtc = DateTime.SpecifyKind(lastDaily.Value, DateTimeKind.Utc);
+        var lastCentral = TimeZoneInfo.ConvertTimeFromUtc(lastUtc, centralTz);
+        lastDayCentral = DateOnly.FromDateTime(lastCentral);
+    }
+
+    if (lastDayCentral.HasValue && lastDayCentral.Value == todayCentral)
+    {
+        var nextCentralMidnight = todayCentral.AddDays(1).ToDateTime(TimeOnly.MinValue);
         return Results.BadRequest(new
         {
             error = "Daily clinkbits already claimed.",
-            nextClaimUtc = lastDaily.Value.AddHours(24)
+            nextClaimUtc = TimeZoneInfo.ConvertTimeToUtc(nextCentralMidnight, centralTz)
         });
     }
 
