@@ -120,7 +120,7 @@
           </div>
           <label class="toggle">
             <input type="checkbox" id="postScoreChk" />
-            Send score to <code>/score</code> on this server (username “jake”)
+            Send score to <code>/score</code> on this server (username “mindgoblin”)
           </label>
           <p class="note">
             How it works: a neon arc appears on the ring. A glowing dot spins around — stop it
@@ -352,7 +352,7 @@
           fetch('/score', {
             method:'POST',
             headers:{'Content-Type':'application/json'},
-            body: JSON.stringify({ username:'jake', value: lastScore })
+            body: JSON.stringify({ username:'mindgoblin', value: lastScore })
           }).catch(()=>{});
         }
       }

@@ -9,7 +9,7 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 namespace JakeServer.Migrations
 {
-    [DbContext(typeof(JakeServerDbContext))]
+    [DbContext(typeof(MindGoblinDbContext))]
     [Migration("20260213000100_AddAuthUsers")]
     partial class AddAuthUsers
     {

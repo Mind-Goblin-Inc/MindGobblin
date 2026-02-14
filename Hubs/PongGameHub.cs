@@ -8,7 +8,7 @@ using Microsoft.EntityFrameworkCore;
 // etc. Right now, the only clean way to leave pong-duel.html is by clicking the leave
 // button.
 // TODO: no touch controls atm
-namespace JakeServer.Hubs
+namespace MindGoblin.Hubs
 {
     public class PongGameHub : Hub
     {
@@ -38,10 +38,10 @@ namespace JakeServer.Hubs
         }
 
         // Joey would love these dependency injections lol
-        private readonly JakeServerDbContext _db;
+        private readonly MindGoblinDbContext _db;
         private readonly IServiceScopeFactory _scopeFactory;
         private readonly IHubContext<PongGameHub> _hubContext;
-        public PongGameHub(JakeServerDbContext db, IServiceScopeFactory scopeFactory, IHubContext<PongGameHub> hubContext)
+        public PongGameHub(MindGoblinDbContext db, IServiceScopeFactory scopeFactory, IHubContext<PongGameHub> hubContext)
         {
             _db = db;
             _scopeFactory = scopeFactory;
@@ -349,7 +349,7 @@ namespace JakeServer.Hubs
                 {
                     await Task.Delay(3000); // wait 3 seconds to confirm it’s a true disconnect
                     using var scope = _scopeFactory.CreateScope();
-                    var db = scope.ServiceProvider.GetRequiredService<JakeServerDbContext>();
+                    var db = scope.ServiceProvider.GetRequiredService<MindGoblinDbContext>();
 
                     // Check if the same player has reconnected
                     bool reconnected = db.PongGameLobbies.Any(l =>
