@@ -1,4 +1,3 @@
-using System.ComponentModel.DataAnnotations;
 using System.Net.Http.Headers;
 using System.Security.Cryptography;
 using System.Text.Json.Serialization;
@@ -8,7 +7,7 @@ using Microsoft.AspNetCore.WebUtilities; // for QueryHelpers
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
-using JakeServer.Hubs;
+using MindGoblin.Hubs;
 
 
 var builder = WebApplication.CreateBuilder(args);
@@ -95,9 +94,15 @@ var LOCAL_GENRE_SEEDS = new[]
 };
 
 // ---- Configure EntityFramework and SQLite ----
-builder.Services.AddDbContext<JakeServerDbContext>(options =>
+builder.Services.AddDbContext<MindGoblinDbContext>(options =>
 {
-    var connectionString = "Data Source=/data/jakeserver.db;Cache=Shared;";
+    // Ops safety: keep the historical DB filename as the default to avoid breaking
+    // Docker/VPS scripts, backups, or expectations. If you later migrate/rename the
+    // file to mindgoblin.db, this will pick it up when jakeserver.db isn't present.
+    var oldDbPath = "/data/jakeserver.db";
+    var newDbPath = "/data/mindgoblin.db";
+    var dbPath = File.Exists(oldDbPath) ? oldDbPath : (File.Exists(newDbPath) ? newDbPath : oldDbPath);
+    var connectionString = $"Data Source={dbPath};Cache=Shared;";
     var connection = new SqliteConnection(connectionString);
 
     // Set busy timeout (seconds)
@@ -122,7 +127,7 @@ var app = builder.Build();
 // ---- Apply any pending SQLIte db migrations here ----
 using (var scope = app.Services.CreateScope())
 {
-    var db = scope.ServiceProvider.GetRequiredService<JakeServerDbContext>();
+    var db = scope.ServiceProvider.GetRequiredService<MindGoblinDbContext>();
     db.Database.Migrate(); // applies all pending migrations
 }
 
@@ -144,84 +149,8 @@ app.Use(async (ctx, next) =>
 });
 
 // ---------- Local auth helpers ----------
-const int PasswordIterations = 120_000;
 const int PasswordSaltBytes = 16;
-const int PasswordHashBytes = 32;
 const int DailyClinkbitReward = 25;
-
-static string NormalizeUsername(string username) => username.Trim().ToLowerInvariant();
-
-static bool IsValidUsername(string username)
-{
-    if (string.IsNullOrWhiteSpace(username)) return false;
-    if (username.Length < 3 || username.Length > 32) return false;
-    return username.All(c => char.IsLetterOrDigit(c) || c is '_' or '-' or '.');
-}
-
-static bool IsValidPassword(string password)
-{
-    return !string.IsNullOrWhiteSpace(password) && password.Length >= 8 && password.Length <= 128;
-}
-
-static string HashPassword(string password, string saltBase64)
-{
-    var salt = Convert.FromBase64String(saltBase64);
-    var hash = Rfc2898DeriveBytes.Pbkdf2(password, salt, PasswordIterations, HashAlgorithmName.SHA256, PasswordHashBytes);
-    return Convert.ToBase64String(hash);
-}
-
-static bool SlowEquals(string a, string b)
-{
-    var left = Encoding.UTF8.GetBytes(a);
-    var right = Encoding.UTF8.GetBytes(b);
-    return CryptographicOperations.FixedTimeEquals(left, right);
-}
-
-static void SetAuthSession(HttpContext ctx, UserAccount user)
-{
-    ctx.Session.SetString("auth_user_id", user.Id.ToString());
-    ctx.Session.SetString("auth_username", user.Username);
-}
-
-static void ClearAuthSession(HttpContext ctx)
-{
-    ctx.Session.Remove("auth_user_id");
-    ctx.Session.Remove("auth_username");
-}
-
-static int? GetAuthenticatedUserId(HttpContext ctx)
-{
-    var userIdText = ctx.Session.GetString("auth_user_id");
-    return int.TryParse(userIdText, out var userId) ? userId : null;
-}
-
-async Task<(bool Ok, string? Error, int Balance)> ApplyClinkbits(
-    JakeServerDbContext db,
-    int userId,
-    int amountDelta,
-    string reason)
-{
-    var user = await db.UserAccounts.FirstOrDefaultAsync(u => u.Id == userId);
-    if (user is null) return (false, "User not found.", 0);
-
-    var newBalance = user.ClinkbitsBalance + amountDelta;
-    if (newBalance < 0) return (false, "Insufficient clinkbits.", user.ClinkbitsBalance);
-
-    user.ClinkbitsBalance = newBalance;
-    user.ClinkbitsUpdatedUtc = DateTime.UtcNow;
-
-    db.ClinkbitTransactions.Add(new ClinkbitTransaction
-    {
-        UserAccountId = userId,
-        Amount = amountDelta,
-        BalanceAfter = newBalance,
-        Reason = reason,
-        CreatedUtc = DateTime.UtcNow
-    });
-
-    await db.SaveChangesAsync();
-    return (true, null, newBalance);
-}
 
 // ---------- Minimal endpoints ----------
 app.MapGet("/health", () => new { ok = true, serverTime = DateTimeOffset.UtcNow });
@@ -273,24 +202,24 @@ app.MapGet("/debug/routes", (EndpointDataSource ds) =>
 });
 
 // ---------- Local auth endpoints ----------
-app.MapPost("/api/auth/register", async (JakeServerDbContext db, HttpContext ctx, AuthRequest req) =>
+app.MapPost("/api/auth/register", async (MindGoblinDbContext db, HttpContext ctx, AuthRequest req) =>
 {
     var username = (req.Username ?? "").Trim();
     var password = req.Password ?? "";
 
-    if (!IsValidUsername(username))
+    if (!AuthSupport.IsValidUsername(username))
         return Results.BadRequest(new { error = "Username must be 3-32 chars and only contain letters, numbers, _, -, or ." });
 
-    if (!IsValidPassword(password))
+    if (!AuthSupport.IsValidPassword(password))
         return Results.BadRequest(new { error = "Password must be between 8 and 128 characters." });
 
-    var normalized = NormalizeUsername(username);
+    var normalized = AuthSupport.NormalizeUsername(username);
     var exists = await db.UserAccounts.AnyAsync(u => u.UsernameNormalized == normalized);
     if (exists)
         return Results.Conflict(new { error = "Username is already taken." });
 
     var salt = Convert.ToBase64String(RandomNumberGenerator.GetBytes(PasswordSaltBytes));
-    var hash = HashPassword(password, salt);
+    var hash = AuthSupport.HashPassword(password, salt);
 
     var user = new UserAccount
     {
@@ -306,39 +235,39 @@ app.MapPost("/api/auth/register", async (JakeServerDbContext db, HttpContext ctx
 
     db.UserAccounts.Add(user);
     await db.SaveChangesAsync();
-    SetAuthSession(ctx, user);
+    AuthSupport.SetAuthSession(ctx, user);
 
     return Results.Ok(new { ok = true, user = new { user.Id, user.Username } });
 });
 
-app.MapPost("/api/auth/login", async (JakeServerDbContext db, HttpContext ctx, AuthRequest req) =>
+app.MapPost("/api/auth/login", async (MindGoblinDbContext db, HttpContext ctx, AuthRequest req) =>
 {
     var username = (req.Username ?? "").Trim();
     var password = req.Password ?? "";
-    var normalized = NormalizeUsername(username);
+    var normalized = AuthSupport.NormalizeUsername(username);
 
     var user = await db.UserAccounts.FirstOrDefaultAsync(u => u.UsernameNormalized == normalized);
     if (user is null)
         return Results.Unauthorized();
 
-    var computedHash = HashPassword(password, user.PasswordSalt);
-    if (!SlowEquals(computedHash, user.PasswordHash))
+    var computedHash = AuthSupport.HashPassword(password, user.PasswordSalt);
+    if (!AuthSupport.SlowEquals(computedHash, user.PasswordHash))
         return Results.Unauthorized();
 
     user.LastLoginUtc = DateTime.UtcNow;
     await db.SaveChangesAsync();
-    SetAuthSession(ctx, user);
+    AuthSupport.SetAuthSession(ctx, user);
 
     return Results.Ok(new { ok = true, user = new { user.Id, user.Username } });
 });
 
 app.MapPost("/api/auth/logout", (HttpContext ctx) =>
 {
-    ClearAuthSession(ctx);
+    AuthSupport.ClearAuthSession(ctx);
     return Results.Ok(new { ok = true });
 });
 
-app.MapGet("/api/auth/me", async (JakeServerDbContext db, HttpContext ctx) =>
+app.MapGet("/api/auth/me", async (MindGoblinDbContext db, HttpContext ctx) =>
 {
     var userIdText = ctx.Session.GetString("auth_user_id");
     if (!int.TryParse(userIdText, out var userId))
@@ -351,7 +280,7 @@ app.MapGet("/api/auth/me", async (JakeServerDbContext db, HttpContext ctx) =>
 
     if (user is null)
     {
-        ClearAuthSession(ctx);
+        AuthSupport.ClearAuthSession(ctx);
         return Results.Json(new { loggedIn = false });
     }
 
@@ -359,9 +288,9 @@ app.MapGet("/api/auth/me", async (JakeServerDbContext db, HttpContext ctx) =>
 });
 
 // ---------- Clinkbits currency endpoints ----------
-app.MapGet("/api/clinkbits/me", async (JakeServerDbContext db, HttpContext ctx) =>
+app.MapGet("/api/clinkbits/me", async (MindGoblinDbContext db, HttpContext ctx) =>
 {
-    var userId = GetAuthenticatedUserId(ctx);
+    var userId = AuthSupport.GetAuthenticatedUserId(ctx);
     if (!userId.HasValue) return Results.Unauthorized();
 
     var user = await db.UserAccounts
@@ -391,9 +320,9 @@ app.MapGet("/api/clinkbits/me", async (JakeServerDbContext db, HttpContext ctx) 
     });
 });
 
-app.MapPost("/api/clinkbits/claim-daily", async (JakeServerDbContext db, HttpContext ctx) =>
+app.MapPost("/api/clinkbits/claim-daily", async (MindGoblinDbContext db, HttpContext ctx) =>
 {
-    var userId = GetAuthenticatedUserId(ctx);
+    var userId = AuthSupport.GetAuthenticatedUserId(ctx);
     if (!userId.HasValue) return Results.Unauthorized();
 
     var lastDaily = await db.ClinkbitTransactions
@@ -412,7 +341,7 @@ app.MapPost("/api/clinkbits/claim-daily", async (JakeServerDbContext db, HttpCon
         });
     }
 
-    var result = await ApplyClinkbits(db, userId.Value, DailyClinkbitReward, "daily_claim");
+    var result = await ClinkbitLedger.ApplyAsync(db, userId.Value, DailyClinkbitReward, "daily_claim");
     if (!result.Ok) return Results.BadRequest(new { error = result.Error });
 
     return Results.Ok(new
@@ -423,9 +352,9 @@ app.MapPost("/api/clinkbits/claim-daily", async (JakeServerDbContext db, HttpCon
     });
 });
 
-app.MapPost("/api/clinkbits/spend", async (JakeServerDbContext db, HttpContext ctx, ClinkbitSpendRequest req) =>
+app.MapPost("/api/clinkbits/spend", async (MindGoblinDbContext db, HttpContext ctx, ClinkbitSpendRequest req) =>
 {
-    var userId = GetAuthenticatedUserId(ctx);
+    var userId = AuthSupport.GetAuthenticatedUserId(ctx);
     if (!userId.HasValue) return Results.Unauthorized();
 
     var amount = req.Amount;
@@ -435,15 +364,15 @@ app.MapPost("/api/clinkbits/spend", async (JakeServerDbContext db, HttpContext c
     var reason = string.IsNullOrWhiteSpace(req.Reason) ? "spend" : req.Reason.Trim();
     if (reason.Length > 120) reason = reason[..120];
 
-    var result = await ApplyClinkbits(db, userId.Value, -amount, reason);
+    var result = await ClinkbitLedger.ApplyAsync(db, userId.Value, -amount, reason);
     if (!result.Ok) return Results.BadRequest(new { error = result.Error });
 
     return Results.Ok(new { ok = true, spent = amount, balance = result.Balance });
 });
 
-app.MapGet("/api/clinkbits/transactions", async (JakeServerDbContext db, HttpContext ctx, int? limit) =>
+app.MapGet("/api/clinkbits/transactions", async (MindGoblinDbContext db, HttpContext ctx, int? limit) =>
 {
-    var userId = GetAuthenticatedUserId(ctx);
+    var userId = AuthSupport.GetAuthenticatedUserId(ctx);
     if (!userId.HasValue) return Results.Unauthorized();
 
     var n = Math.Clamp(limit ?? 20, 1, 100);
@@ -457,9 +386,9 @@ app.MapGet("/api/clinkbits/transactions", async (JakeServerDbContext db, HttpCon
     return Results.Ok(rows);
 });
 
-app.MapPost("/api/clinkbits/dev/grant", async (JakeServerDbContext db, HttpContext ctx, ClinkbitGrantRequest req) =>
+app.MapPost("/api/clinkbits/dev/grant", async (MindGoblinDbContext db, HttpContext ctx, ClinkbitGrantRequest req) =>
 {
-    var userId = GetAuthenticatedUserId(ctx);
+    var userId = AuthSupport.GetAuthenticatedUserId(ctx);
     if (!userId.HasValue) return Results.Unauthorized();
 
     var amount = req.Amount;
@@ -469,7 +398,7 @@ app.MapPost("/api/clinkbits/dev/grant", async (JakeServerDbContext db, HttpConte
     var reason = string.IsNullOrWhiteSpace(req.Reason) ? "dev_grant" : req.Reason.Trim();
     if (reason.Length > 120) reason = reason[..120];
 
-    var result = await ApplyClinkbits(db, userId.Value, amount, $"dev_{reason}");
+    var result = await ClinkbitLedger.ApplyAsync(db, userId.Value, amount, $"dev_{reason}");
     if (!result.Ok) return Results.BadRequest(new { error = result.Error });
 
     return Results.Ok(new
@@ -481,9 +410,9 @@ app.MapPost("/api/clinkbits/dev/grant", async (JakeServerDbContext db, HttpConte
     });
 });
 
-app.MapPost("/api/clinkbits/gamble", async (JakeServerDbContext db, HttpContext ctx, ClinkbitGambleRequest req) =>
+app.MapPost("/api/clinkbits/gamble", async (MindGoblinDbContext db, HttpContext ctx, ClinkbitGambleRequest req) =>
 {
-    var userId = GetAuthenticatedUserId(ctx);
+    var userId = AuthSupport.GetAuthenticatedUserId(ctx);
     if (!userId.HasValue) return Results.Unauthorized();
 
     var bet = req.Bet;
@@ -732,7 +661,7 @@ app.MapPost("/api/clinkbits/gamble", async (JakeServerDbContext db, HttpContext 
             return Results.BadRequest(new { error = "Unsupported game." });
     }
 
-    var result = await ApplyClinkbits(db, userId.Value, netDelta, $"gamble_{game}");
+    var result = await ClinkbitLedger.ApplyAsync(db, userId.Value, netDelta, $"gamble_{game}");
     if (!result.Ok) return Results.BadRequest(new { error = result.Error });
 
     return Results.Ok(new
@@ -748,7 +677,7 @@ app.MapPost("/api/clinkbits/gamble", async (JakeServerDbContext db, HttpContext 
 });
 
 // ---------- Euchre tracker helpers ----------
-async Task<bool> CanAccessEuchreGroup(JakeServerDbContext db, int groupId, int userId)
+async Task<bool> CanAccessEuchreGroup(MindGoblinDbContext db, int groupId, int userId)
 {
     return await db.EuchreGroups.AnyAsync(g => g.Id == groupId && (
         g.CreatedByUserId == userId ||
@@ -756,15 +685,15 @@ async Task<bool> CanAccessEuchreGroup(JakeServerDbContext db, int groupId, int u
     ));
 }
 
-async Task<bool> CanManageEuchreGroup(JakeServerDbContext db, int groupId, int userId)
+async Task<bool> CanManageEuchreGroup(MindGoblinDbContext db, int groupId, int userId)
 {
     return await db.EuchreGroups.AnyAsync(g => g.Id == groupId && g.CreatedByUserId == userId);
 }
 
 // ---------- Euchre tracker endpoints ----------
-app.MapGet("/api/euchre/groups", async (JakeServerDbContext db, HttpContext ctx) =>
+app.MapGet("/api/euchre/groups", async (MindGoblinDbContext db, HttpContext ctx) =>
 {
-    var userId = GetAuthenticatedUserId(ctx);
+    var userId = AuthSupport.GetAuthenticatedUserId(ctx);
     if (!userId.HasValue) return Results.Unauthorized();
 
     var groups = await db.EuchreGroups
@@ -783,9 +712,9 @@ app.MapGet("/api/euchre/groups", async (JakeServerDbContext db, HttpContext ctx)
     return Results.Ok(groups);
 });
 
-app.MapPost("/api/euchre/groups", async (JakeServerDbContext db, HttpContext ctx, EuchreCreateGroupRequest req) =>
+app.MapPost("/api/euchre/groups", async (MindGoblinDbContext db, HttpContext ctx, EuchreCreateGroupRequest req) =>
 {
-    var userId = GetAuthenticatedUserId(ctx);
+    var userId = AuthSupport.GetAuthenticatedUserId(ctx);
     if (!userId.HasValue) return Results.Unauthorized();
 
     var name = (req.Name ?? "").Trim();
@@ -804,9 +733,9 @@ app.MapPost("/api/euchre/groups", async (JakeServerDbContext db, HttpContext ctx
     return Results.Ok(new { group.Id, group.Name, canManage = true });
 });
 
-app.MapGet("/api/euchre/groups/{groupId:int}", async (JakeServerDbContext db, HttpContext ctx, int groupId) =>
+app.MapGet("/api/euchre/groups/{groupId:int}", async (MindGoblinDbContext db, HttpContext ctx, int groupId) =>
 {
-    var userId = GetAuthenticatedUserId(ctx);
+    var userId = AuthSupport.GetAuthenticatedUserId(ctx);
     if (!userId.HasValue) return Results.Unauthorized();
 
     if (!await CanAccessEuchreGroup(db, groupId, userId.Value))
@@ -827,9 +756,9 @@ app.MapGet("/api/euchre/groups/{groupId:int}", async (JakeServerDbContext db, Ht
     return Results.Ok(group);
 });
 
-app.MapGet("/api/euchre/groups/{groupId:int}/editors", async (JakeServerDbContext db, HttpContext ctx, int groupId) =>
+app.MapGet("/api/euchre/groups/{groupId:int}/editors", async (MindGoblinDbContext db, HttpContext ctx, int groupId) =>
 {
-    var userId = GetAuthenticatedUserId(ctx);
+    var userId = AuthSupport.GetAuthenticatedUserId(ctx);
     if (!userId.HasValue) return Results.Unauthorized();
 
     if (!await CanAccessEuchreGroup(db, groupId, userId.Value))
@@ -848,15 +777,15 @@ app.MapGet("/api/euchre/groups/{groupId:int}/editors", async (JakeServerDbContex
     return Results.Ok(editors);
 });
 
-app.MapPost("/api/euchre/groups/{groupId:int}/editors", async (JakeServerDbContext db, HttpContext ctx, int groupId, EuchreAddEditorRequest req) =>
+app.MapPost("/api/euchre/groups/{groupId:int}/editors", async (MindGoblinDbContext db, HttpContext ctx, int groupId, EuchreAddEditorRequest req) =>
 {
-    var userId = GetAuthenticatedUserId(ctx);
+    var userId = AuthSupport.GetAuthenticatedUserId(ctx);
     if (!userId.HasValue) return Results.Unauthorized();
 
     if (!await CanManageEuchreGroup(db, groupId, userId.Value))
         return Results.Forbid();
 
-    var usernameNorm = NormalizeUsername(req.Username ?? "");
+    var usernameNorm = AuthSupport.NormalizeUsername(req.Username ?? "");
     var target = await db.UserAccounts.FirstOrDefaultAsync(u => u.UsernameNormalized == usernameNorm);
     if (target is null) return Results.BadRequest(new { error = "Account not found." });
 
@@ -878,9 +807,9 @@ app.MapPost("/api/euchre/groups/{groupId:int}/editors", async (JakeServerDbConte
     return Results.Ok(new { ok = true });
 });
 
-app.MapDelete("/api/euchre/groups/{groupId:int}/editors/{editorUserId:int}", async (JakeServerDbContext db, HttpContext ctx, int groupId, int editorUserId) =>
+app.MapDelete("/api/euchre/groups/{groupId:int}/editors/{editorUserId:int}", async (MindGoblinDbContext db, HttpContext ctx, int groupId, int editorUserId) =>
 {
-    var userId = GetAuthenticatedUserId(ctx);
+    var userId = AuthSupport.GetAuthenticatedUserId(ctx);
     if (!userId.HasValue) return Results.Unauthorized();
 
     if (!await CanManageEuchreGroup(db, groupId, userId.Value))
@@ -894,9 +823,9 @@ app.MapDelete("/api/euchre/groups/{groupId:int}/editors/{editorUserId:int}", asy
     return Results.Ok(new { ok = true });
 });
 
-app.MapGet("/api/euchre/groups/{groupId:int}/players", async (JakeServerDbContext db, HttpContext ctx, int groupId) =>
+app.MapGet("/api/euchre/groups/{groupId:int}/players", async (MindGoblinDbContext db, HttpContext ctx, int groupId) =>
 {
-    var userId = GetAuthenticatedUserId(ctx);
+    var userId = AuthSupport.GetAuthenticatedUserId(ctx);
     if (!userId.HasValue) return Results.Unauthorized();
 
     if (!await CanAccessEuchreGroup(db, groupId, userId.Value))
@@ -911,9 +840,9 @@ app.MapGet("/api/euchre/groups/{groupId:int}/players", async (JakeServerDbContex
     return Results.Ok(players);
 });
 
-app.MapPost("/api/euchre/groups/{groupId:int}/players", async (JakeServerDbContext db, HttpContext ctx, int groupId, EuchreCreatePlayerRequest req) =>
+app.MapPost("/api/euchre/groups/{groupId:int}/players", async (MindGoblinDbContext db, HttpContext ctx, int groupId, EuchreCreatePlayerRequest req) =>
 {
-    var userId = GetAuthenticatedUserId(ctx);
+    var userId = AuthSupport.GetAuthenticatedUserId(ctx);
     if (!userId.HasValue) return Results.Unauthorized();
 
     if (!await CanAccessEuchreGroup(db, groupId, userId.Value))
@@ -938,9 +867,9 @@ app.MapPost("/api/euchre/groups/{groupId:int}/players", async (JakeServerDbConte
     return Results.Ok(new { player.Id, player.Name });
 });
 
-app.MapDelete("/api/euchre/groups/{groupId:int}/players/{playerId:int}", async (JakeServerDbContext db, HttpContext ctx, int groupId, int playerId) =>
+app.MapDelete("/api/euchre/groups/{groupId:int}/players/{playerId:int}", async (MindGoblinDbContext db, HttpContext ctx, int groupId, int playerId) =>
 {
-    var userId = GetAuthenticatedUserId(ctx);
+    var userId = AuthSupport.GetAuthenticatedUserId(ctx);
     if (!userId.HasValue) return Results.Unauthorized();
 
     if (!await CanAccessEuchreGroup(db, groupId, userId.Value))
@@ -957,9 +886,9 @@ app.MapDelete("/api/euchre/groups/{groupId:int}/players/{playerId:int}", async (
     return Results.Ok(new { ok = true });
 });
 
-app.MapGet("/api/euchre/groups/{groupId:int}/games", async (JakeServerDbContext db, HttpContext ctx, int groupId) =>
+app.MapGet("/api/euchre/groups/{groupId:int}/games", async (MindGoblinDbContext db, HttpContext ctx, int groupId) =>
 {
-    var userId = GetAuthenticatedUserId(ctx);
+    var userId = AuthSupport.GetAuthenticatedUserId(ctx);
     if (!userId.HasValue) return Results.Unauthorized();
 
     if (!await CanAccessEuchreGroup(db, groupId, userId.Value))
@@ -986,9 +915,9 @@ app.MapGet("/api/euchre/groups/{groupId:int}/games", async (JakeServerDbContext 
     return Results.Ok(games);
 });
 
-app.MapPost("/api/euchre/groups/{groupId:int}/games", async (JakeServerDbContext db, HttpContext ctx, int groupId, EuchreGameUpsertRequest req) =>
+app.MapPost("/api/euchre/groups/{groupId:int}/games", async (MindGoblinDbContext db, HttpContext ctx, int groupId, EuchreGameUpsertRequest req) =>
 {
-    var userId = GetAuthenticatedUserId(ctx);
+    var userId = AuthSupport.GetAuthenticatedUserId(ctx);
     if (!userId.HasValue) return Results.Unauthorized();
 
     if (!await CanAccessEuchreGroup(db, groupId, userId.Value))
@@ -1041,9 +970,9 @@ app.MapPost("/api/euchre/groups/{groupId:int}/games", async (JakeServerDbContext
     return Results.Ok(new { game.Id });
 });
 
-app.MapPut("/api/euchre/groups/{groupId:int}/games/{gameId:int}", async (JakeServerDbContext db, HttpContext ctx, int groupId, int gameId, EuchreGameUpsertRequest req) =>
+app.MapPut("/api/euchre/groups/{groupId:int}/games/{gameId:int}", async (MindGoblinDbContext db, HttpContext ctx, int groupId, int gameId, EuchreGameUpsertRequest req) =>
 {
-    var userId = GetAuthenticatedUserId(ctx);
+    var userId = AuthSupport.GetAuthenticatedUserId(ctx);
     if (!userId.HasValue) return Results.Unauthorized();
 
     if (!await CanAccessEuchreGroup(db, groupId, userId.Value))
@@ -1095,9 +1024,9 @@ app.MapPut("/api/euchre/groups/{groupId:int}/games/{gameId:int}", async (JakeSer
     return Results.Ok(new { ok = true });
 });
 
-app.MapDelete("/api/euchre/groups/{groupId:int}/games/{gameId:int}", async (JakeServerDbContext db, HttpContext ctx, int groupId, int gameId) =>
+app.MapDelete("/api/euchre/groups/{groupId:int}/games/{gameId:int}", async (MindGoblinDbContext db, HttpContext ctx, int groupId, int gameId) =>
 {
-    var userId = GetAuthenticatedUserId(ctx);
+    var userId = AuthSupport.GetAuthenticatedUserId(ctx);
     if (!userId.HasValue) return Results.Unauthorized();
 
     if (!await CanAccessEuchreGroup(db, groupId, userId.Value))
@@ -1111,9 +1040,9 @@ app.MapDelete("/api/euchre/groups/{groupId:int}/games/{gameId:int}", async (Jake
     return Results.Ok(new { ok = true });
 });
 
-app.MapGet("/api/euchre/groups/{groupId:int}/stats", async (JakeServerDbContext db, HttpContext ctx, int groupId) =>
+app.MapGet("/api/euchre/groups/{groupId:int}/stats", async (MindGoblinDbContext db, HttpContext ctx, int groupId) =>
 {
-    var userId = GetAuthenticatedUserId(ctx);
+    var userId = AuthSupport.GetAuthenticatedUserId(ctx);
     if (!userId.HasValue) return Results.Unauthorized();
 
     if (!await CanAccessEuchreGroup(db, groupId, userId.Value))
@@ -1792,152 +1721,9 @@ app.MapPost("/logout", (HttpContext ctx) =>
     return Results.Redirect("/spotify.html");
 });
 
-//PLACE STUFF
-// ---------- r/place endpoints ----------
-
-// Meta
-app.MapGet("/api/place/meta", () =>
-{
-    return Results.Json(new {
-        width = PlaceBoard.Width,
-        height = PlaceBoard.Height,
-        palette = PlaceBoard.Palette,
-        cooldownSeconds = 1,
-        since = PlaceBoard.LastTs
-    });
-});
-
-// Whole board (base64-encoded raw bytes of color indices)
-app.MapGet("/api/place/board", () =>
-{
-    lock (PlaceBoard.Gate)
-    {
-        var base64 = Convert.ToBase64String(PlaceBoard.Pixels);
-        return Results.Text(base64, "text/plain", Encoding.UTF8);
-    }
-});
-
-// Incremental updates since a timestamp
-app.MapGet("/api/place/updates", (long? since) =>
-{
-    var s = since ?? 0;
-    lock (PlaceBoard.Gate)
-    {
-        var ups = PlaceBoard.Recent.Where(u => u.Ts > s).ToArray();
-        return Results.Json(new { since = PlaceBoard.LastTs, updates = ups });
-    }
-});
-
-// Place a single pixel
-app.MapPost("/api/place/set", async (HttpContext ctx) =>
-{
-    // parse body
-    using var doc = await JsonDocument.ParseAsync(ctx.Request.Body);
-    var root = doc.RootElement;
-
-    if (!root.TryGetProperty("x", out var xEl) || !root.TryGetProperty("y", out var yEl) || !root.TryGetProperty("colorIndex", out var cEl))
-        return Results.BadRequest(new { error = "x, y, colorIndex required" });
-
-    int x = xEl.GetInt32();
-    int y = yEl.GetInt32();
-    int ci = cEl.GetInt32();
-
-    if (x < 0 || y < 0 || x >= PlaceBoard.Width || y >= PlaceBoard.Height)
-        return Results.BadRequest(new { error = "out of bounds" });
-
-    if (ci < 0 || ci >= PlaceBoard.Palette.Length)
-        return Results.BadRequest(new { error = "invalid colorIndex" });
-
-    // cooldown
-    const int Cooldown = 1;
-    if (!CheckCooldown(ctx, Cooldown, out var remain))
-    {
-        return Results.Json(
-            new { error = "cooldown", seconds = remain },
-            statusCode: 429
-        );
-    }
-
-    // place
-    lock (PlaceBoard.Gate)
-    {
-        PlaceBoard.Pixels[y * PlaceBoard.Width + x] = (byte)ci;
-        PlaceBoard.AddUpdate(x, y, (byte)ci);
-        PlaceBoard.Save();
-    }
-
-    return Results.Ok(new { ok = true, since = PlaceBoard.LastTs });
-});
-
-// ---------- Tong's Tetris API endpoints ----------
-// Get scores (top 10 w/ with player highlight)
-app.MapGet("/api/tetrisscoreshl", async (JakeServerDbContext db, int? playerId) =>
-{
-    try
-    {
-        // Get all scores in descending order
-        var allScores = await db.TetrisScores
-            .OrderByDescending(s => s.Points)
-            .ToListAsync();
-
-        // Assign placements
-        var ranked = allScores
-            .Select((s, i) => new { Placement = i + 1, s.Id, s.Player, s.Points })
-            .ToList();
-
-        // Take top 10
-        var top10 = ranked.Take(10).ToList();
-
-        // Get the requesting player’s row
-        var playerRow = playerId.HasValue ? ranked.FirstOrDefault(r => r.Id == playerId.Value) : null;
-
-        return Results.Json(new
-        {
-            Top = top10,
-            Player = playerRow
-        });
-    }
-    catch (Exception ex)
-    {
-        Console.WriteLine("Database read error: " + ex.Message);
-        return Results.Problem("Error reading from database."); // Return an error JSON
-    }
-});
-
-// Get scores (top 10)
-app.MapGet("/api/tetrisscores", async (JakeServerDbContext db) =>
-{
-    try
-    {
-        var scores = await db.TetrisScores
-            .OrderByDescending(s => s.Points)
-            .Take(10)
-            .ToListAsync();
-
-        return Results.Json(scores); // return JSON format
-    }
-    catch (Exception ex)
-    {
-        Console.WriteLine("Database read error: " + ex.Message);
-        return Results.Problem("Error reading from database."); // Return an error JSON
-    }
-});
-
-// Save score
-app.MapPost("/api/tetrisscores", async (JakeServerDbContext db, TetrisScore score) =>
-{
-    try
-    {
-        db.TetrisScores.Add(score);
-        await db.SaveChangesAsync();
-        return Results.Created($"/api/tetrisscores/{score.Id}", score);
-    }
-    catch (Exception ex)
-    {
-        Console.WriteLine("Database write error: " + ex.Message);
-        return Results.Problem("Error writing to database."); // Return an error JSON
-    }
-});
+// Feature endpoint modules
+app.MapPlaceEndpoints();
+app.MapTetrisEndpoints();
 
 // Logic for pong game lobbies
 app.MapHub<PongGameHub>("/ponggamehub");
@@ -1945,330 +1731,3 @@ app.MapHub<PongGameHub>("/ponggamehub");
 PlaceBoard.Load();
 
 app.Run();
-
-static bool CheckCooldown(HttpContext ctx, int cooldownSeconds, out int remainSeconds)
-{
-    var key = "place_last_ts";
-    var now = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
-    var lastStr = ctx.Session.GetString(key);
-    if (long.TryParse(lastStr, out var last))
-    {
-        var remain = (last + cooldownSeconds) - now;
-        if (remain > 0) { remainSeconds = (int)remain; return false; }
-    }
-    ctx.Session.SetString(key, now.ToString());
-    remainSeconds = 0;
-    return true;
-}
-
-
-// ---------- r/place board (globals) ----------
-record PlaceUpdate(int X, int Y, byte ColorIndex, long Ts);
-
-static class PlaceBoard
-{
-    public const int Width = 256;
-    public const int Height = 256;
-
-    // Prefer env; fall back to /data; last resort inside container
-    public static readonly string DataPath =
-        Environment.GetEnvironmentVariable("PLACE_DATA_PATH")
-        ?? "/data/place-board.bin";
-
-    public static readonly string[] Palette = new[]
-    {
-        "#FF4500","#000000","#FFFFFF","#FFA800","#FFD635",
-        "#00A368","#00CC78","#7EED56","#2450A4","#3690EA",
-        "#51E9F4","#811E9F","#B44AC0","#FF99AA","#9C6926",
-        "#6D482F","#BE0039","#FFB470","#515252","#898D90"
-    };
-
-    public static readonly byte[] Pixels = new byte[Width * Height];
-    public static readonly object Gate = new();
-
-    public static readonly Queue<PlaceUpdate> Recent = new();
-    public static long LastTs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
-
-    public static void Load()
-    {
-        try
-        {
-            Console.WriteLine($"[place] Using data path: {DataPath}");
-            var dir = Path.GetDirectoryName(DataPath);
-            if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir))
-            {
-                Console.WriteLine($"[place] Creating directory: {dir}");
-                Directory.CreateDirectory(dir);
-            }
-
-            if (File.Exists(DataPath))
-            {
-                var buf = File.ReadAllBytes(DataPath);
-                if (buf.Length == Pixels.Length)
-                {
-                    Array.Copy(buf, Pixels, buf.Length);
-                    Console.WriteLine("[place] Board loaded from data file.");
-                }
-                else
-                {
-                    Console.WriteLine($"[place] Existing file length {buf.Length} != {Pixels.Length}; starting fresh.");
-                }
-            }
-            else
-            {
-                Console.WriteLine("[place] No existing board file; starting fresh.");
-                Save(); // create it
-            }
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine("[place] Load error: " + ex);
-        }
-    }
-
-    public static void Save()
-    {
-        try
-        {
-            var dir = Path.GetDirectoryName(DataPath);
-            if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir))
-                Directory.CreateDirectory(dir);
-
-            File.WriteAllBytes(DataPath, Pixels);
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine("[place] Save error: " + ex.Message);
-        }
-    }
-
-    public static void AddUpdate(int x, int y, byte color)
-    {
-        var ts = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
-        LastTs = ts;
-        Recent.Enqueue(new PlaceUpdate(x, y, color, ts));
-        while (Recent.Count > 5000) Recent.Dequeue();
-    }
-}
-
-// ---------- SQLite DB Context ----------
-public class JakeServerDbContext : DbContext
-{
-    public JakeServerDbContext(DbContextOptions<JakeServerDbContext> options) : base(options) { }
-    public DbSet<TetrisScore> TetrisScores { get; set; } = default!;
-    public DbSet<PongGameLobby> PongGameLobbies { get; set; } = default!;
-    public DbSet<UserAccount> UserAccounts { get; set; } = default!;
-    public DbSet<EuchreGroup> EuchreGroups { get; set; } = default!;
-    public DbSet<EuchreGroupEditor> EuchreGroupEditors { get; set; } = default!;
-    public DbSet<EuchrePlayer> EuchrePlayers { get; set; } = default!;
-    public DbSet<EuchreGame> EuchreGames { get; set; } = default!;
-    public DbSet<EuchreGameParticipant> EuchreGameParticipants { get; set; } = default!;
-    public DbSet<ClinkbitTransaction> ClinkbitTransactions { get; set; } = default!;
-
-    protected override void OnModelCreating(ModelBuilder modelBuilder)
-    {
-        modelBuilder.Entity<UserAccount>()
-            .HasIndex(u => u.UsernameNormalized)
-            .IsUnique();
-
-        modelBuilder.Entity<EuchreGroup>()
-            .HasOne(g => g.CreatedByUser)
-            .WithMany()
-            .HasForeignKey(g => g.CreatedByUserId)
-            .OnDelete(DeleteBehavior.Restrict);
-
-        modelBuilder.Entity<EuchreGroupEditor>()
-            .HasIndex(e => new { e.EuchreGroupId, e.UserAccountId })
-            .IsUnique();
-
-        modelBuilder.Entity<EuchreGroupEditor>()
-            .HasOne(e => e.EuchreGroup)
-            .WithMany(g => g.Editors)
-            .HasForeignKey(e => e.EuchreGroupId)
-            .OnDelete(DeleteBehavior.Cascade);
-
-        modelBuilder.Entity<EuchreGroupEditor>()
-            .HasOne(e => e.UserAccount)
-            .WithMany()
-            .HasForeignKey(e => e.UserAccountId)
-            .OnDelete(DeleteBehavior.Cascade);
-
-        modelBuilder.Entity<EuchrePlayer>()
-            .HasIndex(p => new { p.EuchreGroupId, p.Name })
-            .IsUnique();
-
-        modelBuilder.Entity<EuchrePlayer>()
-            .HasOne(p => p.EuchreGroup)
-            .WithMany(g => g.Players)
-            .HasForeignKey(p => p.EuchreGroupId)
-            .OnDelete(DeleteBehavior.Cascade);
-
-        modelBuilder.Entity<EuchreGame>()
-            .HasOne(g => g.EuchreGroup)
-            .WithMany(gr => gr.Games)
-            .HasForeignKey(g => g.EuchreGroupId)
-            .OnDelete(DeleteBehavior.Cascade);
-
-        modelBuilder.Entity<EuchreGame>()
-            .HasOne(g => g.CreatedByUser)
-            .WithMany()
-            .HasForeignKey(g => g.CreatedByUserId)
-            .OnDelete(DeleteBehavior.Restrict);
-
-        modelBuilder.Entity<EuchreGameParticipant>()
-            .HasOne(p => p.EuchreGame)
-            .WithMany(g => g.Participants)
-            .HasForeignKey(p => p.EuchreGameId)
-            .OnDelete(DeleteBehavior.Cascade);
-
-        modelBuilder.Entity<EuchreGameParticipant>()
-            .HasOne(p => p.EuchrePlayer)
-            .WithMany(pl => pl.GameParticipants)
-            .HasForeignKey(p => p.EuchrePlayerId)
-            .OnDelete(DeleteBehavior.Restrict);
-
-        modelBuilder.Entity<EuchreGameParticipant>()
-            .HasIndex(p => new { p.EuchreGameId, p.EuchrePlayerId })
-            .IsUnique();
-
-        modelBuilder.Entity<ClinkbitTransaction>()
-            .HasOne(t => t.UserAccount)
-            .WithMany()
-            .HasForeignKey(t => t.UserAccountId)
-            .OnDelete(DeleteBehavior.Cascade);
-
-        modelBuilder.Entity<ClinkbitTransaction>()
-            .HasIndex(t => new { t.UserAccountId, t.CreatedUtc });
-    }
-}
-
-// ---------- Tong's Tetris Score DB Model ----------
-public class TetrisScore
-{
-    public int Id { get; set; }
-    public string Player { get; set; } = "";
-    public int Points { get; set; }
-    public DateTime PlayedAt { get; set; } = DateTime.UtcNow;
-}
-
-// ---------- Tong's Pong Lobby DB Model ----------
-public class PongGameLobby
-{
-    [Key]
-    public string LobbyId { get; set; } = Guid.NewGuid().ToString("N");
-    public string? LobbyName { get; set; }
-    public string? HostConnectionId { get; set; } // This isn't the actual gameplay lobby (the duel) ID; practically justed used to check if Host has joined lobby
-    public string? ChallengerConnectionId { get; set; } // This isn't the actual gameplay lobby ID; practically justed used to check if Challenger has joined lobby
-    public DateTime CreatedUtc { get; set; } = DateTime.UtcNow;
-
-    public bool IsFull => !string.IsNullOrEmpty(HostConnectionId) && !string.IsNullOrEmpty(ChallengerConnectionId);
-}
-
-public class UserAccount
-{
-    public int Id { get; set; }
-    public string Username { get; set; } = "";
-    public string UsernameNormalized { get; set; } = "";
-    public string PasswordHash { get; set; } = "";
-    public string PasswordSalt { get; set; } = "";
-    public DateTime CreatedUtc { get; set; } = DateTime.UtcNow;
-    public DateTime LastLoginUtc { get; set; } = DateTime.UtcNow;
-    public int ClinkbitsBalance { get; set; } = 0;
-    public DateTime ClinkbitsUpdatedUtc { get; set; } = DateTime.UtcNow;
-}
-
-public class ClinkbitTransaction
-{
-    public int Id { get; set; }
-    public int UserAccountId { get; set; }
-    public UserAccount UserAccount { get; set; } = default!;
-    public int Amount { get; set; }
-    public int BalanceAfter { get; set; }
-    public string Reason { get; set; } = "";
-    public DateTime CreatedUtc { get; set; } = DateTime.UtcNow;
-}
-
-public class EuchreGroup
-{
-    public int Id { get; set; }
-    public string Name { get; set; } = "";
-    public int CreatedByUserId { get; set; }
-    public UserAccount CreatedByUser { get; set; } = default!;
-    public DateTime CreatedUtc { get; set; } = DateTime.UtcNow;
-    public List<EuchreGroupEditor> Editors { get; set; } = new();
-    public List<EuchrePlayer> Players { get; set; } = new();
-    public List<EuchreGame> Games { get; set; } = new();
-}
-
-public class EuchreGroupEditor
-{
-    public int Id { get; set; }
-    public int EuchreGroupId { get; set; }
-    public EuchreGroup EuchreGroup { get; set; } = default!;
-    public int UserAccountId { get; set; }
-    public UserAccount UserAccount { get; set; } = default!;
-    public DateTime AddedUtc { get; set; } = DateTime.UtcNow;
-}
-
-public class EuchrePlayer
-{
-    public int Id { get; set; }
-    public int EuchreGroupId { get; set; }
-    public EuchreGroup EuchreGroup { get; set; } = default!;
-    public string Name { get; set; } = "";
-    public DateTime CreatedUtc { get; set; } = DateTime.UtcNow;
-    public List<EuchreGameParticipant> GameParticipants { get; set; } = new();
-}
-
-public class EuchreGame
-{
-    public int Id { get; set; }
-    public int EuchreGroupId { get; set; }
-    public EuchreGroup EuchreGroup { get; set; } = default!;
-    public int CreatedByUserId { get; set; }
-    public UserAccount CreatedByUser { get; set; } = default!;
-    public DateTime PlayedAtUtc { get; set; } = DateTime.UtcNow;
-    public int TeamAScore { get; set; }
-    public int TeamBScore { get; set; }
-    public string WinnerTeam { get; set; } = "A"; // A or B
-    public List<EuchreGameParticipant> Participants { get; set; } = new();
-}
-
-public class EuchreGameParticipant
-{
-    public int Id { get; set; }
-    public int EuchreGameId { get; set; }
-    public EuchreGame EuchreGame { get; set; } = default!;
-    public int EuchrePlayerId { get; set; }
-    public EuchrePlayer EuchrePlayer { get; set; } = default!;
-    public string Team { get; set; } = "A"; // A or B
-}
-
-// ---------- DTOs ----------
-record EchoRequest(string Message);
-record ScoreRequest(string Username, int? Value);
-record AuthRequest(string Username, string Password);
-record EuchreCreateGroupRequest(string Name);
-record EuchreAddEditorRequest(string Username);
-record EuchreCreatePlayerRequest(string Name);
-record EuchreGameUpsertRequest(int[] TeamAPlayerIds, int[] TeamBPlayerIds, int TeamAScore, int TeamBScore, string WinnerTeam, DateTimeOffset? PlayedAtUtc);
-record EuchrePlayerStatDto(int PlayerId, string Name, int Wins, int Losses);
-record ClinkbitSpendRequest(int Amount, string? Reason);
-record ClinkbitGrantRequest(int Amount, string? Reason);
-record ClinkbitGambleRequest(string Game, int Bet, string? Choice, int? ExactTotal, int? Chest, string? Color, string? Call, int? Pocket, int? SafePicks, decimal? CashoutMultiplier);
-record Score
-{
-    public string Username { get; set; } = default!;
-    public int Value { get; set; }
-    public DateTimeOffset At { get; set; }
-}
-
-class EuchreDuoStatMutable
-{
-    public int PlayerAId { get; set; }
-    public string PlayerAName { get; set; } = "";
-    public int PlayerBId { get; set; }
-    public string PlayerBName { get; set; } = "";
-    public int Wins { get; set; }
-    public int Losses { get; set; }
-}

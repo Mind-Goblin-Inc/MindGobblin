@@ -79,7 +79,7 @@
             <button class="primary" id="startBtn">Start</button>
           </div>
         </div>
-        <label class="toggle"><input type="checkbox" id="postScoreChk" /> Post high score to <code>/score</code> (username “jake”)</label>
+        <label class="toggle"><input type="checkbox" id="postScoreChk" /> Post high score to <code>/score</code> (username “mindgoblin”)</label>
 
         <div class="dpad" id="dpad">
           <button data-dir="up">▲</button>
@@ -200,7 +200,7 @@
         fetch('/score', {
           method:'POST',
           headers:{'Content-Type':'application/json'},
-          body: JSON.stringify({ username:'jake', value: high })
+          body: JSON.stringify({ username:'mindgoblin', value: high })
         }).catch(()=>{});
       }
     }

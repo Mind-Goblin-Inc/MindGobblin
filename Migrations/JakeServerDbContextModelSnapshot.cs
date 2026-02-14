@@ -8,8 +8,8 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 namespace JakeServer.Migrations
 {
-    [DbContext(typeof(JakeServerDbContext))]
-    partial class JakeServerDbContextModelSnapshot : ModelSnapshot
+    [DbContext(typeof(MindGoblinDbContext))]
+    partial class MindGoblinDbContextModelSnapshot : ModelSnapshot
     {
         protected override void BuildModel(ModelBuilder modelBuilder)
         {

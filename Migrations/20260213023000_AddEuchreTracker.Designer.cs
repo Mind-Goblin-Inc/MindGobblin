@@ -9,7 +9,7 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 namespace JakeServer.Migrations
 {
-    [DbContext(typeof(JakeServerDbContext))]
+    [DbContext(typeof(MindGoblinDbContext))]
     [Migration("20260213023000_AddEuchreTracker")]
     partial class AddEuchreTracker
     {
