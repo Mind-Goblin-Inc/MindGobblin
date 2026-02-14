@@ -1,0 +1,631 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"/>
+<title>Pancake Flip — Soft Rectangle + Hinge Launch</title>
+<style>
+  :root{ --bg:#0b0f17; --bg2:#101827; --fg:#e7ecef; --muted:#9aa6b2; --edge:#1f2a3c;
+         --accent:#57e6c1; --accent2:#76ffd9; --danger:#ff6b6b; --gold:#f6c945; }
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{
+    margin:0;background:
+      radial-gradient(1200px 800px at 10% -10%, #123 0, transparent 60%),
+      radial-gradient(1200px 800px at 110% 10%, #10201a 0, transparent 55%),
+      var(--bg);
+    color:var(--fg); font:14px/1.5 system-ui,Segoe UI,Roboto,Inter,Arial,sans-serif;
+    overflow:hidden;
+  }
+  canvas{display:block;width:100vw;height:100vh}
+  #ui{position:fixed;inset:0;pointer-events:none}
+  .hud{
+    position:absolute;left:12px;top:10px;padding:8px 10px;border-radius:12px;
+    background:#0f1522cc;border:1px solid var(--edge);backdrop-filter:blur(4px);
+    display:flex;gap:12px;align-items:center;pointer-events:auto;
+  }
+  .hud .badge{padding:3px 8px;border-radius:999px;border:1px solid var(--edge);background:#0f1522}
+  .hud .score{color:var(--gold);font-weight:700}
+  .hud .mult{color:var(--accent2)}
+  .hud .lives{color:var(--danger)}
+  .right{
+    position:absolute;right:12px;top:10px;padding:8px 10px;border-radius:12px;
+    background:#0f1522cc;border:1px solid var(--edge);backdrop-filter:blur(4px);
+  }
+  .powWrap{
+    position:absolute;left:50%;transform:translateX(-50%);bottom:18px;
+    width:min(520px,80vw);padding:8px;border-radius:12px;
+    background:#0f1522cc;border:1px solid var(--edge);backdrop-filter:blur(4px);
+  }
+  .bar{height:12px;background:#0b1220;border:1px solid var(--edge);border-radius:999px;overflow:hidden}
+  .fill{height:100%;width:0%;background:linear-gradient(90deg,var(--accent),var(--accent2))}
+  .labels{display:flex;justify-content:space-between;margin-top:6px;color:var(--muted);font-size:12px}
+  .centerMsg{
+    position:absolute;left:50%;top:40%;transform:translate(-50%,-50%);
+    background:#0f1522e6;border:1px solid var(--edge);padding:12px 16px;border-radius:12px;
+    text-align:center;min-width:260px;pointer-events:auto;
+  }
+  kbd{
+    background:#111a2b;border:1px solid var(--edge);border-bottom-color:#0b1220;padding:2px 6px;
+    border-radius:6px;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:12px;color:#cfe3ff
+  }
+  .help{font-size:12px;color:var(--muted);margin-top:6px;line-height:1.4}
+  .toast{
+    position:absolute;left:50%;top:18%;transform:translateX(-50%);
+    padding:8px 12px;border-radius:12px;background:#0f1522cc;border:1px solid var(--edge);
+    animation:pop .3s ease-out;
+  }
+  @keyframes pop{from{transform:translateX(-50%) scale(.9);opacity:0}to{transform:translateX(-50%) scale(1);opacity:1}}
+  a.btn{
+    display:inline-block;margin-top:8px;background:#132038;border:1px solid var(--edge);
+    color:var(--accent2);text-decoration:none;padding:6px 10px;border-radius:8px;
+  }
+</style>
+</head>
+<body>
+<canvas id="game"></canvas>
+
+<div id="ui" aria-live="polite">
+  <div class="hud" id="hud">
+    <div class="badge">Score: <span class="score" id="sc">0</span></div>
+    <div class="badge">Best: <span id="best">0</span></div>
+    <div class="badge">Flips: <span class="mult" id="flips">0</span>x</div>
+    <div class="badge">Round: <span id="round">1</span></div>
+    <div class="badge">Lives: <span class="lives" id="lives">3</span></div>
+  </div>
+  <div class="right">
+    <div><b>Controls</b></div>
+    <div class="help">
+      Hold <kbd>Space</kbd> / press & hold to charge<br/>
+      Release to hinged-flip from the left rim<br/>
+      Move pan: <kbd>A</kbd>/<kbd>D</kbd> or <kbd>←</kbd>/<kbd>→</kbd><br/>
+      Tilt pan: <kbd>Q</kbd>/<kbd>E</kbd> (nudges drift & spin)<br/>
+      <kbd>P</kbd> Pause • <kbd>R</kbd> Reset
+    </div>
+  </div>
+  <div class="powWrap">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;">
+      <div style="font-weight:700;color:var(--accent)">Flip Power</div>
+      <div id="pct" style="color:var(--muted);font-variant-numeric:tabular-nums;">0%</div>
+    </div>
+    <div class="bar"><div class="fill" id="fill"></div></div>
+    <div class="labels"><div>Tap</div><div>Good</div><div>Great</div><div>Perfect</div></div>
+  </div>
+  <div class="centerMsg" id="center">
+    <div style="font-size:18px;font-weight:800;margin-bottom:6px;">Flip the Pancake!</div>
+    <div class="help">Soft rectangular pancake + hinge launch. Catch cleanly to score. 360° in the air = 1 flip.</div>
+    <a href="#" class="btn" id="startBtn">Start</a>
+  </div>
+  <div class="toast" id="toast" style="display:none"></div>
+</div>
+
+<script>
+(() => {
+  // ===== Utilities =====
+  const clamp = (v,min,max)=>Math.max(min,Math.min(max,v));
+  const lerp = (a,b,t)=>a+(b-a)*t;
+  const TAU = Math.PI*2;
+
+  // ===== Canvas =====
+  const canvas = document.getElementById('game');
+  const ctx = canvas.getContext('2d');
+  let W=0,H=0, DPR = Math.max(1, Math.min(2, window.devicePixelRatio||1));
+  function resize(){
+    W = Math.floor(window.innerWidth);
+    H = Math.floor(window.innerHeight);
+    canvas.width = Math.floor(W*DPR);
+    canvas.height= Math.floor(H*DPR);
+    canvas.style.width = W+'px';
+    canvas.style.height= H+'px';
+    ctx.setTransform(DPR,0,0,DPR,0,0);
+  }
+  window.addEventListener('resize', resize, {passive:true});
+  resize();
+
+  // ===== UI =====
+  const ui = {
+    sc: document.getElementById('sc'),
+    best: document.getElementById('best'),
+    flips: document.getElementById('flips'),
+    round: document.getElementById('round'),
+    lives: document.getElementById('lives'),
+    fill: document.getElementById('fill'),
+    pct: document.getElementById('pct'),
+    center: document.getElementById('center'),
+    startBtn: document.getElementById('startBtn'),
+    toast: document.getElementById('toast')
+  };
+
+  let input = {
+    holding:false, holdT:0, holdMax:1.25,
+    left:false, right:false, tiltL:false, tiltR:false,
+    paused:false
+  };
+
+  const saveKey = 'pancake_best_v3';
+
+  // Physics constants
+  const G = 1400;
+  const FLOOR_POS = ()=> H - 26;
+  const PAN_Y = ()=> H - 90;
+  const AIR_DRAG = 0.04;
+
+  // Difficulty scaling
+  let round = 1;
+  function roundParams(r){
+    return {
+      panSpeed: lerp(360, 540, Math.min(1,(r-1)/10)),
+      panWidth: 240 - Math.min(100, (r-1)*9),
+      perfectMin: 0.78,
+      perfectMax: 0.94,
+    };
+  }
+
+  // Coordinate transforms (world <-> pan space)
+  function toPanSpace(x,y, pan){
+    // pan space origin at pan center; +y' downward; x' along pan rim; pan tilt rotates axes
+    const px = x - pan.x;
+    const py = y - PAN_Y();
+    const ct = Math.cos(-pan.tilt), st = Math.sin(-pan.tilt);
+    const xp = px*ct - py*st;
+    const yp = px*st + py*ct;
+    return {x:xp, y:yp};
+  }
+  function fromPanSpace(xp,yp, pan){
+    const ct = Math.cos(pan.tilt), st = Math.sin(pan.tilt);
+    const wx = xp*ct - yp*st + pan.x;
+    const wy = xp*st + yp*ct + PAN_Y();
+    return {x:wx, y:wy};
+  }
+
+  // ===== Soft-body Pancake (2x3 lattice) =====
+  class SoftPancake {
+    constructor(){
+      this.cols = 3; this.rows = 2;
+      this.w = 120; this.h = 50;
+      this.nodes = [];
+      this.springs = [];
+      this.inAir = false;
+
+      this.flipCountAir = 0;
+      this.angle = 0; this.lastAngle = 0;
+
+      // initial layout (centered; seated on start())
+      const cx = W*0.5, cy = PAN_Y()-80;
+      for(let r=0;r<this.rows;r++){
+        for(let c=0;c<this.cols;c++){
+          const x = cx + (c/(this.cols-1)-0.5)*this.w;
+          const y = cy + (r/(this.rows-1)-0.5)*this.h;
+          this.nodes.push({x,y,px:x,py:y});
+        }
+      }
+      // springs
+      const stiff = 2200, diag = 1800;
+      const restH = this.w/(this.cols-1), restV = this.h/(this.rows-1);
+      const idx = (r,c)=> r*this.cols + c;
+      for(let r=0;r<this.rows;r++) for(let c=0;c<this.cols-1;c++)
+        this.springs.push({i:idx(r,c), j:idx(r,c+1), len:restH});
+      for(let r=0;r<this.rows-1;r++) for(let c=0;c<this.cols;c++)
+        this.springs.push({i:idx(r,c), j:idx(r+1,c), len:restV});
+      for(let r=0;r<this.rows-1;r++) for(let c=0;c<this.cols-1;c++){
+        const L = Math.hypot(restH,restV);
+        this.springs.push({i:idx(r,c), j:idx(r+1,c+1), len:L});
+        this.springs.push({i:idx(r,c+1), j:idx(r+1,c), len:L});
+      }
+    }
+
+    get centroid(){
+      let sx=0, sy=0; for(const n of this.nodes){ sx+=n.x; sy+=n.y; }
+      return {x:sx/this.nodes.length, y:sy/this.nodes.length};
+    }
+
+    resetOnPan(pan){
+      const cx = pan?.x ?? W*0.5;
+      const cy = PAN_Y() - (pan?.depth ?? 24) - this.h*0.5 - 8;
+      for(let r=0;r<this.rows;r++){
+        for(let c=0;c<this.cols;c++){
+          const i = r*this.cols + c;
+          const x = cx + (c/(this.cols-1)-0.5)*this.w*0.96;
+          const y = cy + (r/(this.rows-1)-0.5)*this.h*0.9;
+          this.nodes[i].x=this.nodes[i].px=x;
+          this.nodes[i].y=this.nodes[i].py=y;
+        }
+      }
+      this.inAir=false; this.flipCountAir=0; this.angle=0; this.lastAngle=0;
+    }
+
+    // combined linear + angular (around hinge) impulse
+    applyImpulseHinged(vx,vy,omega, hinge){
+      const c = this.centroid;
+      for(const n of this.nodes){
+        // current velocity from Verlet
+        let vx0 = (n.x - n.px), vy0 = (n.y - n.py);
+        // linear
+        vx0 += vx*0.016; vy0 += vy*0.016;
+        // angular about hinge
+        const rx = n.x - hinge.x, ry = n.y - hinge.y; // world
+        // perp velocity: ω × r => (-ry, rx) * ω
+        vx0 += (-ry)*omega*0.016;
+        vy0 += ( rx)*omega*0.016;
+        // write back to prev
+        n.px = n.x - vx0;
+        n.py = n.y - vy0;
+      }
+      this.inAir = true;
+    }
+
+    updateAngle(dt){
+      const c = this.centroid;
+      let xx=0, yy=0, xy=0;
+      for(const n of this.nodes){
+        const rx = n.x - c.x, ry = n.y - c.y;
+        xx += rx*rx; yy += ry*ry; xy += rx*ry;
+      }
+      const tr = xx+yy;
+      const det = xx*yy - xy*xy;
+      const s = Math.sqrt(Math.max(0, tr*tr/4 - det));
+      let evx = xy, evy = (tr/2 + s) - xx; // eigenvector
+      if (Math.abs(evx)+Math.abs(evy) < 1e-6){ evx=1; evy=0; }
+      const ang = Math.atan2(evy, evx);
+      this.lastAngle = this.angle;
+      this.angle = ang;
+      if(this.inAir){
+        let d = Math.abs(this.angle - this.lastAngle);
+        if(d > Math.PI) d = TAU - d;
+        this.flipCountAir += d/TAU;
+      }
+    }
+
+    step(dt, pan){
+      // Verlet integrate (gravity + air drag)
+      for(const n of this.nodes){
+        const vx = (n.x - n.px);
+        const vy = (n.y - n.py);
+        n.px = n.x; n.py = n.y;
+        n.x += vx*(1 - AIR_DRAG*dt);
+        n.y += vy*(1 - AIR_DRAG*dt) + G*dt*dt;
+      }
+
+      // spring constraints
+      const ITER = 6;
+      for(let it=0; it<ITER; it++){
+        for(const s of this.springs){
+          const a = this.nodes[s.i], b = this.nodes[s.j];
+          let dx = b.x - a.x, dy = b.y - a.y;
+          const d = Math.hypot(dx,dy) || 1e-6;
+          const diff = (d - s.len) / d;
+          const corr = 0.5 * diff;
+          a.x += dx * corr; a.y += dy * corr;
+          b.x -= dx * corr; b.y -= dy * corr;
+        }
+      }
+
+      // per-node collision with pan inner bowl (works with tilt)
+      // treat pan "surface" as y'=0 in pan space; allow collision only if inside |x'| < inner
+      let contacts = 0;
+      if(this.inAir){
+        const inner = pan.width*0.48;
+        const surface = 0; // y' = 0 is the inner ellipse top
+        for(const n of this.nodes){
+          const xp = toPanSpace(n.x, n.y, pan);
+          if (Math.abs(xp.x) < inner && xp.y > surface){
+            // project onto surface (y' = 0)
+            const on = {x: xp.x, y: surface};
+            const w = fromPanSpace(on.x, on.y, pan);
+            // damp velocity by moving previous near projected point
+            const vx = n.x - n.px, vy = n.y - n.py;
+            n.x = w.x; n.y = w.y;
+            n.px = n.x - vx*0.2; // heavy damping on impact
+            n.py = n.y - vy*0.2;
+            contacts++;
+          }
+        }
+      }
+
+      // floor miss check (only if still airborne and not sitting on pan)
+      if(this.inAir){
+        const floor = FLOOR_POS();
+        let anyBelow = false;
+        for(const n of this.nodes){ if(n.y > floor){ anyBelow = true; break; } }
+        if(anyBelow){ game.onMiss(); return; }
+      }
+
+      // if enough contacts, treat as a catch: seat/squash and score
+      if(this.inAir && contacts >= 3){
+        // centroid downward?
+        const cNow = this.centroid;
+        let cxPrev=0, cyPrev=0; for(const n of this.nodes){ cxPrev+=n.px; cyPrev+=n.py; }
+        cxPrev/=this.nodes.length; cyPrev/=this.nodes.length;
+        const cVy = (cNow.y - cyPrev)/dt;
+        // inside pan bounds?
+        const dxCenter = toPanSpace(cNow.x, cNow.y, pan).x;
+        if(cVy>0 && Math.abs(dxCenter) < pan.width*0.48 - 8){
+          // seat & squash a bit
+          const cx = pan.x;
+          const cy = PAN_Y() - pan.depth - this.h*0.45 - 7;
+          for(let r=0;r<this.rows;r++){
+            for(let c=0;c<this.cols;c++){
+              const i = r*this.cols + c;
+              const x = cx + (c/(this.cols-1)-0.5)*this.w*0.98;
+              const y = cy + (r/(this.rows-1)-0.5)*this.h*0.75;
+              const n = this.nodes[i];
+              n.x=x; n.y=y; n.px=x; n.py=y;
+            }
+          }
+          this.inAir=false;
+          // scoring
+          const flat = (Math.abs(((this.angle % TAU)+TAU)%TAU) < 0.35 || Math.abs(((this.angle % TAU)+TAU)%TAU-TAU) < 0.35);
+          const flipsRounded = Math.floor(this.flipCountAir + 0.0001);
+          const scoreGain = game.scoreForCatch(flipsRounded, flat);
+          game.addScore(scoreGain, flipsRounded, flat);
+          this.flipCountAir = 0;
+        }
+      }
+
+      // update angle/flip accumulation
+      this.updateAngle(dt);
+
+      // walls
+      for(const n of this.nodes){
+        if(n.x < 6){ n.x = 6; n.px = n.x; }
+        if(n.x > W-6){ n.x = W-6; n.px = n.x; }
+      }
+    }
+
+    draw(ctx){
+      const c = this.centroid;
+      // shadow
+      let maxY = -1e9; for(const n of this.nodes) maxY = Math.max(maxY, n.y);
+      const shadowY = Math.min(maxY + 40, H-20);
+      const shadowScale = clamp(1 - (shadowY - (PAN_Y()-60))/500, 0.3, 1);
+      ctx.globalAlpha = 0.25;
+      ctx.beginPath();
+      ctx.ellipse(c.x, shadowY, (this.w*0.55)*shadowScale, (this.h*0.35)*shadowScale, 0, 0, TAU);
+      ctx.fillStyle = '#000'; ctx.fill(); ctx.globalAlpha = 1;
+
+      // outline polygon (top row left->right, bottom row right->left)
+      const pts = [];
+      for(let cc=0;cc<this.cols;cc++) pts.push(this.nodes[0*this.cols + cc]);
+      for(let cc=this.cols-1;cc>=0;cc--) pts.push(this.nodes[1*this.cols + cc]);
+
+      const grd = ctx.createLinearGradient(0, c.y - this.h, 0, c.y + this.h);
+      grd.addColorStop(0, '#f4d27f'); grd.addColorStop(1, '#d39c5b');
+
+      ctx.beginPath();
+      for(let i=0;i<pts.length;i++){
+        const p = pts[i];
+        if(i===0) ctx.moveTo(p.x, p.y); else ctx.lineTo(p.x, p.y);
+      }
+      ctx.closePath();
+      ctx.fillStyle = grd; ctx.fill();
+      ctx.lineWidth = 2; ctx.strokeStyle = '#a06b2f55'; ctx.stroke();
+
+      // butter smear aligned to principal axis
+      ctx.save();
+      ctx.translate(c.x, c.y);
+      ctx.rotate(this.angle);
+      ctx.fillStyle = 'rgba(255,255,255,0.08)';
+      ctx.fillRect(-18,-6,36,12);
+      ctx.restore();
+    }
+  }
+
+  class Pan {
+    constructor(){
+      this.x = W*0.5;
+      this.width = roundParams(round).panWidth;
+      this.depth = 24;
+      this.tilt = 0;
+    }
+    step(dt){
+      const sp = roundParams(round).panSpeed;
+      if(input.left) this.x -= sp*dt;
+      if(input.right) this.x += sp*dt;
+      this.x = clamp(this.x, this.width/2 + 8, W - this.width/2 - 8);
+
+      const tiltRate = 1.8;
+      if(input.tiltL) this.tilt = clamp(this.tilt - tiltRate*dt, -0.35, 0.35);
+      if(input.tiltR) this.tilt = clamp(this.tilt + tiltRate*dt, -0.35, 0.35);
+      if(!input.tiltL && !input.tiltR){ this.tilt *= Math.pow(0.001, dt); }
+      this.width = roundParams(round).panWidth;
+    }
+    draw(ctx){
+      const y = PAN_Y();
+      ctx.save(); ctx.translate(this.x, y); ctx.rotate(this.tilt);
+      // inner bowl
+      ctx.beginPath(); ctx.ellipse(0,0, this.width*0.52, this.depth, 0, 0, TAU);
+      ctx.fillStyle = '#263342'; ctx.fill(); ctx.lineWidth = 2; ctx.strokeStyle = '#3b4c63'; ctx.stroke();
+      // inner shading
+      const rg = ctx.createLinearGradient(0,-this.depth,0,this.depth);
+      rg.addColorStop(0,'#1b2839'); rg.addColorStop(1,'#0f1a2b');
+      ctx.beginPath(); ctx.ellipse(0,0, this.width*0.48, this.depth*0.72, 0, 0, TAU);
+      ctx.fillStyle = rg; ctx.fill();
+      // rim
+      ctx.beginPath(); ctx.ellipse(0,0, this.width*0.54, this.depth*1.05, 0, 0, TAU);
+      ctx.lineWidth = 6; ctx.strokeStyle = '#526581'; ctx.stroke();
+      // handle
+      ctx.fillStyle = '#1d2840';
+      ctx.fillRect(this.width*0.55, -6, Math.min(200, 120+this.width*0.05), 12);
+      ctx.restore();
+    }
+  }
+
+  // ===== Game =====
+  const game = {
+    score:0, best:Number(localStorage.getItem(saveKey)||0),
+    lives:3,
+    pan:new Pan(),
+    cake:new SoftPancake(),
+    charging:false, chargeT:0,
+    started:false,
+    lastTime:performance.now(),
+
+    addScore(pts, flips, flat){
+      this.score += pts;
+      ui.sc.textContent = this.score|0;
+      if(this.score > this.best){
+        this.best = this.score; ui.best.textContent = this.best|0;
+        localStorage.setItem(saveKey, this.best|0);
+      }
+      ui.flips.textContent = Math.max(0, flips|0);
+      this.toast(`${flips||0} flip${flips===1?'':'s'} — ${flat?'Clean catch!':'Sloppy catch'} (+${pts})`);
+      const prev = round;
+      round = 1 + Math.floor(this.score / 50);
+      if(round !== prev){ ui.round.textContent = round; this.toast(`Round ${round}`, 1200); }
+    },
+    scoreForCatch(flips, flat){
+      if(flips<=0) return flat? 5: 2;
+      let base = 10*flips;
+      if(flips>=2) base += 5*(flips-1);
+      if(flat) base = Math.round(base*1.3);
+      return base;
+    },
+    onMiss(){
+      this.lives--;
+      ui.lives.textContent = this.lives;
+      this.toast('Missed the pan! -1 life', 1000);
+      this.cake.resetOnPan(this.pan);
+      this.charging=false; this.chargeT=0; updatePowerBar(0);
+      if(this.lives<=0){ this.gameOver(); }
+    },
+    gameOver(){
+      this.started=false;
+      showCenter(`Game Over<br/><span style="color:var(--muted);font-size:12px">Score ${this.score} • Best ${this.best}</span>`, 'Restart');
+    },
+    step(dt){
+      if(input.paused || !this.started) return;
+      this.pan.step(dt);
+      this.cake.step(dt, this.pan);
+
+      if(this.charging){
+        this.chargeT = clamp(this.chargeT + dt, 0, input.holdMax);
+        updatePowerBar(this.chargeT/input.holdMax);
+      } else if(!this.cake.inAir){
+        this.chargeT = clamp(this.chargeT - dt*0.8, 0, input.holdMax);
+        updatePowerBar(this.chargeT/input.holdMax);
+      }
+    },
+    draw(){
+      // background + floor
+      ctx.clearRect(0,0,W,H);
+      const grad = ctx.createLinearGradient(0,0,0,H);
+      grad.addColorStop(0, '#0e1626'); grad.addColorStop(1, '#0a111d');
+      ctx.fillStyle = grad; ctx.fillRect(0,0,W,H);
+      ctx.fillStyle = '#0e1a2b'; ctx.fillRect(0, FLOOR_POS(), W, H - FLOOR_POS());
+
+      this.pan.draw(ctx);
+      this.cake.draw(ctx);
+    },
+    start(){
+      this.score=0; ui.sc.textContent='0';
+      this.lives=3; ui.lives.textContent='3';
+      round=1; ui.round.textContent='1';
+      this.pan = new Pan();
+      this.cake = new SoftPancake();
+      this.cake.resetOnPan(this.pan);
+      this.charging=false; this.chargeT=0; updatePowerBar(0);
+      this.started=true;
+      hideCenter();
+      this.toast('Good luck!', 800);
+    },
+    launch(){
+      if(this.cake.inAir) return;
+      const t = clamp(this.chargeT, 0, input.holdMax);
+      const frac = t / input.holdMax;
+
+      const rp = roundParams(round);
+      const perfect = (frac >= rp.perfectMin && frac <= rp.perfectMax);
+
+      // Base upward thrust
+      const baseUp = 520 + 680*Math.pow(frac, 1.1) + (perfect? 120 : 0);
+
+      // Hinge at LEFT rim (in world coordinates)
+      const leftRimLocal = { x: -this.pan.width*0.48, y: 0 }; // pan space
+      const hinge = fromPanSpace(leftRimLocal.x, leftRimLocal.y, this.pan);
+
+      // Angular speed: more charge => faster whip; tilt biases direction
+      const omega = (2.5 + 4.5*frac) * (1 + 0.4*Math.sin(this.pan.tilt)); // rad/s equivalent impulse scale
+
+      // Linear sideways from tilt (so you can arc left/right)
+      const side = Math.sin(this.pan.tilt) * (140 + 220*frac);
+
+      // Apply to soft body (linear + angular about hinge)
+      this.cake.applyImpulseHinged(side, -baseUp, omega, hinge);
+
+      // tiny recoil wobble
+      this.pan.tilt += (Math.random()*0.18 - 0.09);
+
+      // clear charge
+      this.charging=false; this.chargeT=0; updatePowerBar(0);
+    },
+    toast(msg, ms=900){
+      const el = ui.toast;
+      el.textContent = msg;
+      el.style.display = 'inline-block';
+      clearTimeout(el._t);
+      el._t = setTimeout(()=>{ el.style.display='none'; }, ms);
+    }
+  };
+
+  // ===== Input =====
+  function onPress(){ if(!game.started || input.paused) return; input.holding=true; game.charging=true; }
+  function onRelease(){ if(!game.started || input.paused) return; input.holding=false; game.launch(); }
+
+  window.addEventListener('keydown', e=>{
+    if(e.repeat) return;
+    const k = e.key.toLowerCase();
+    if(k===' '){ e.preventDefault(); onPress(); }
+    if(k==='arrowleft' || k==='a') input.left = true;
+    if(k==='arrowright' || k==='d') input.right = true;
+    if(k==='q') input.tiltL = true;
+    if(k==='e') input.tiltR = true;
+    if(k==='p'){ input.paused = !input.paused; game.toast(input.paused?'Paused':'Resumed', 700); }
+    if(k==='r'){ game.start(); }
+  });
+  window.addEventListener('keyup', e=>{
+    const k = e.key.toLowerCase();
+    if(k===' '){ e.preventDefault(); onRelease(); }
+    if(k==='arrowleft' || k==='a') input.left = false;
+    if(k==='arrowright' || k==='d') input.right = false;
+    if(k==='q') input.tiltL = false;
+    if(k==='e') input.tiltR = false;
+  });
+  window.addEventListener('mousedown', e=>{ if(e.button===0) onPress(); });
+  window.addEventListener('mouseup',   e=>{ if(e.button===0) onRelease(); });
+  window.addEventListener('touchstart', e=>{ onPress(); }, {passive:true});
+  window.addEventListener('touchend',   e=>{ onRelease(); }, {passive:true});
+  ui.startBtn.addEventListener('click', (e)=>{ e.preventDefault(); game.start(); });
+
+  function showCenter(html, buttonLabel='Start'){
+    ui.center.style.display = 'block';
+    ui.center.innerHTML = `
+      <div style="font-size:18px;font-weight:800;margin-bottom:6px;">${html}</div>
+      <a href="#" class="btn" id="startBtn2">${buttonLabel}</a>
+      <div class="help" style="margin-top:6px">Tip: Hinged flips vary a lot — play with tilt for side-arc.</div>
+    `;
+    ui.center.querySelector('#startBtn2').addEventListener('click', (e)=>{ e.preventDefault(); game.start(); });
+  }
+  function hideCenter(){ ui.center.style.display='none'; }
+
+  function updatePowerBar(frac){
+    const pct = Math.round(frac*100);
+    ui.pct.textContent = pct + '%';
+    ui.fill.style.width = (pct + '%');
+  }
+  ui.best.textContent = game.best|0;
+
+  // ===== Main loop =====
+  function frame(t){
+    const now = t || performance.now();
+    let dt = (now - game.lastTime)/1000;
+    game.lastTime = now;
+    dt = Math.min(1/20, Math.max(1/120, dt));
+    game.step(dt);
+    game.draw();
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>

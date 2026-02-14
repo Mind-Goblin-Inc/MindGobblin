@@ -1,0 +1,548 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Mind Goblin — Top‑Down Roguelike</title>
+<style>
+  :root{
+    --bg:#0b0f17;--bg2:#0f1522;--fg:#e7ecef;--muted:#9aa6b2;--edge:#1f2a3c;
+    --brand:#57e6c1;--brand2:#3ac39f;--danger:#ff6b6b;--warn:#ffd166;--ok:#76ffd9;
+  }
+  html,body{height:100%}
+  body{margin:0;background:
+    radial-gradient(1200px 800px at 10% -10%, #13203a 0%, transparent 60%),
+    radial-gradient(1200px 800px at 110% 10%, #0e1b1a 0%, transparent 55%),var(--bg);
+    color:var(--fg);font:14px/1.4 system-ui,Segoe UI,Roboto,Inter,Arial,sans-serif;}
+  #wrap{display:grid;grid-template-columns:1fr 340px;height:100vh}
+  #game{background:conic-gradient(from 0deg at 50% 50%, #0b0f17 0 25%, #0a111b 0 50%, #0b0f17 0 75%, #0a111b 0);}
+  #ui{border-left:1px solid var(--edge);display:flex;flex-direction:column}
+  #hud{padding:10px;border-bottom:1px solid var(--edge)}
+  #hud h1{margin:0 0 6px;font-size:16px;color:var(--ok)}
+  #hud .row{display:flex;gap:8px;flex-wrap:wrap}
+  .pill{border:1px solid var(--edge);border-radius:999px;padding:3px 8px;background:#0f1522;}
+  #log{flex:1;overflow:auto;padding:10px}
+  #log p{margin:6px 0;color:var(--muted)}
+  #controls{padding:10px;border-top:1px solid var(--edge)}
+  #controls kbd{background:#111a29;border:1px solid #203047;border-bottom-color:#162031;border-radius:6px;padding:2px 6px;color:#cfe6ff}
+  #start{position:absolute;inset:0;display:grid;place-items:center;background:#000000a0;backdrop-filter:blur(2px)}
+  #start .card{background:#0f1522;border:1px solid var(--edge);padding:18px 22px;border-radius:14px;max-width:520px}
+  #start h2{margin:0 0 8px;color:var(--brand)}
+  #start button{appearance:none;border:1px solid var(--edge);background:linear-gradient(#162035,#0e1422);color:var(--fg);
+    padding:10px 14px;border-radius:12px;cursor:pointer}
+  #start ul{margin:8px 0 0 18px}
+</style>
+</head>
+<body>
+<div id="wrap">
+  <canvas id="game"></canvas>
+  <aside id="ui">
+    <div id="hud">
+      <h1>Mind Goblin</h1>
+      <div class="row">
+        <span class="pill" id="hpPill">HP: 0/0</span>
+        <span class="pill" id="mpPill">MP: 0/0</span>
+        <span class="pill" id="wavePill">Wave 1</span>
+        <span class="pill" id="lootPill">Loot 0</span>
+      </div>
+      <div class="row" style="margin-top:6px">
+        <span class="pill" id="cdQ">Q Stun: ready</span>
+        <span class="pill" id="cdE">E Mind Control: ready</span>
+        <span class="pill" id="cdR">R Summon: ready</span>
+      </div>
+    </div>
+    <div id="log"></div>
+    <div id="controls">
+      <div><strong>Controls</strong></div>
+      <div style="margin-top:6px">
+        Move: <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> · Aim: mouse · Shoot: <kbd>Left Click</kbd><br>
+        <kbd>Q</kbd> Psychic Stun · <kbd>E</kbd> Mind Control · <kbd>R</kbd> Summon Goblin · <kbd>Space</kbd> Dash
+      </div>
+    </div>
+  </aside>
+</div>
+<div id="start">
+  <div class="card">
+    <h2>Steal it back.</h2>
+    <p>You are the <em>Mind Goblin</em>. Heroes raid your dungeon, grab treasure, and try to escape. Stop them on the way out.
+    Slay foes to level up your psychic powers and loot better gear.</p>
+    <ul>
+      <li><strong>Enemy roles:</strong> Warrior (melee), Rogue (dashes for loot), Archer (ranged), Mage (heals allies).</li>
+      <li><strong>Your kit:</strong> Psi Bolt (LMB), Stun (Q), Mind Control (E), Summon Ally (R), Dash (Space).</li>
+      <li>Waves escalate: peasants → leather → chain → steel knights. Stop carriers reaching the exit!</li>
+    </ul>
+    <div style="display:flex;gap:10px;align-items:center;margin-top:10px">
+      <button id="btnPlay">Start Game</button>
+      <small style="color:var(--muted)">Tip: Any key also starts.</small>
+    </div>
+  </div>
+</div>
+<script>
+(()=>{
+  'use strict';
+  // ===== Utility =====
+  const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+  const lerp=(a,b,t)=>a+(b-a)*t;
+  const dist2=(a,b)=>{let dx=a.x-b.x, dy=a.y-b.y; return dx*dx+dy*dy};
+  const rand=(a,b)=>Math.random()*(b-a)+a;
+  const pick=a=>a[(Math.random()*a.length)|0];
+
+  // ===== Canvas & Layout =====
+  const cvs=document.getElementById('game');
+  const ctx=cvs.getContext('2d');
+  const ui={
+    hp:document.getElementById('hpPill'),
+    mp:document.getElementById('mpPill'),
+    wave:document.getElementById('wavePill'),
+    loot:document.getElementById('lootPill'),
+    cdQ:document.getElementById('cdQ'),
+    cdE:document.getElementById('cdE'),
+    cdR:document.getElementById('cdR'),
+    log:document.getElementById('log'),
+  };
+  const startOverlay=document.getElementById('start');
+  const btnPlay=document.getElementById('btnPlay');
+
+  function resize(){
+    const wrap=document.getElementById('wrap');
+    const w=wrap.clientWidth-340; // sidebar
+    const h=wrap.clientHeight;
+    cvs.width=w; cvs.height=h;
+  }
+  addEventListener('resize',resize,{passive:true});
+  resize();
+
+  function log(msg){
+    const p=document.createElement('p');
+    p.textContent=msg; ui.log.appendChild(p); ui.log.scrollTop=ui.log.scrollHeight;
+  }
+
+  // ===== Input =====
+  const keys=new Set();
+  let mouse={x:0,y:0,down:false};
+  addEventListener('keydown',e=>{keys.add(e.key.toLowerCase()); if(showingStart){begin();}});
+  addEventListener('keyup',e=>keys.delete(e.key.toLowerCase()));
+  cvs.addEventListener('mousemove',e=>{
+    const r=cvs.getBoundingClientRect();
+    mouse.x=e.clientX-r.left; mouse.y=e.clientY-r.top;
+  });
+  cvs.addEventListener('mousedown',()=>mouse.down=true);
+  addEventListener('mouseup',()=>mouse.down=false);
+
+  // ===== Game State =====
+  let t=0, dt=0, last=0; // time
+  const world={w:2000,h:1200};
+  const exit={x:world.w-120,y:world.h/2, r:70};
+  const chest={x:120,y:world.h/2, r:60};
+  const camera={x:0,y:0, zoom:1};
+  const bullets=[]; const particles=[]; const enemies=[]; const allies=[]; const loot=[];
+  let wave=1, difficulty=1;
+
+  const player={
+    x:world.w/2, y:world.h/2, r:16, vx:0, vy:0,
+    speed:240, hp:100, hpMax:100, mp:100, mpMax:100,
+    dmg:14, firerate:6, fireCd:0,
+    dashCd:0, dashReady:true,
+    stunCd:0, mindCd:0, sumCd:0,
+    loot:0,
+  };
+
+  function gearTierColor(tier){
+    // 1 peasant, 2 leather, 3 chain, 4 steel, 5 knight/champion
+    switch(tier){
+      case 1: return '#a7c957';
+      case 2: return '#b08968';
+      case 3: return '#94a3b8';
+      case 4: return '#cbd5e1';
+      default: return '#e2e8f0';
+    }
+  }
+
+  // ===== Spawning =====
+  function spawnWave(){
+    const count=6+wave*2;
+    const types=['warrior','rogue','archer','mage'];
+    for(let i=0;i<count;i++){
+      const type=pick(types);
+      const side=Math.random()<0.5? 'left':'right';
+      const x=side==='left'? rand(20,140): rand(world.w-140, world.w-20);
+      const y=rand(120, world.h-120);
+      const tier=clamp(1+((wave/3)|0),1,5);
+      spawnEnemy(type,x,y,tier);
+    }
+    // Put treasure at chest side; some enemies will try to grab and run to exit
+    log(`Wave ${wave}: ${count} raiders invade!`);
+  }
+
+  function baseStatsFor(type,tier){
+    const mult=1+0.15*(tier-1)+0.08*(wave-1);
+    const S={hp:60, dmg:8, speed:120, range:80, firerate:1.2, heal:0};
+    if(type==='warrior'){S.hp=120; S.dmg=16; S.speed=110; S.range=24; S.firerate=0.8}
+    if(type==='rogue'){S.hp=70; S.dmg=10; S.speed=160; S.range=18; S.firerate=1.4}
+    if(type==='archer'){S.hp=80; S.dmg=10; S.speed=120; S.range=260; S.firerate=0.9}
+    if(type==='mage'){S.hp=80; S.dmg=4;  S.speed=110; S.range=220; S.firerate=0.7; S.heal=10}
+    return {hp:S.hp*mult, dmg:S.dmg*mult, speed:S.speed*mult, range:S.range, firerate:S.firerate*mult, heal:S.heal*mult};
+  }
+
+  function spawnEnemy(type,x,y,tier){
+    const s=baseStatsFor(type,tier);
+    const e={type,x,y,r:14, vx:0, vy:0, hp:s.hp, hpMax:s.hp, dmg:s.dmg, speed:s.speed,
+      range:s.range, firerate:s.firerate, fireCd:rand(0,1), state:'advance', team:'hero',
+      tier, stunned:0, controlled:0, carrying:false, target:'exit'};
+    // rogues start by targeting chest, others target player/exit depending
+    if(type==='rogue'){ e.target='chest'; }
+    enemies.push(e);
+  }
+
+  function spawnAlly(x,y){
+    const a={type:'goblin', x, y, r:13, vx:0, vy:0, hp:60, hpMax:60, dmg:10+0.6*player.dmg, speed:150,
+      range:60, firerate:1.3, fireCd:0, team:'gob', state:'guard'};
+    allies.push(a);
+  }
+
+  // ===== Projectiles & Effects =====
+  function fireBolt(from,dir,team,dmg,speed=420, life=1.6){
+    const m=Math.hypot(dir.x,dir.y)||1; const nx=dir.x/m, ny=dir.y/m;
+    bullets.push({x:from.x+nx*(from.r+6), y:from.y+ny*(from.r+6), vx:nx*speed, vy:ny*speed,
+      r:4, life, team, dmg});
+  }
+  function fireArrow(shooter,target){
+    const dir={x:target.x-shooter.x, y:target.y-shooter.y};
+    fireBolt(shooter,dir,'hero',shooter.dmg, 380, 2.0);
+  }
+  function healPulse(m){
+    particles.push({x:m.x,y:m.y, life:0.4, kind:'heal'});
+    for(const e of enemies){
+      if(e.team==='hero' && e.stunned<=0 && dist2(e,m)<(180*180)){
+        e.hp = clamp(e.hp + 6 + m.tier*2, 0, e.hpMax);
+      }
+    }
+  }
+  function explode(x,y, color='#76ffd9'){
+    for(let i=0;i<12;i++){
+      particles.push({x,y, vx:rand(-120,120), vy:rand(-120,120), life:rand(0.3,0.7), kind:'spark', color});
+    }
+  }
+
+  // ===== Loot =====
+  function dropLoot(x,y){
+    const kind=pick(['orb','gear','mana']);
+    loot.push({x,y,r:8, kind, life:10});
+  }
+  function pickLoot(l){
+    if(l.kind==='orb'){
+      player.dmg+=2; player.firerate*=0.95; log('Loot: Psi resonance (+DMG, +ROF)');
+    } else if(l.kind==='gear'){
+      player.hpMax+=10; player.hp+=10; player.speed+=4; log('Loot: Goblin gear (+HP, +SPD)');
+    } else if(l.kind==='mana'){
+      player.mp=clamp(player.mp+30,0,player.mpMax); log('Loot: Mana shard (+MP)');
+    }
+    player.loot++; ui.loot.textContent=`Loot ${player.loot}`;
+  }
+
+  // ===== Abilities =====
+  function tryShoot(){
+    if(player.fireCd>0) return;
+    player.fireCd=1/player.firerate;
+    const dir={x:mouse.x+camera.x-player.x, y:mouse.y+camera.y-player.y};
+    fireBolt(player,dir,'gob',player.dmg, 520, 1.2);
+  }
+  function dash(){
+    if(player.dashCd>0) return;
+    const ang=Math.atan2(mouse.y+camera.y-player.y, mouse.x+camera.x-player.x);
+    player.vx+=Math.cos(ang)*420; player.vy+=Math.sin(ang)*420;
+    player.dashCd=2.4;
+  }
+  function stun(){
+    if(player.stunCd>0 || player.mp<18) return;
+    // stun nearest hero in cone/range
+    let best=null, bestd=999999;
+    for(const e of enemies){
+      if(e.team!=='hero') continue; const d=dist2(e,player); if(d<bestd && d<(260*260)) { best=e; bestd=d; }
+    }
+    if(best){ best.stunned=2.2; player.mp-=18; player.stunCd=6; explode(best.x,best.y,'#a78bfa'); log('Psychic Stun!'); }
+  }
+  function mindControl(){
+    if(player.mindCd>0 || player.mp<35) return;
+    let best=null, bestd=999999;
+    for(const e of enemies){ if(e.team==='hero' && e.stunned<=0){ const d=dist2(e,player); if(d<bestd && d<(220*220)) {best=e; bestd=d;} } }
+    if(best){ best.team='gob'; best.controlled=8; player.mp-=35; player.mindCd=12; explode(best.x,best.y,'#57e6c1'); log('Mind Control: fight for me!'); }
+  }
+  function summon(){
+    if(player.sumCd>0 || player.mp<24) return;
+    spawnAlly(player.x+rand(-40,40), player.y+rand(-40,40));
+    player.sumCd=10; player.mp-=24; log('Summoned a goblin ally.');
+  }
+
+  // ===== AI =====
+  function toward(a,b,spd){
+    const dx=b.x-a.x, dy=b.y-a.y; const m=Math.hypot(dx,dy)||1; a.vx+=dx/m*spd; a.vy+=dy/m*spd;
+  }
+
+  function updateEnemy(e, dt){
+    if(e.stunned>0){ e.stunned-=dt; return; }
+    if(e.controlled>0){ e.controlled-=dt; e.team = e.controlled>0? 'gob':'hero'; }
+    // behavior per type
+    if(e.type==='warrior'){
+      // beeline to player if close, else escort carrier to exit
+      const target = (e.carrying? exit : (Math.hypot(player.x-e.x, player.y-e.y)<260? player : (e.target==='chest'? chest: exit)));
+      toward(e, target, e.speed*0.8*dt);
+      if(target===player && Math.hypot(player.x-e.x, player.y-e.y)<(e.range+player.r)){
+        player.hp-=e.dmg*dt*0.8;
+      }
+    }
+    if(e.type==='rogue'){
+      // dash to chest then to exit; steals loot when near chest
+      if(e.target==='chest'){
+        toward(e,chest,e.speed*dt);
+        if(Math.hypot(e.x-chest.x,e.y-chest.y)<(chest.r+8)){ e.carrying=true; e.target='exit'; log('A rogue grabbed treasure!'); }
+      } else {
+        toward(e,exit,e.speed*dt);
+      }
+    }
+    if(e.type==='archer'){
+      const d=Math.hypot(player.x-e.x, player.y-e.y);
+      if(d>e.range*0.85) toward(e,player,e.speed*0.7*dt); else { e.vx*=0.9; e.vy*=0.9; }
+      e.fireCd-=dt; if(e.fireCd<=0 && d<e.range){ fireArrow(e,player); e.fireCd=1/e.firerate; }
+    }
+    if(e.type==='mage'){
+      // keep behind others; heal pulses
+      // move towards nearest injured ally, else hover mid
+      let injured=null, best=0;
+      for(const x of enemies){ if(x.team==='hero' && x.hp<x.hpMax && x!==e){ const need=(x.hpMax-x.hp); if(need>best){best=need; injured=x;} } }
+      const tgt=injured||{x:(world.w*0.6),y:world.h/2};
+      toward(e,tgt,e.speed*0.6*dt);
+      e.fireCd-=dt; if(e.fireCd<=0){ healPulse(e); e.fireCd=1.6/e.firerate; }
+    }
+
+    // Apply velocity & friction
+    e.x+=e.vx*dt; e.y+=e.vy*dt; e.vx*=0.9; e.vy*=0.9;
+
+    // reaching exit with treasure
+    if(e.carrying && Math.hypot(e.x-exit.x,e.y-exit.y)<(exit.r+8)){
+      // hero escapes with treasure: hurt morale (player)
+      player.hp-=20; explode(exit.x,exit.y,'#ffd166'); e.carrying=false; e.target='chest';
+      log('A rogue escaped with treasure!');
+    }
+  }
+
+  function updateAlly(a,dt){
+    // find nearest hero to attack
+    let target=null, bd=1e9;
+    for(const e of enemies){ if(e.team==='hero'){ const d=dist2(a,e); if(d<bd){bd=d; target=e;} } }
+    if(target){ toward(a,target,a.speed*0.7*dt); if(Math.hypot(target.x-a.x,target.y-a.y)<(a.range+target.r)) target.hp-=a.dmg*dt*0.6; }
+    a.x+=a.vx*dt; a.y+=a.vy*dt; a.vx*=0.9; a.vy*=0.9;
+    a.fireCd-=dt;
+  }
+
+  // ===== Physics & Combat =====
+  function stepBullets(dt){
+    for(let i=bullets.length-1;i>=0;i--){
+      const b=bullets[i]; b.x+=b.vx*dt; b.y+=b.vy*dt; b.life-=dt;
+      if(b.life<=0){ bullets.splice(i,1); continue; }
+      // collisions
+      if(b.team==='gob'){
+        for(const e of enemies){ if(e.team==='hero' && Math.hypot(b.x-e.x,b.y-e.y)<(b.r+e.r)){
+          e.hp-=b.dmg; explode(b.x,b.y,'#57e6c1'); bullets.splice(i,1); break; }
+        }
+      } else {
+        if(Math.hypot(b.x-player.x,b.y-player.y)<(b.r+player.r)){
+          player.hp-=b.dmg; explode(b.x,b.y,'#ff8fa3'); bullets.splice(i,1); continue;
+        }
+        for(const a of allies){ if(Math.hypot(b.x-a.x,b.y-a.y)<(b.r+a.r)){ a.hp-=b.dmg; bullets.splice(i,1); break; } }
+      }
+    }
+  }
+
+  function stepParticles(dt){
+    for(let i=particles.length-1;i>=0;i--){ const p=particles[i]; p.life-=dt; if(p.vx){ p.x+=p.vx*dt; p.y+=p.vy*dt; p.vx*=0.92; p.vy*=0.92; } if(p.life<=0) particles.splice(i,1); }
+  }
+
+  function stepLoot(dt){
+    for(let i=loot.length-1;i>=0;i--){ const l=loot[i]; l.life-=dt; if(life<=0){loot.splice(i,1); continue;} }
+  }
+
+  // ===== Loop =====
+  let showingStart=true;
+  function begin(){
+    if(!showingStart) return; showingStart=false; startOverlay.style.display='none';
+    resetGame();
+  }
+  btnPlay.addEventListener('click', begin);
+
+  function resetGame(){
+    enemies.length=0; bullets.length=0; particles.length=0; allies.length=0; loot.length=0;
+    wave=1; difficulty=1; player.x=world.w*0.72; player.y=world.h/2; player.vx=player.vy=0;
+    player.hp=player.hpMax=100; player.mp=player.mpMax=100; player.dmg=14; player.firerate=6; player.speed=240;
+    player.stunCd=player.mindCd=player.sumCd=player.dashCd=0; player.loot=0;
+    spawnAlly(player.x-40, player.y+40);
+    spawnWave();
+    log('Protect your hoard.');
+    requestAnimationFrame(frame);
+  }
+
+  function nextWave(){
+    wave++; difficulty+=0.3; ui.wave.textContent=`Wave ${wave}`;
+    spawnWave();
+  }
+
+  function frame(ts){
+    if(last===0) last=ts; dt=Math.min(0.033,(ts-last)/1000); last=ts; t+=dt;
+    update(dt); draw();
+    if(!showingStart) requestAnimationFrame(frame);
+  }
+
+  function update(dt){
+    // input
+    const ax=(keys.has('a')?-1:0)+(keys.has('d')?1:0);
+    const ay=(keys.has('w')?-1:0)+(keys.has('s')?1:0);
+    let spd=player.speed; if(keys.has(' ')) { dash(); }
+    player.vx+=ax*spd*dt; player.vy+=ay*spd*dt;
+    player.x+=player.vx*dt; player.y+=player.vy*dt; player.vx*=0.86; player.vy*=0.86;
+    player.x=clamp(player.x, 40, world.w-40); player.y=clamp(player.y, 40, world.h-40);
+
+    // fire
+    if(mouse.down) tryShoot();
+
+    // abilities
+    if(keys.has('q')) { stun(); keys.delete('q'); }
+    if(keys.has('e')) { mindControl(); keys.delete('e'); }
+    if(keys.has('r')) { summon(); keys.delete('r'); }
+
+    // cooldowns & regen
+    player.fireCd=Math.max(0,player.fireCd-dt);
+    player.dashCd=Math.max(0,player.dashCd-dt);
+    player.stunCd=Math.max(0,player.stunCd-dt);
+    player.mindCd=Math.max(0,player.mindCd-dt);
+    player.sumCd=Math.max(0,player.sumCd-dt);
+    player.mp=clamp(player.mp+8*dt,0,player.mpMax);
+
+    // camera follows player
+    camera.x = clamp(player.x - cvs.width/2, 0, world.w - cvs.width);
+    camera.y = clamp(player.y - cvs.height/2, 0, world.h - cvs.height);
+
+    // update arrays
+    for(let i=enemies.length-1;i>=0;i--){ const e=enemies[i]; updateEnemy(e,dt); if(e.hp<=0){
+      explode(e.x,e.y, gearTierColor(e.tier)); if(Math.random()<0.6) dropLoot(e.x,e.y);
+      enemies.splice(i,1);
+    } }
+    for(let i=allies.length-1;i>=0;i--){ const a=allies[i]; updateAlly(a,dt); if(a.hp<=0){ explode(a.x,a.y,'#94d2bd'); allies.splice(i,1);} }
+
+    stepBullets(dt); stepParticles(dt);
+
+    // loot pickup
+    for(let i=loot.length-1;i>=0;i--){ const l=loot[i]; if(Math.hypot(player.x-l.x,player.y-l.y)<(player.r+l.r+4)){ pickLoot(l); loot.splice(i,1); } }
+
+    // wave/checks
+    if(enemies.length===0){ nextWave(); }
+
+    // UI
+    ui.hp.textContent=`HP: ${Math.max(0,player.hp|0)}/${player.hpMax|0}`;
+    ui.mp.textContent=`MP: ${Math.max(0,player.mp|0)}/${player.mpMax|0}`;
+    ui.cdQ.textContent=`Q Stun: ${player.stunCd>0? player.stunCd.toFixed(1)+'s':'ready'}`;
+    ui.cdE.textContent=`E Mind Control: ${player.mindCd>0? player.mindCd.toFixed(1)+'s':'ready'}`;
+    ui.cdR.textContent=`R Summon: ${player.sumCd>0? player.sumCd.toFixed(1)+'s':'ready'}`;
+
+    // death
+    if(player.hp<=0){
+      log('You were slain. Your hoard grows thinner...');
+      showingStart=true; startOverlay.style.display='grid';
+      startOverlay.querySelector('h2').textContent='You died. Try again?';
+    }
+  }
+
+  // ===== Draw =====
+  function draw(){
+    ctx.clearRect(0,0,cvs.width,cvs.height);
+    ctx.save(); ctx.translate(-camera.x, -camera.y);
+
+    // floor grid
+    ctx.fillStyle='#0b0f17'; ctx.fillRect(camera.x,camera.y,cvs.width,cvs.height);
+    ctx.strokeStyle='#101a2b'; ctx.lineWidth=1;
+    for(let x=0; x<world.w; x+=60){ ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,world.h); ctx.stroke(); }
+    for(let y=0; y<world.h; y+=60){ ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(world.w,y); ctx.stroke(); }
+
+    // chest and exit
+    drawZone(chest.x, chest.y, chest.r, '#ffd166', 'Hoard');
+    drawZone(exit.x, exit.y, exit.r, '#94d2bd', 'Exit');
+
+    // loot
+    for(const l of loot){
+      ctx.beginPath(); ctx.arc(l.x,l.y,l.r,0,Math.PI*2);
+      ctx.fillStyle = l.kind==='mana'? '#60a5fa' : (l.kind==='gear'? '#f59e0b' : '#57e6c1');
+      ctx.fill(); ctx.strokeStyle='#0f172a'; ctx.stroke();
+    }
+
+    // enemies
+    for(const e of enemies){ drawEnemy(e); }
+
+    // allies
+    for(const a of allies){ drawAlly(a); }
+
+    // player
+    drawPlayer();
+
+    // bullets
+    for(const b of bullets){ ctx.beginPath(); ctx.arc(b.x,b.y,b.r,0,Math.PI*2); ctx.fillStyle=b.team==='gob'? '#57e6c1' : '#ff8fa3'; ctx.fill(); }
+
+    // particles
+    for(const p of particles){ if(p.kind==='spark'){ ctx.globalAlpha=clamp(p.life,0,1); ctx.fillStyle=p.color||'#fff'; ctx.fillRect(p.x-2,p.y-2,4,4); ctx.globalAlpha=1; } if(p.kind==='heal'){ ctx.globalAlpha=clamp(p.life*2,0,0.8); ctx.beginPath(); ctx.arc(p.x,p.y,70*(1-p.life),0,Math.PI*2); ctx.strokeStyle='#86efac'; ctx.lineWidth=2; ctx.stroke(); ctx.globalAlpha=1; } }
+
+    // HUD pointer to mouse
+    ctx.beginPath(); ctx.arc(mouse.x+camera.x, mouse.y+camera.y, 4, 0, Math.PI*2); ctx.strokeStyle='#57e6c1'; ctx.stroke();
+
+    ctx.restore();
+  }
+
+  function drawZone(x,y,r,color,label){
+    ctx.beginPath(); ctx.arc(x,y,r,0,Math.PI*2); ctx.fillStyle=color+'20'; ctx.fill(); ctx.strokeStyle=color; ctx.lineWidth=2; ctx.stroke();
+    ctx.fillStyle=color; ctx.font='12px system-ui'; ctx.fillText(label, x-18, y+4);
+  }
+
+  function drawEnemy(e){
+    const gear=gearTierColor(e.tier);
+    ctx.save();
+    ctx.translate(e.x,e.y);
+    // body
+    ctx.beginPath(); ctx.arc(0,0,e.r,0,Math.PI*2); ctx.fillStyle= e.team==='hero'? '#e2e8f0':'#77dd77'; ctx.fill();
+    ctx.strokeStyle=gear; ctx.lineWidth=3; ctx.stroke();
+    // role marker
+    ctx.fillStyle={warrior:'#ef4444', rogue:'#f59e0b', archer:'#60a5fa', mage:'#86efac'}[e.type];
+    ctx.beginPath(); ctx.arc(0,-e.r-6,4,0,Math.PI*2); ctx.fill();
+    if(e.carrying){ ctx.strokeStyle='#ffd166'; ctx.strokeRect(-6,-6,12,12); }
+    if(e.stunned>0){ ctx.fillStyle='#a78bfa'; ctx.fillRect(-e.r, -e.r-14, e.r*2*(e.stunned/2.2), 4); }
+    if(e.controlled>0){ ctx.strokeStyle='#57e6c1'; ctx.beginPath(); ctx.arc(0,0,e.r+6,0,Math.PI*2); ctx.stroke(); }
+    // hp bar
+    ctx.fillStyle='#0f172a'; ctx.fillRect(-e.r, e.r+5, e.r*2, 4);
+    ctx.fillStyle='#22c55e'; ctx.fillRect(-e.r, e.r+5, e.r*2*(e.hp/e.hpMax), 4);
+    ctx.restore();
+  }
+
+  function drawAlly(a){
+    ctx.save(); ctx.translate(a.x,a.y);
+    ctx.beginPath(); ctx.arc(0,0,a.r,0,Math.PI*2); ctx.fillStyle='#77dd77'; ctx.fill();
+    ctx.strokeStyle='#3ac39f'; ctx.lineWidth=3; ctx.stroke();
+    ctx.fillStyle='#0f172a'; ctx.fillRect(-a.r, a.r+5, a.r*2, 4);
+    ctx.fillStyle='#86efac'; ctx.fillRect(-a.r, a.r+5, a.r*2*(a.hp/a.hpMax), 4);
+    ctx.restore();
+  }
+
+  function drawPlayer(){
+    ctx.save(); ctx.translate(player.x, player.y);
+    // goblin body
+    ctx.beginPath(); ctx.arc(0,0,player.r,0,Math.PI*2); ctx.fillStyle='#4ade80'; ctx.fill();
+    ctx.strokeStyle='#14532d'; ctx.lineWidth=3; ctx.stroke();
+    // eye toward mouse
+    const ang=Math.atan2(mouse.y+camera.y-player.y, mouse.x+camera.x-player.x);
+    ctx.fillStyle='#0f172a'; ctx.beginPath(); ctx.arc(Math.cos(ang)*6,Math.sin(ang)*6,3,0,Math.PI*2); ctx.fill();
+    // hp/mp bars
+    ctx.fillStyle='#0f172a'; ctx.fillRect(-player.r, player.r+6, player.r*2, 4); ctx.fillRect(-player.r, player.r+12, player.r*2, 4);
+    ctx.fillStyle='#22c55e'; ctx.fillRect(-player.r, player.r+6, player.r*2*(player.hp/player.hpMax), 4);
+    ctx.fillStyle='#60a5fa'; ctx.fillRect(-player.r, player.r+12, player.r*2*(player.mp/player.mpMax), 4);
+    ctx.restore();
+  }
+
+})();
+</script>
+</body>
+</html>

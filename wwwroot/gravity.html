@@ -1,0 +1,596 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Gravity Sim — Pan+Zoom + Precise Spawn Controls</title>
+<!--
+Version: 1.1.0 | License: MIT
+Additions:
+- Spawn controls: mass, speed, angle (sliders/inputs)
+- Spawn mode: Free (sliders) | Drag Vector | Orbit Assist (Shift)
+- On-canvas velocity arrow preview in Drag Vector mode
+-->
+<style>
+  :root{
+    --bg:#0b0f17; --bg2:#0f1522; --fg:#e7ecef; --muted:#9aa6b2; --edge:#1f2a3c;
+    --accent:#57e6c1; --accent2:#76ffd9; --danger:#ff6b6b; --gold:#f6c945;
+  }
+  html,body{height:100%}
+  body{margin:0;background:radial-gradient(1200px 800px at 10% -10%, #123 0, transparent 60%),
+                                radial-gradient(1200px 800px at 110% 10%, #10201a 0, transparent 55%),
+                                var(--bg); color:var(--fg); font:14px/1.45 system-ui,Segoe UI,Roboto,Inter,Arial}
+  #wrap{position:relative;height:100%}
+  canvas{display:block;width:100%;height:100%}
+  #hud{
+    position:fixed; left:10px; top:10px; display:flex; gap:10px; flex-wrap:wrap;
+    background:#0f1522bb; border:1px solid var(--edge); padding:10px; border-radius:12px; backdrop-filter:blur(4px);
+    user-select:none
+  }
+  #hud .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  #hud button, #hud select, #hud input[type="range"], #hud input[type="number"]{
+    pointer-events:auto; background:#121a28; color:var(--fg); border:1px solid var(--edge);
+    border-radius:8px; padding:6px 10px; font:inherit
+  }
+  #hud button:hover{border-color:#2a3a55}
+  #hud label{color:var(--muted); font-size:12px; margin-right:4px}
+  #readout{font-size:12px;color:var(--muted); margin-left:6px}
+  #toast{
+    position:fixed; right:14px; top:14px; background:#121a28dd; border:1px solid var(--edge);
+    color:var(--fg); padding:8px 12px; border-radius:10px; max-width:40ch; display:none
+  }
+  .pill{padding:4px 8px;border:1px solid var(--edge);border-radius:999px;background:#0f1522;color:var(--muted)}
+  .compact{display:flex;align-items:center;gap:6px}
+  .mini{width:80px}
+  .wide{width:140px}
+</style>
+</head>
+<body>
+<div id="wrap">
+  <canvas id="cv"></canvas>
+
+  <div id="hud">
+    <div class="row">
+      <button id="btnPlay">▶︎ Play</button>
+      <button id="btnPause">⏸ Pause</button>
+      <button id="btnReset">⟲ Reset</button>
+      <button id="btnSpawn">＋ Spawn</button>
+      <button id="btnUndo">↶ Undo</button>
+      <button id="btnFit">⤢ Fit</button>
+      <span id="readout" class="pill">bodies: 0 · substeps: 0</span>
+    </div>
+    <div class="row">
+      <label for="rngSeed">Seed</label><input id="rngSeed" type="number" value="12345" class="mini">
+      <label for="timeScale">Time</label><input id="timeScale" type="range" min="0.1" max="4" step="0.1" value="1" class="wide">
+      <label for="trailLen">Trails</label><input id="trailLen" type="range" min="0" max="80" step="1" value="30" class="wide">
+      <label for="merge">Merge</label><input id="merge" type="checkbox" checked>
+      <label for="bounds">Bounds</label>
+      <select id="bounds">
+        <option value="none">none</option>
+        <option value="wrap">wrap</option>
+        <option value="bounce">bounce</option>
+        <option value="despawn">despawn</option>
+      </select>
+    </div>
+    <div class="row">
+      <label for="spawnMode">Spawn</label>
+      <select id="spawnMode">
+        <option value="free">Free (sliders)</option>
+        <option value="drag">Drag Vector</option>
+      </select>
+      <span class="compact">
+        <label for="mass">Mass</label>
+        <input id="mass" type="range" min="1" max="300" step="1" value="60" class="wide">
+        <input id="massNum" type="number" min="1" max="300" step="1" value="60" class="mini">
+      </span>
+      <span class="compact">
+        <label for="speed">Speed</label>
+        <input id="speed" type="range" min="0" max="300" step="1" value="40" class="wide">
+        <input id="speedNum" type="number" min="0" max="300" step="1" value="40" class="mini">
+      </span>
+      <span class="compact">
+        <label for="angle">Angle°</label>
+        <input id="angle" type="range" min="0" max="360" step="1" value="0" class="wide">
+        <input id="angleNum" type="number" min="0" max="360" step="1" value="0" class="mini">
+      </span>
+      <span class="pill">Tip: Shift+Click = Orbit Assist</span>
+    </div>
+  </div>
+
+  <div id="toast"></div>
+</div>
+
+<script>
+/* =========================
+   Config (tweak safely)
+   ========================= */
+const CFG = {
+  G: 1.0,
+  EPS: 0.8,
+  DT: 1/120,
+  MAX_SUBSTEPS: 6,
+  MAX_SPEED: 250,
+  MERGE_ENABLED: true,
+  BOUNDS_MODE: "none",
+  KILL_RADIUS: 6000,
+  TRAIL_LENGTH: 30,
+  MASS_TO_RADIUS: 0.25,
+  SPAWN_JITTER: 0,       // precise placement by default for controlled spawns
+  ORBIT_ASSIST_MAX: 600, // px
+  COLOR_PALETTE: ["#76ffd9","#57e6c1","#f6c945","#9aa6b2","#ff6b6b","#a6b8ff","#d48bff"],
+  DRAG_VEL_SCALE: 1.2    // world-units per second per world-unit dragged
+};
+
+/* =========================
+   Utilities
+   ========================= */
+function clamp(v,a,b){return Math.max(a,Math.min(b,v))}
+function randRange(rng,a,b){return a + (b-a)*rng()}
+function showToast(msg, ms=1800){
+  const el = document.getElementById('toast');
+  el.textContent = msg; el.style.display='block';
+  clearTimeout(showToast._t); showToast._t = setTimeout(()=>el.style.display='none', ms);
+}
+function makeRNG(seed=12345){
+  let x = (seed|0) || 1;
+  return function(){ x ^= x << 13; x ^= x >>> 17; x ^= x << 5; return ((x>>>0)/4294967296); }
+}
+
+/* =========================
+   State
+   ========================= */
+const state = {
+  bodies: [],
+  paused: false,
+  timeScale: 1,
+  cam: {x:0,y:0,zoom:1},
+  rngSeed: 12345,
+  rng: makeRNG(12345),
+  substepsLast: 0,
+  trailLen: CFG.TRAIL_LENGTH,
+  merge: CFG.MERGE_ENABLED,
+  bounds: CFG.BOUNDS_MODE,
+  debug: { showGrid:false },
+  // spawn controls
+  spawn: {
+    mode: 'free',  // 'free' | 'drag'
+    mass: 60,
+    speed: 40,
+    angleDeg: 0
+  },
+  // drag vector preview
+  dragSpawn: { active:false, startW:{x:0,y:0}, curW:{x:0,y:0} }
+};
+
+/* =========================
+   Canvas & DPI
+   ========================= */
+const cv = document.getElementById('cv');
+const ctx = cv.getContext('2d');
+function resize(){
+  const dpr = devicePixelRatio||1;
+  const w = cv.clientWidth|0, h = cv.clientHeight|0;
+  cv.width = Math.max(1,w*dpr);
+  cv.height = Math.max(1,h*dpr);
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+}
+addEventListener('resize', resize, {passive:true});
+resize();
+
+/* =========================
+   Camera transforms
+   ========================= */
+function worldToScreen(x,y){
+  return { x: (x - state.cam.x) * state.cam.zoom + cv.clientWidth/2,
+           y: (y - state.cam.y) * state.cam.zoom + cv.clientHeight/2 };
+}
+function screenToWorld(px,py){
+  return { x: (px - cv.clientWidth/2) / state.cam.zoom + state.cam.x,
+           y: (py - cv.clientHeight/2) / state.cam.zoom + state.cam.y };
+}
+
+/* =========================
+   Model
+   ========================= */
+let nextId = 1;
+function makeBody(x,y,m,vx,vy){
+  const r = Math.max(2, Math.sqrt(m)*CFG.MASS_TO_RADIUS);
+  const color = CFG.COLOR_PALETTE[(Math.floor(state.rng()*CFG.COLOR_PALETTE.length))%CFG.COLOR_PALETTE.length];
+  const trailN = state.trailLen > 0 ? new Float32Array(state.trailLen*2) : null;
+  return { id: nextId++, m, r, x, y, vx, vy, color, trail: trailN, trailHead: 0 };
+}
+function reset(seed = state.rngSeed){
+  state.rngSeed = seed|0;
+  state.rng = makeRNG(state.rngSeed);
+  state.bodies = [];
+  state.cam = {x:0,y:0,zoom:1};
+  nextId = 1;
+}
+
+/* =========================
+   Physics
+   ========================= */
+function step(h){
+  const n = state.bodies.length;
+  if(!step.ax || step.ax.length < n){ step.ax = new Float32Array(n); step.ay = new Float32Array(n); }
+  const ax = step.ax, ay = step.ay;
+  ax.fill(0); ay.fill(0);
+
+  for(let i=0;i<n;i++){
+    const bi = state.bodies[i]; if(!bi) continue;
+    for(let j=i+1;j<n;j++){
+      const bj = state.bodies[j]; if(!bj) continue;
+      let dx = bj.x - bi.x, dy = bj.y - bi.y;
+      let r2 = dx*dx + dy*dy + CFG.EPS*CFG.EPS;
+      let invR = 1/Math.sqrt(r2);
+      let invR3 = invR*invR*invR;
+      let f = CFG.G * bi.m * bj.m * invR3;
+      ax[i] += f * dx / bi.m; ay[i] += f * dy / bi.m;
+      ax[j] -= f * dx / bj.m; ay[j] -= f * dy / bj.m;
+    }
+  }
+
+  for(let i=0;i<n;i++){
+    const b = state.bodies[i]; if(!b) continue;
+    b.vx += ax[i]*h; b.vy += ay[i]*h;
+    const sp = Math.hypot(b.vx,b.vy);
+    if(sp > CFG.MAX_SPEED){ const s = CFG.MAX_SPEED/sp; b.vx*=s; b.vy*=s; }
+    b.x += b.vx*h; b.y += b.vy*h;
+  }
+
+  // merge
+  if(state.merge){
+    for(let i=0;i<state.bodies.length;i++){
+      const a = state.bodies[i]; if(!a) continue;
+      for(let j=i+1;j<state.bodies.length;j++){
+        const b = state.bodies[j]; if(!b) continue;
+        const dx = b.x - a.x, dy = b.y - a.y;
+        if(dx*dx + dy*dy <= (a.r+b.r)*(a.r+b.r)){
+          const m = a.m + b.m;
+          const px = a.vx*a.m + b.vx*b.m, py = a.vy*a.m + b.vy*b.m;
+          const nx = (a.x*a.m + b.x*b.m)/m, ny = (a.y*a.m + b.y*b.m)/m;
+          const color = a.m >= b.m ? a.color : b.color;
+          const id = a.id;
+          const trail = (a.trail||b.trail)? new Float32Array(state.trailLen*2) : null;
+          state.bodies[i] = { id, m, r:Math.max(2, Math.sqrt(m)*CFG.MASS_TO_RADIUS),
+                              x:nx, y:ny, vx:px/m, vy:py/m, color, trail, trailHead:0 };
+          state.bodies.splice(j,1); j--;
+        }
+      }
+    }
+  }
+
+  // bounds
+  for(let i=0;i<state.bodies.length;i++){
+    const b = state.bodies[i]; if(!b) continue;
+    if(state.bounds==='none') continue;
+    const R = CFG.KILL_RADIUS*0.9;
+    if(state.bounds==='despawn'){
+      if(Math.abs(b.x)>CFG.KILL_RADIUS || Math.abs(b.y)>CFG.KILL_RADIUS){ state.bodies.splice(i,1); i--; }
+    }else if(state.bounds==='wrap'){
+      if(b.x<-R) b.x=R; else if(b.x>R) b.x=-R;
+      if(b.y<-R) b.y=R; else if(b.y>R) b.y=-R;
+    }else if(state.bounds==='bounce'){
+      if(Math.abs(b.x)>R){ b.x = clamp(b.x,-R,R); b.vx*=-1; }
+      if(Math.abs(b.y)>R){ b.y = clamp(b.y,-R,R); b.vy*=-1; }
+    }
+  }
+
+  // trails
+  if(state.trailLen>0){
+    for(const b of state.bodies){
+      if(!b.trail || b.trail.length !== state.trailLen*2){ b.trail = new Float32Array(state.trailLen*2); b.trailHead=0; }
+      const idx = (b.trailHead % state.trailLen)*2;
+      b.trail[idx]=b.x; b.trail[idx+1]=b.y;
+      b.trailHead = (b.trailHead+1) % state.trailLen;
+    }
+  }
+}
+
+/* =========================
+   Rendering
+   ========================= */
+function render(){
+  ctx.clearRect(0,0,cv.clientWidth,cv.clientHeight);
+
+  // optional grid
+  if(state.debug.showGrid){
+    ctx.save(); ctx.globalAlpha=0.25;
+    const stepPx=100;
+    ctx.beginPath();
+    for(let x=0;x<=cv.clientWidth;x+=stepPx){ ctx.moveTo(x,0); ctx.lineTo(x,cv.clientHeight); }
+    for(let y=0;y<=cv.clientHeight;y+=stepPx){ ctx.moveTo(0,y); ctx.lineTo(cv.clientWidth,y); }
+    ctx.strokeStyle='#1f2a3c'; ctx.stroke(); ctx.restore();
+  }
+
+  // trails
+  if(state.trailLen>0){
+    ctx.lineWidth=1;
+    for(const b of state.bodies){
+      if(!b.trail) continue;
+      ctx.beginPath();
+      const N = state.trailLen;
+      for(let k=0;k<N;k++){
+        const idx = ((b.trailHead + k) % N)*2;
+        const wx=b.trail[idx], wy=b.trail[idx+1];
+        const p=worldToScreen(wx,wy);
+        if(k===0) ctx.moveTo(p.x,p.y); else ctx.lineTo(p.x,p.y);
+      }
+      ctx.globalAlpha=0.35; ctx.strokeStyle=b.color; ctx.stroke(); ctx.globalAlpha=1;
+    }
+  }
+
+  // bodies
+  ctx.save();
+  for(const b of state.bodies){
+    const p = worldToScreen(b.x,b.y);
+    ctx.beginPath();
+    ctx.arc(p.x,p.y, Math.max(1, b.r*state.cam.zoom), 0, Math.PI*2);
+    ctx.fillStyle = b.color; ctx.fill();
+  }
+  ctx.restore();
+
+  // drag vector preview (spawn mode)
+  if(state.spawn.mode==='drag' && state.dragSpawn.active){
+    const s = worldToScreen(state.dragSpawn.startW.x, state.dragSpawn.startW.y);
+    const e = worldToScreen(state.dragSpawn.curW.x, state.dragSpawn.curW.y);
+    drawArrow(s.x, s.y, e.x, e.y);
+  }
+
+  document.getElementById('readout').textContent =
+    `bodies: ${state.bodies.length} · substeps: ${state.substepsLast}`;
+}
+function drawArrow(x1,y1,x2,y2){
+  const dx = x2-x1, dy = y2-y1;
+  const len = Math.hypot(dx,dy);
+  ctx.save();
+  ctx.strokeStyle = '#ffffff';
+  ctx.fillStyle = '#ffffff';
+  ctx.globalAlpha = 0.9;
+  ctx.lineWidth = 2;
+  // shaft
+  ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y2); ctx.stroke();
+  // head
+  const head = Math.min(14, Math.max(8, len*0.12));
+  const ang = Math.atan2(dy,dx);
+  const hx = x2 - head*Math.cos(ang), hy = y2 - head*Math.sin(ang);
+  ctx.beginPath();
+  ctx.moveTo(x2,y2);
+  ctx.lineTo(hx - head*0.6*Math.sin(ang), hy + head*0.6*Math.cos(ang));
+  ctx.lineTo(hx + head*0.6*Math.sin(ang), hy - head*0.6*Math.cos(ang));
+  ctx.closePath(); ctx.fill();
+  // label speed
+  const spW = Math.hypot(state.dragSpawn.curW.x - state.dragSpawn.startW.x,
+                         state.dragSpawn.curW.y - state.dragSpawn.startW.y) * CFG.DRAG_VEL_SCALE;
+  ctx.font = '12px system-ui'; ctx.fillText(`${spW.toFixed(1)} u/s`, x2+6, y2-6);
+  ctx.restore();
+}
+
+/* =========================
+   Main loop
+   ========================= */
+let prev = performance.now(), acc = 0;
+function frame(t){
+  const dt = clamp((t - prev)/1000, 0, 0.25); prev = t;
+  if(!state.paused){
+    acc += dt * state.timeScale;
+    let sub=0;
+    while(acc >= CFG.DT && sub < CFG.MAX_SUBSTEPS){ step(CFG.DT); acc -= CFG.DT; sub++; }
+    state.substepsLast = sub;
+  }else state.substepsLast=0;
+  render();
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+
+/* =========================
+   Actions
+   ========================= */
+const actions = {
+  play(){ state.paused=false },
+  pause(){ state.paused=true },
+  reset(){
+    const seed = parseInt(document.getElementById('rngSeed').value||`${state.rngSeed}`,10);
+    reset(seed);
+  },
+  spawnAtWorld(wx,wy,{mass, vx, vy}={}){
+    const m = mass ?? state.spawn.mass;
+    const b = makeBody(wx, wy, m, vx??0, vy??0);
+    state.bodies.push(b);
+    return b;
+  },
+  deleteLast(){ state.bodies.pop() },
+  fit(){
+    if(state.bodies.length===0){ state.cam={x:0,y:0,zoom:1}; return; }
+    let minX=Infinity,minY=Infinity,maxX=-Infinity,maxY=-Infinity;
+    for(const b of state.bodies){
+      minX = Math.min(minX, b.x - b.r); minY = Math.min(minY, b.y - b.r);
+      maxX = Math.max(maxX, b.x + b.r); maxY = Math.max(maxY, b.y + b.r);
+    }
+    const w=maxX-minX, h=maxY-minY;
+    state.cam.x=(minX+maxX)/2; state.cam.y=(minY+maxY)/2;
+    const margin=1.2;
+    const zx = cv.clientWidth/(w*margin||1);
+    const zy = cv.clientHeight/(h*margin||1);
+    state.cam.zoom = clamp(Math.min(zx,zy), 0.05, 8);
+  },
+  setTimeScale(v){ state.timeScale = clamp(+v, 0.05, 8) },
+  setTrailLen(n){ state.trailLen = Math.max(0, n|0) },
+  toggleMerge(v){ state.merge = !!v },
+  setBounds(mode){ state.bounds = mode }
+};
+
+/* =========================
+   Input (Pan / Zoom / Spawn)
+   ========================= */
+let draggingCam = false, dragStart = {x:0,y:0}, camStart = {x:0,y:0};
+let spaceHeld=false;
+
+function onPointerDown(ev){
+  const isRight = ev.button===2;
+  const panMod = ev.buttons===1 && (ev.ctrlKey||ev.metaKey||ev.altKey||ev.shiftKey); // modifiers pan
+  const world = screenToWorld(ev.clientX, ev.clientY);
+
+  if(isRight || panMod || spaceHeld){
+    draggingCam = true;
+    dragStart.x = ev.clientX; dragStart.y = ev.clientY;
+    camStart.x = state.cam.x; camStart.y = state.cam.y;
+    return;
+  }
+
+  // Shift => orbit assist regardless of spawn mode
+  if(ev.shiftKey){ orbitAssistSpawn(world.x, world.y); return; }
+
+  if(state.spawn.mode === 'drag'){
+    state.dragSpawn.active = true;
+    state.dragSpawn.startW = world;
+    state.dragSpawn.curW = world;
+  }else{
+    // Free (sliders): use mass/speed/angle
+    const m = state.spawn.mass;
+    const ang = state.spawn.angleDeg * Math.PI/180;
+    const sp = state.spawn.speed;
+    const vx = Math.cos(ang)*sp, vy = Math.sin(ang)*sp;
+    actions.spawnAtWorld(world.x, world.y, {mass:m, vx, vy});
+  }
+}
+function onPointerMove(ev){
+  if(draggingCam){
+    const dx = ev.clientX - dragStart.x, dy = ev.clientY - dragStart.y;
+    state.cam.x = camStart.x - dx/state.cam.zoom;
+    state.cam.y = camStart.y - dy/state.cam.zoom;
+  }
+  if(state.dragSpawn.active){
+    state.dragSpawn.curW = screenToWorld(ev.clientX, ev.clientY);
+  }
+}
+function onPointerUp(ev){
+  if(draggingCam){ draggingCam=false; return; }
+  if(state.dragSpawn.active){
+    const s = state.dragSpawn.startW, e = state.dragSpawn.curW;
+    const vx = (e.x - s.x) * CFG.DRAG_VEL_SCALE;
+    const vy = (e.y - s.y) * CFG.DRAG_VEL_SCALE;
+    const m = state.spawn.mass;
+    actions.spawnAtWorld(s.x, s.y, {mass:m, vx, vy});
+    state.dragSpawn.active = false;
+  }
+}
+function onContextMenu(e){ e.preventDefault() }
+
+function onWheel(ev){
+  const delta = -Math.sign(ev.deltaY) * 0.1;
+  const zOld = state.cam.zoom;
+  const zNew = clamp(zOld * (1 + delta), 0.05, 8);
+  const wx1 = screenToWorld(ev.clientX, ev.clientY);
+  state.cam.zoom = zNew;
+  const wx2 = screenToWorld(ev.clientX, ev.clientY);
+  state.cam.x += (wx1.x - wx2.x); state.cam.y += (wx1.y - wx2.y);
+}
+
+addEventListener('keydown', (e)=>{
+  if(e.code==='Space'){ spaceHeld=true; e.preventDefault(); if(!e.repeat) state.paused=!state.paused; }
+  if(e.code==='Backspace'){ actions.deleteLast(); e.preventDefault(); }
+  if(e.code==='Backquote'){ state.debug.showGrid=!state.debug.showGrid; showToast(`grid: ${state.debug.showGrid?'on':'off'}`) }
+});
+addEventListener('keyup', (e)=>{ if(e.code==='Space'){ spaceHeld=false } });
+
+cv.addEventListener('pointerdown', onPointerDown);
+addEventListener('pointermove', onPointerMove);
+addEventListener('pointerup', onPointerUp);
+cv.addEventListener('contextmenu', onContextMenu, false);
+cv.addEventListener('wheel', onWheel, {passive:false});
+
+/* =========================
+   Orbit Assist (Shift+Click)
+   ========================= */
+function orbitAssistSpawn(wx, wy){
+  let best=null, bestD=Infinity;
+  for(const b of state.bodies){
+    const p = worldToScreen(b.x,b.y);
+    const dpx = Math.hypot(p.x - (cv.clientWidth/2 + (wx - state.cam.x)*state.cam.zoom),
+                           p.y - (cv.clientHeight/2 + (wy - state.cam.y)*state.cam.zoom));
+    if(dpx < CFG.ORBIT_ASSIST_MAX){
+      const d = Math.hypot(wx - b.x, wy - b.y);
+      if(d < bestD){ best=b; bestD=d; }
+    }
+  }
+  const m = state.spawn.mass;
+  const newB = actions.spawnAtWorld(wx, wy, {mass:m});
+  if(best){
+    const dx = wx - best.x, dy = wy - best.y;
+    const r = Math.hypot(dx,dy) + 1e-6;
+    const vMag = Math.sqrt(CFG.G * best.m / r);
+    const tx = -dy/r, ty = dx/r;
+    newB.vx = best.vx + tx * vMag;
+    newB.vy = best.vy + ty * vMag;
+  }
+}
+
+/* =========================
+   Wire UI
+   ========================= */
+document.getElementById('btnPlay').onclick = ()=>actions.play();
+document.getElementById('btnPause').onclick = ()=>actions.pause();
+document.getElementById('btnReset').onclick = ()=>{ actions.reset(); showToast('reset') };
+document.getElementById('btnSpawn').onclick = ()=>{
+  // spawn in center using current free-mode settings (respects mode)
+  const center = screenToWorld(cv.clientWidth/2, cv.clientHeight/2);
+  if(state.spawn.mode==='drag'){
+    showToast('Drag on canvas to set velocity');
+  }else{
+    const m = state.spawn.mass;
+    const ang = state.spawn.angleDeg * Math.PI/180;
+    const sp = state.spawn.speed;
+    actions.spawnAtWorld(center.x, center.y, {mass:m, vx:Math.cos(ang)*sp, vy:Math.sin(ang)*sp});
+  }
+};
+document.getElementById('btnUndo').onclick = ()=>actions.deleteLast();
+document.getElementById('btnFit').onclick = ()=>actions.fit();
+
+document.getElementById('timeScale').addEventListener('input', (e)=>actions.setTimeScale(e.target.value));
+document.getElementById('trailLen').addEventListener('input', (e)=>actions.setTrailLen(e.target.value|0));
+document.getElementById('merge').addEventListener('change', (e)=>actions.toggleMerge(e.target.checked));
+document.getElementById('bounds').addEventListener('change', (e)=>actions.setBounds(e.target.value));
+document.getElementById('rngSeed').addEventListener('change', (e)=>{ state.rngSeed = parseInt(e.target.value||`${state.rngSeed}`,10) });
+
+const spawnMode = document.getElementById('spawnMode');
+spawnMode.addEventListener('change', (e)=>{ state.spawn.mode = e.target.value; showToast(`spawn: ${state.spawn.mode}`) });
+
+const mass = document.getElementById('mass'), massNum = document.getElementById('massNum');
+const speed = document.getElementById('speed'), speedNum = document.getElementById('speedNum');
+const angle = document.getElementById('angle'), angleNum = document.getElementById('angleNum');
+
+function bindPair(rangeEl, numEl, onChange){
+  const sync = (src,dst)=>{ dst.value = src.value };
+  rangeEl.addEventListener('input', ()=>{ sync(rangeEl,numEl); onChange(+rangeEl.value) });
+  numEl.addEventListener('input', ()=>{ sync(numEl,rangeEl); onChange(+numEl.value) });
+}
+bindPair(mass, massNum, v=>{ state.spawn.mass = clamp(v, +mass.min, +mass.max) });
+bindPair(speed, speedNum, v=>{ state.spawn.speed = clamp(v, +speed.min, +speed.max) });
+bindPair(angle, angleNum, v=>{ state.spawn.angleDeg = ((v%360)+360)%360 });
+
+/* =========================
+   Initial demo seed
+   ========================= */
+reset(12345);
+// Sun + planet + dust, same as before
+(function seed(){
+  const sun = makeBody(0,0, 800, 0,0); sun.color='#f6c945'; sun.r=Math.sqrt(sun.m)*CFG.MASS_TO_RADIUS;
+  state.bodies.push(sun);
+  const r=180, wm=40, v=Math.sqrt(CFG.G*sun.m/r);
+  const planet = makeBody(r,0, wm, 0, v); planet.color='#a6b8ff';
+  state.bodies.push(planet);
+  for(let i=0;i<40;i++){
+    const ang = state.rng()*Math.PI*2;
+    const rr = r + randRange(state.rng,-30,30);
+    const x = Math.cos(ang)*rr, y = Math.sin(ang)*rr;
+    const speed = Math.sqrt(CFG.G*sun.m / Math.max(40,Math.hypot(x,y)));
+    const tx = -Math.sin(ang), ty = Math.cos(ang);
+    const dust = makeBody(x,y, randRange(state.rng, 2, 6), tx*speed*(0.9+0.2*state.rng()), ty*speed*(0.9+0.2*state.rng()));
+    state.bodies.push(dust);
+  }
+  actions.fit();
+})();
+</script>
+</body>
+</html>

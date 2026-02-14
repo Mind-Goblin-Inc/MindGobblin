@@ -1,0 +1,526 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Launch Window — Timing & Strength Orbital Puzzle</title>
+<style>
+  :root{
+    --bg:#0b0f17; --bg2:#0f1522; --fg:#e7ecef; --muted:#9aa6b2; --edge:#1f2a3c;
+    --accent:#57e6c1; --accent2:#76ffd9; --danger:#ff6b6b; --gold:#f6c945;
+  }
+  html,body{height:100%}
+  body{
+    margin:0; background:
+      radial-gradient(1100px 800px at 10% -10%, #132132 0%, transparent 60%),
+      radial-gradient(1100px 800px at 110% 10%, #0f1a14 0%, transparent 55%),
+      var(--bg);
+    color:var(--fg); font:14px/1.45 system-ui, -apple-system, Segoe UI, Roboto, Inter, Arial, sans-serif;
+    overflow:hidden;
+  }
+  #ui{position:fixed; inset:0; pointer-events:none}
+  .hud{
+    position:absolute; left:12px; top:10px; background:#0f1522cc; 
+    border:1px solid var(--edge); padding:10px 12px; border-radius:12px;
+    backdrop-filter: blur(4px); pointer-events:auto; user-select:none;
+  }
+  .hud h1{margin:0 0 6px; font-size:15px; color:var(--accent2); letter-spacing:.2px}
+  .row{display:flex; align-items:center; gap:8px; margin:6px 0}
+  .row label{color:var(--muted); font-size:12px; min-width:86px}
+  .row .value{min-width:56px; text-align:right; color:var(--fg)}
+  .big{font-size:18px; color:var(--gold)}
+  .hint{color:var(--muted); font-size:12px; margin-top:6px}
+  .btn{
+    pointer-events:auto; cursor:pointer; display:inline-flex; align-items:center; gap:6px;
+    background:#111a28; border:1px solid var(--edge); color:var(--fg);
+    padding:6px 10px; border-radius:10px; transition:transform .05s ease;
+  }
+  .btn:active{transform:translateY(1px)}
+  .stack{display:flex; gap:8px; flex-wrap:wrap}
+  .badge{
+    display:inline-block; padding:2px 6px; border-radius:6px; border:1px solid var(--edge);
+    background:#0f1624; color:var(--muted); font-size:11px;
+  }
+  #rightPanel{
+    position:absolute; right:12px; top:10px; width:280px; pointer-events:auto;
+    background:#0f1522cc; border:1px solid var(--edge); border-radius:12px; padding:10px 12px;
+  }
+  #rightPanel h2{margin:0 0 8px; font-size:14px; color:var(--accent)}
+  #rightPanel .line{display:flex; justify-content:space-between; margin:4px 0; font-size:12px}
+  #rightPanel .ok{color:#8df0c9} .warn{color:#f6c945} .bad{color:#ff9b9b}
+  #centerMsg{
+    position:absolute; inset:0; display:grid; place-items:center; pointer-events:none; text-align:center;
+  }
+  #centerMsg .card{
+    background:#0f1522ee; border:1px solid var(--edge); border-radius:14px; padding:14px 16px; max-width:520px;
+  }
+  #centerMsg h3{margin:0 0 6px; color:var(--accent2)}
+  #centerMsg p{margin:4px 0; color:var(--muted)}
+  #centerMsg .bigkey{font-weight:700; color:var(--fg)}
+  canvas{display:block; width:100vw; height:100vh}
+  /* simple charge bar */
+  #chargeWrap{position:absolute; bottom:16px; left:50%; transform:translateX(-50%); 
+    width:min(520px, 80vw); background:#0f1522cc; border:1px solid var(--edge); 
+    border-radius:12px; padding:10px; pointer-events:auto}
+  #chargeBar{height:10px; background:#152032; border-radius:8px; overflow:hidden}
+  #chargeFill{height:100%; width:0%;}
+  .good{background:linear-gradient(90deg, #57e6c1, #76ffd9)}
+  .mid{background:linear-gradient(90deg, #f6c945, #ffd36e)}
+  .bad{background:linear-gradient(90deg, #ff6b6b, #ff9b9b)}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="ui">
+  <div class="hud" id="leftHud">
+    <h1>Launch Window</h1>
+    <div class="row"><label>Level</label><div class="value" id="levelName">–</div></div>
+    <div class="row"><label>Objective</label><div class="value">Rendezvous</div></div>
+    <div class="row"><label>Capture radius</label><div class="value" id="capR">–</div></div>
+    <div class="row"><label>Closest (pred.)</label><div class="value" id="closestPred">–</div></div>
+    <div class="stack">
+      <button class="btn" id="btnReset">Reset</button>
+      <button class="btn" id="btnNext">Next level</button>
+      <button class="btn" id="btnSlow">Slow-mo: Off</button>
+      <span class="badge">Hold <b>Space / Press & hold</b> to charge</span>
+      <span class="badge">Release to launch</span>
+    </div>
+    <div class="hint">Tip: Launch when the target is a little ahead (Hohmann-ish). You only control <b>timing</b> + <b>thrust</b>.</div>
+  </div>
+
+  <div id="rightPanel">
+    <h2>Telemetry</h2>
+    <div class="line"><span>Status</span><span id="statusLbl">Idle</span></div>
+    <div class="line"><span>Charge</span><span id="chargeLbl">0%</span></div>
+    <div class="line"><span>Rocket speed</span><span id="speedLbl">0</span></div>
+    <div class="line"><span>Time</span><span id="timeLbl">0 s</span></div>
+    <div class="line"><span>Attempt</span><span id="tryLbl">1</span></div>
+    <div class="line"><span>Prediction</span><span id="predLbl" class="warn">–</span></div>
+  </div>
+
+  <div id="centerMsg" style="display:none">
+    <div class="card">
+      <h3 id="centerTitle">Level Complete!</h3>
+      <p id="centerText">Press any key or click to continue…</p>
+    </div>
+  </div>
+
+  <div id="chargeWrap">
+    <div style="display:flex; justify-content:space-between; margin-bottom:6px">
+      <div>Launch Charge</div>
+      <div id="chargePct" class="big">0%</div>
+    </div>
+    <div id="chargeBar"><div id="chargeFill" class="good"></div></div>
+    <div class="hint">Green ≈ efficient range for most transfers. Yellow = okay. Red = likely overshoot.</div>
+  </div>
+</div>
+
+<script>
+(()=>{
+  // ---------- Math helpers ----------
+  const TAU = Math.PI*2;
+  const clamp = (v,a,b)=>Math.max(a,Math.min(b,v));
+  const lerp = (a,b,t)=>a+(b-a)*t;
+
+  // ---------- Canvas setup ----------
+  const canvas = document.getElementById('c');
+  const ctx = canvas.getContext('2d');
+  let W=0,H=0, DPR=window.devicePixelRatio||1;
+  function resize(){
+    W = canvas.width  = Math.floor(innerWidth * DPR);
+    H = canvas.height = Math.floor(innerHeight* DPR);
+    canvas.style.width  = innerWidth+'px';
+    canvas.style.height = innerHeight+'px';
+  }
+  addEventListener('resize', resize, {passive:true}); resize();
+
+  // ---------- UI refs ----------
+  const levelName = document.getElementById('levelName');
+  const capR = document.getElementById('capR');
+  const closestPred = document.getElementById('closestPred');
+  const statusLbl = document.getElementById('statusLbl');
+  const chargeLbl = document.getElementById('chargeLbl');
+  const speedLbl = document.getElementById('speedLbl');
+  const timeLbl = document.getElementById('timeLbl');
+  const tryLbl = document.getElementById('tryLbl');
+  const predLbl = document.getElementById('predLbl');
+  const btnReset = document.getElementById('btnReset');
+  const btnNext = document.getElementById('btnNext');
+  const btnSlow = document.getElementById('btnSlow');
+  const centerMsg = document.getElementById('centerMsg');
+  const centerTitle = document.getElementById('centerTitle');
+  const centerText = document.getElementById('centerText');
+  const chargePct = document.getElementById('chargePct');
+  const chargeFill = document.getElementById('chargeFill');
+
+  // ---------- Game config ----------
+  // Units are "game meters" & "game seconds". mu acts like GM of star.
+  const LEVELS = [
+    { name:"Tutorial Transfer", mu: 120000, rHome: 220, rTarget: 360, capture: 16, vmax: 65, previewT: 160 },
+    { name:"Classic Hohmann",  mu: 120000, rHome: 240, rTarget: 420, capture: 14, vmax: 70, previewT: 190 },
+    { name:"Longer Reach",     mu: 120000, rHome: 220, rTarget: 520, capture: 16, vmax: 85, previewT: 240 },
+    { name:"Inner Shot",       mu: 120000, rHome: 420, rTarget: 260, capture: 12, vmax: 80, previewT: 220 },
+    { name:"Snappy Window",    mu: 140000, rHome: 260, rTarget: 420, capture: 10, vmax: 85, previewT: 200 },
+  ];
+  let L=0;
+
+  // ---------- State ----------
+  const state = {
+    t:0, slow:false, attempts:1,
+    holding:false, charge:0, launched:false, done:false,
+    // world
+    mu: 120000,
+    star: {x:0,y:0},
+    home: {r:240, theta: 0},
+    target:{r:420, theta: TAU*0.6},
+    rocket:{alive:false, x:0,y:0, vx:0,vy:0, path:[]},
+    capture: 14, vmax: 70, previewT: 180,
+  };
+
+  function setLevel(i){
+    L = (i+LEVELS.length)%LEVELS.length;
+    const lv = LEVELS[L];
+    state.mu = lv.mu;
+    state.home.r = lv.rHome;
+    state.home.theta = 0;
+    state.target.r = lv.rTarget;
+    state.target.theta = TAU*0.55; // pleasant initial phase
+    state.capture = lv.capture;
+    state.vmax = lv.vmax;
+    state.previewT = lv.previewT;
+    state.t = 0;
+    state.attempts = 1;
+    state.holding=false; state.charge=0;
+    state.launched = false; state.done=false;
+    state.rocket.alive=false; state.rocket.path.length=0;
+    levelName.textContent = `${L+1}. ${lv.name}`;
+    capR.textContent = `${state.capture.toFixed(0)} m`;
+    statusLbl.textContent = "Idle";
+    tryLbl.textContent = state.attempts;
+    showCenter(false);
+  }
+
+  // ---------- Input: space/touch to charge ----------
+  let mouseDown=false;
+  function startHold(){
+    if(state.done) return;
+    state.holding = true;
+    statusLbl.textContent = state.launched ? "In flight (charge disabled)" : "Charging…";
+  }
+  function endHold(){
+    if(state.done) return;
+    if(state.launched) return;
+    state.holding = false;
+    launch();
+  }
+  addEventListener('keydown', (e)=>{
+    if(e.code==='Space'){ e.preventDefault(); startHold(); }
+    if(state.done){ hideCenterAndMaybeNext(); }
+  });
+  addEventListener('keyup', (e)=>{
+    if(e.code==='Space'){ e.preventDefault(); endHold(); }
+    if(state.done){ hideCenterAndMaybeNext(); }
+  });
+  canvas.addEventListener('pointerdown', ()=>{ mouseDown=true; startHold(); });
+  addEventListener('pointerup',   ()=>{ mouseDown=false; endHold(); });
+  addEventListener('click', ()=>{ if(state.done) hideCenterAndMaybeNext(); });
+
+  btnReset.onclick = ()=> setLevel(L);
+  btnNext.onclick  = ()=> setLevel(L+1);
+  btnSlow.onclick  = ()=>{
+    state.slow = !state.slow;
+    btnSlow.textContent = `Slow-mo: ${state.slow ? 'On' : 'Off'}`;
+  };
+
+  function showCenter(show, title="", text=""){
+    centerMsg.style.display = show ? 'grid' : 'none';
+    if(show){ centerTitle.textContent = title; centerText.textContent = text; }
+  }
+  function hideCenterAndMaybeNext(){
+    showCenter(false);
+    // wait a beat before allowing further clicks to avoid accidental relaunch
+    // (already handled by simple display toggle)
+  }
+
+  // ---------- Orbital helpers ----------
+  function circVel(mu, r){ return Math.sqrt(mu / r); }
+  function angVel(mu, r){ return Math.sqrt(mu / (r*r*r)); } // dtheta/dt for circular
+  function stepPlanet(p, mu, dt){
+    p.theta = (p.theta + angVel(mu, p.r)*dt) % TAU;
+  }
+  function pol2cart(r,theta){ return {x: r*Math.cos(theta), y: r*Math.sin(theta)}; }
+  function normalize(x,y){ const m=Math.hypot(x,y)||1; return {x:x/m,y:y/m}; }
+
+  // ---------- Launch ----------
+  function launch(){
+    const homePos = pol2cart(state.home.r, state.home.theta);
+    const tang = normalize(-homePos.y, homePos.x); // prograde tangent (CCW)
+    const vCirc = circVel(state.mu, state.home.r);
+    const vBoost = (state.charge/100) * state.vmax;
+    state.rocket.x = homePos.x;
+    state.rocket.y = homePos.y;
+    state.rocket.vx = tang.x*(vCirc + vBoost);
+    state.rocket.vy = tang.y*(vCirc + vBoost);
+    state.rocket.alive = true;
+    state.launched = true;
+    statusLbl.textContent = "In flight";
+  }
+
+  // ---------- Physics integration ----------
+  function stepRocket(dt){
+    if(!state.rocket.alive) return;
+    const rx = state.rocket.x, ry = state.rocket.y;
+    const r2 = rx*rx + ry*ry;
+    const r = Math.sqrt(r2);
+    const a = -state.mu / (r2*r); // GM / r^2 toward origin => accel magnitude / r
+    state.rocket.vx += a * rx * dt;
+    state.rocket.vy += a * ry * dt;
+    state.rocket.x  += state.rocket.vx * dt;
+    state.rocket.y  += state.rocket.vy * dt;
+    // path
+    if((state.t*60|0)%2===0){ // sparsify
+      state.rocket.path.push({x:state.rocket.x, y:state.rocket.y});
+      if(state.rocket.path.length>600) state.rocket.path.shift();
+    }
+    // fail if escapes too far or hits star
+    if(r<12){ fail("Too close to the star!"); }
+    if(r>2000){ fail("Drifted into deep space."); }
+    // success check
+    const tPos = pol2cart(state.target.r, state.target.theta);
+    const d = Math.hypot(state.rocket.x - tPos.x, state.rocket.y - tPos.y);
+    if(d < state.capture){
+      succeed();
+    }
+  }
+
+  function succeed(){
+    state.rocket.alive=false; state.done=true;
+    statusLbl.textContent = "Docked!";
+    showCenter(true, "Rendezvous Achieved!", "Great timing and burn. Click or press any key for next.");
+  }
+
+  function fail(reason){
+    if(state.done) return;
+    state.rocket.alive=false; state.launched=false;
+    state.holding=false; state.charge=0; updateChargeUI();
+    state.attempts += 1; tryLbl.textContent = state.attempts;
+    statusLbl.textContent = "Reset: " + reason;
+    // soft reset rocket only
+    state.rocket.path.length=0;
+  }
+
+  // ---------- Preview (ghost trajectory if launched now) ----------
+  function predictClosest(){
+    // simulate forward from *current* home position and charge
+    const charge = state.charge;
+    if(charge<=0 || state.launched){ closestPred.textContent = "–"; predLbl.textContent = "–"; return; }
+    // initial state
+    const mu = state.mu;
+    let home = { r: state.home.r, theta: state.home.theta };
+    let target = { r: state.target.r, theta: state.target.theta };
+    const homePos = pol2cart(home.r, home.theta);
+    const tang = normalize(-homePos.y, homePos.x);
+    const vCirc = circVel(mu, home.r);
+    const vBoost = (charge/100) * state.vmax;
+    let rx = homePos.x, ry=homePos.y, rvx = tang.x*(vCirc+vBoost), rvy=tang.y*(vCirc+vBoost);
+    let minD = Infinity;
+    let steps = state.previewT; // seconds previewed
+    let dt = 1/1.5; // coarser preview step
+    for(let s=0; s<steps; s++){
+      // planets
+      home.theta   = (home.theta   + angVel(mu, home.r)*dt) % TAU;
+      target.theta = (target.theta + angVel(mu, target.r)*dt) % TAU;
+      // rocket
+      const r2 = rx*rx + ry*ry;
+      const r = Math.sqrt(r2);
+      const a = -mu / (r2*r);
+      rvx += a*rx*dt; rvy += a*ry*dt;
+      rx  += rvx*dt;  ry  += rvy*dt;
+      // distance to target
+      const tp = pol2cart(target.r, target.theta);
+      const d = Math.hypot(rx-tp.x, ry-tp.y);
+      if(d<minD) minD = d;
+    }
+    closestPred.textContent = `${minD.toFixed(1)} m`;
+    predLbl.textContent = (minD<=state.capture? "Good window" : (minD<state.capture*2? "Close" : "Poor"));
+    predLbl.className = minD<=state.capture? "ok" : (minD<state.capture*2? "warn" : "bad");
+  }
+
+  // ---------- Render ----------
+  function toScreen(x,y){
+    // fit system into view; auto-scale to keep target orbit visible
+    const margin = 40;
+    const maxR = Math.max(state.home.r, state.target.r) + 60;
+    const scale = Math.min((W/DPR - margin*2)/(maxR*2), (H/DPR - margin*2)/(maxR*2));
+    const cx = (W/DPR)/2, cy = (H/DPR)/2;
+    return { x: cx + x*scale, y: cy + y*scale, scale};
+  }
+
+  function draw(){
+    ctx.save();
+    ctx.scale(DPR,DPR);
+    ctx.clearRect(0,0,W/DPR,H/DPR);
+
+    // Starfield background dots
+    ctx.globalAlpha = 0.25;
+    for(let i=0;i<60;i++){
+      const x=(i*97)% (W/DPR), y=((i*163)% (H/DPR));
+      ctx.fillStyle = i%9 ? '#9aa6b266' : '#ffffff88';
+      ctx.fillRect(x, y, 2, 2);
+    }
+    ctx.globalAlpha = 1;
+
+    // Coordinates & scale
+    const o = toScreen(0,0); // gives scale & center
+    // Orbits
+    ctx.strokeStyle = '#1f2a3c';
+    ctx.lineWidth = 1;
+    drawCircle(0,0, state.home.r, o);
+    drawCircle(0,0, state.target.r, o);
+
+    // Star
+    fillCircle(0,0, 12, o, '#f6c945');
+
+    // Planets
+    const hp = pol2cart(state.home.r, state.home.theta);
+    const tp = pol2cart(state.target.r, state.target.theta);
+    fillCircle(hp.x, hp.y, 10, o, '#8df0c9'); // home
+    fillCircle(tp.x, tp.y, 11, o, '#76a9ff'); // target
+    // Capture ring on target
+    strokeCircle(tp.x, tp.y, state.capture, o, '#76a9ff55', 2);
+
+    // Ghost preview path (if charging & not launched)
+    if(state.holding && !state.launched){
+      ctx.save();
+      ctx.setLineDash([6,6]);
+      ctx.strokeStyle = '#57e6c1bb';
+      ctx.lineWidth = 2;
+      drawPreviewPath(o);
+      ctx.restore();
+    }
+
+    // Rocket & path
+    if(state.rocket.alive || state.rocket.path.length){
+      // path
+      ctx.beginPath();
+      for(let i=0;i<state.rocket.path.length;i++){
+        const p = state.rocket.path[i];
+        const s = toScreen(p.x,p.y);
+        if(i===0) ctx.moveTo(s.x,s.y); else ctx.lineTo(s.x,s.y);
+      }
+      ctx.strokeStyle = '#ffd36e88';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+
+      if(state.rocket.alive){
+        fillCircle(state.rocket.x, state.rocket.y, 6, o, '#ffd36e');
+        // velocity tick
+        const vnx = state.rocket.vx, vny = state.rocket.vy;
+        const p = toScreen(state.rocket.x, state.rocket.y);
+        ctx.beginPath();
+        ctx.moveTo(p.x,p.y);
+        ctx.lineTo(p.x + vnx*0.35*o.scale, p.y + vny*0.35*o.scale);
+        ctx.strokeStyle = '#ffd36e66'; ctx.lineWidth = 2; ctx.stroke();
+      }
+    }
+
+    ctx.restore();
+  }
+
+  function drawCircle(x,y,r, o){
+    const p = toScreen(x,y);
+    ctx.beginPath(); ctx.arc(p.x,p.y, r*o.scale, 0, TAU); ctx.stroke();
+  }
+  function strokeCircle(x,y,r,o,color, width=1){
+    const p = toScreen(x,y);
+    ctx.beginPath(); ctx.arc(p.x,p.y, r*o.scale, 0, TAU);
+    ctx.strokeStyle = color; ctx.lineWidth = width; ctx.stroke();
+  }
+  function fillCircle(x,y,r,o,color){
+    const p = toScreen(x,y);
+    ctx.beginPath(); ctx.arc(p.x,p.y, r*o.scale, 0, TAU);
+    ctx.fillStyle = color; ctx.fill();
+  }
+  function drawPreviewPath(o){
+    const mu = state.mu;
+    // init like predictClosest but also draw path
+    const home = { r: state.home.r, theta: state.home.theta };
+    const target = { r: state.target.r, theta: state.target.theta };
+    const homePos = pol2cart(home.r, home.theta);
+    const tang = normalize(-homePos.y, homePos.x);
+    const vCirc = circVel(mu, home.r);
+    const vBoost = (state.charge/100) * state.vmax;
+    let rx = homePos.x, ry=homePos.y, rvx = tang.x*(vCirc+vBoost), rvy=tang.y*(vCirc+vBoost);
+    let dt = 1/1.5;
+    ctx.beginPath();
+    for(let s=0; s<state.previewT; s++){
+      // draw step
+      const sp = toScreen(rx,ry);
+      if(s===0) ctx.moveTo(sp.x,sp.y); else ctx.lineTo(sp.x,sp.y);
+      // step planets + rocket
+      home.theta   = (home.theta   + angVel(mu, home.r)*dt) % TAU;
+      target.theta = (target.theta + angVel(mu, target.r)*dt) % TAU;
+      const r2 = rx*rx + ry*ry;
+      const r = Math.sqrt(r2);
+      const a = -mu / (r2*r);
+      rvx += a*rx*dt; rvy += a*ry*dt;
+      rx  += rvx*dt;  ry  += rvy*dt;
+    }
+    ctx.stroke();
+  }
+
+  // ---------- UI: charge bar ----------
+  function updateChargeUI(){
+    const pct = clamp(state.charge,0,100);
+    chargePct.textContent = `${pct.toFixed(0)}%`;
+    chargeLbl.textContent = `${pct.toFixed(0)}%`;
+    chargeFill.style.width = `${pct}%`;
+    const c = pct<65 ? 'good' : (pct<85 ? 'mid' : 'bad');
+    chargeFill.className = c;
+  }
+
+  // ---------- Main loop ----------
+  let last=performance.now();
+  function tick(now){
+    const dtRaw = Math.min(0.05, (now-last)/1000); // cap
+    last = now;
+    const dt = state.slow ? dtRaw*0.25 : dtRaw;
+
+    // Charge if holding (but only pre-launch)
+    if(state.holding && !state.launched){
+      // gentle charge curve for feel
+      state.charge = clamp(state.charge + (70 - 0.4*state.charge)*dt, 0, 100);
+      updateChargeUI();
+    }
+
+    // planets advance always
+    stepPlanet(state.home, state.mu, dt);
+    stepPlanet(state.target, state.mu, dt);
+
+    // rocket physics
+    stepRocket(dt);
+
+    // time
+    state.t += dt;
+    timeLbl.textContent = `${state.t.toFixed(1)} s`;
+    speedLbl.textContent = state.rocket.alive ? `${Math.hypot(state.rocket.vx,state.rocket.vy).toFixed(1)} m/s` : '0';
+
+    // prediction
+    predictClosest();
+
+    draw();
+    requestAnimationFrame(tick);
+  }
+
+  // ---------- Boot ----------
+  setLevel(0);
+  updateChargeUI();
+  requestAnimationFrame(tick);
+
+  // ---------- Small UX: next on success ----------
+  document.addEventListener('keydown', ()=>{ if(state.done){ setLevel(L+1); }});
+  document.addEventListener('click', ()=>{ if(state.done){ setLevel(L+1); }});
+})();
+</script>
+</body>
+</html>

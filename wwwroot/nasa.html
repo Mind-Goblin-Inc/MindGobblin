@@ -1,0 +1,561 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>NASA Explorer — APOD & Near-Earth Objects</title>
+<meta name="description" content="Single-file viewer for NASA APOD and NeoWs (Near Earth Object Web Service). Optional C# proxy keeps your API key server-side." />
+<style>
+  :root{
+    --bg:#0b0f17;--bg2:#101827;--fg:#e7ecef;--muted:#9aa6b2;--edge:#1f2a3c;
+    --brand:#57e6c1;--brand2:#76ffd9;--warn:#ffad60;--err:#ff6b6b;--danger:#ff6b6b;--ok:#68e0a4;
+    --chip:#0f1522; --chipEdge:#1f2a3c;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{
+    margin:0;background:
+      radial-gradient(1200px 800px at -10% -10%, #0f1a24 0, transparent 55%),
+      radial-gradient(1200px 800px at 110% 0%, #0b1a13 0, transparent 50%),
+      var(--bg);
+    color:var(--fg);font:15px/1.55 system-ui,-apple-system,Segoe UI,Roboto,Inter,Arial,sans-serif;
+  }
+  header{
+    position:sticky;top:0;z-index:5;
+    backdrop-filter: blur(6px);
+    background: color-mix(in oklab, var(--bg2) 80%, transparent);
+    border-bottom:1px solid var(--edge);
+  }
+  .wrap{max-width:1180px;margin:0 auto;padding:16px}
+  h1{margin:0 0 8px;font-size:20px;color:var(--brand2);letter-spacing:.3px}
+  .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+  label{font-size:13px;color:var(--muted)}
+  input, select{background:#0f1522;color:var(--fg);border:1px solid var(--edge);border-radius:10px;padding:8px 10px;outline:none}
+  input[type="checkbox"]{transform:scale(1.05)}
+  .btn{appearance:none;border:1px solid var(--edge);background:#0f1522;color:var(--fg);padding:9px 12px;border-radius:12px;cursor:pointer;transition:transform .06s ease}
+  .btn:hover{border-color:#2a3a52}
+  .btn:active{transform:translateY(1px)}
+  .btn-primary{border-color:#2a3a52;background:linear-gradient(180deg,#112036,#0d1726)}
+  .pill{display:inline-flex;gap:8px;align-items:center;border:1px solid var(--edge);border-radius:999px;padding:6px 10px;background:#0f1522}
+  .note{font-size:12.5px;color:var(--muted)}
+  .tabs{display:flex;gap:8px;margin-top:8px}
+  .tab{padding:8px 12px;border:1px solid var(--edge);border-radius:999px;background:#0f1522;cursor:pointer}
+  .tab[aria-selected="true"]{outline:2px solid var(--brand2);outline-offset:1px}
+  main{padding:10px 0 60px}
+  .card{margin:16px auto 0;max-width:1180px;background:#0f1522;border:1px solid var(--edge);border-radius:16px;overflow:hidden;box-shadow:0 10px 30px #0003}
+  .media{display:grid;place-items:center;background:#0b0f17;aspect-ratio:16/9;width:100%;overflow:hidden}
+  .media img{max-width:100%;max-height:80vh;display:block}
+  .media iframe,.media video{width:100%;height:min(80vh,70vw);border:0;display:block}
+  .pad{padding:16px}
+  .title{font-size:20px;margin:0 0 6px}
+  .meta{color:var(--muted);font-size:13px;margin-bottom:10px}
+  .actions{display:flex;gap:8px;flex-wrap:wrap}
+  .thumbs{display:grid;gap:10px;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));margin-top:12px}
+  .thumb{background:#0b0f17;border:1px solid var(--edge);border-radius:10px;overflow:hidden;cursor:pointer}
+  .thumb img{width:100%;height:110px;object-fit:cover;display:block}
+  .thumb .tpad{padding:8px}
+  .err{color:var(--err)}
+  .warn{color:var(--warn)}
+  .mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:12.5px}
+  table{width:100%;border-collapse:collapse}
+  th,td{padding:8px 10px;border-bottom:1px solid var(--edge);text-align:left;font-size:14px}
+  th{position:sticky;top:0;background:#0f1726;z-index:1}
+  .chip{display:inline-flex;align-items:center;gap:6px;background:var(--chip);border:1px solid var(--chipEdge);border-radius:999px;padding:4px 8px;font-size:12px}
+  .chip.danger{border-color:#6b1f1f;color:#ffb1b1;background:#2a0f13}
+  .chip.ok{border-color:#1f6b3d;color:#b8ffd6;background:#0f2a1c}
+  .grid{display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(240px,1fr))}
+  .toolbar{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:10px}
+  .sr{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+  .pager{display:flex;gap:8px;align-items:center;justify-content:space-between;margin-top:10px}
+</style>
+</head>
+<body>
+<header>
+  <div class="wrap">
+    <h1>🌌 NASA Explorer <span class="note">— APOD & Near-Earth Objects</span></h1>
+    <div class="row">
+      <div class="pill">
+        <label for="apiKey">API key</label>
+        <input id="apiKey" type="text" placeholder="DEMO_KEY or your key" style="width:220px" />
+        <button class="btn" id="btnSaveKey">Save</button>
+        <span class="note">Stored in this browser</span>
+      </div>
+      <div class="pill" title="Keep your key on the server">
+        <label for="useProxy">Use C# proxy</label>
+        <input id="useProxy" type="checkbox" />
+        <span class="note">/api/* → NASA</span>
+      </div>
+      <span id="status" class="note"></span>
+    </div>
+
+    <div class="tabs" role="tablist" aria-label="Sections">
+      <button class="tab" role="tab" id="tab-apod" aria-controls="panel-apod" aria-selected="true">APOD</button>
+      <button class="tab" role="tab" id="tab-neo"  aria-controls="panel-neo"  aria-selected="false">NEOs</button>
+    </div>
+  </div>
+</header>
+
+<main>
+  <!-- APOD PANEL -->
+  <section id="panel-apod" role="tabpanel" aria-labelledby="tab-apod" class="wrap">
+    <div class="toolbar">
+      <div class="pill">
+        <label for="date">Date</label>
+        <input id="date" type="date" />
+        <button class="btn" id="btnPrev" title="Previous day">⟨ Prev</button>
+        <button class="btn" id="btnToday" title="Today">Today</button>
+        <button class="btn" id="btnNext" title="Next day">Next ⟩</button>
+      </div>
+      <div class="pill">
+        <label for="count">Random</label>
+        <input id="count" type="number" min="1" max="20" value="1" style="width:72px" />
+        <button class="btn" id="btnRandom" title="Fetch random APOD(s)">🎲</button>
+      </div>
+      <div class="pill">
+        <label for="thumbs">Thumbs for video</label>
+        <select id="thumbs"><option value="false">No</option><option value="true">Yes</option></select>
+      </div>
+      <button class="btn btn-primary" id="btnFetch">Fetch</button>
+    </div>
+
+    <section id="single" class="card" hidden>
+      <div id="media" class="media" aria-live="polite"></div>
+      <div class="pad">
+        <h2 id="title" class="title"></h2>
+        <div class="meta" id="meta"></div>
+        <div class="actions">
+          <a id="linkHd" class="btn" target="_blank" rel="noopener">Open HD</a>
+          <a id="linkUrl" class="btn" target="_blank" rel="noopener">Open Source</a>
+          <button id="btnShare" class="btn">Share/Copy</button>
+          <span id="copyright" class="note"></span>
+        </div>
+        <p id="explanation" style="margin-top:12px"></p>
+      </div>
+    </section>
+
+    <section id="list" class="card" hidden>
+      <div class="pad">
+        <h3 style="margin:0 0 8px">Results</h3>
+        <div id="thumbGrid" class="thumbs"></div>
+        <p class="note" style="margin-top:10px">Click a card to view details above.</p>
+      </div>
+    </section>
+
+    <section id="error" class="wrap" hidden></section>
+  </section>
+
+  <!-- NEO PANEL -->
+  <section id="panel-neo" role="tabpanel" aria-labelledby="tab-neo" class="wrap" hidden>
+    <div class="card">
+      <div class="pad">
+        <h2 class="title">Near-Earth Objects (NeoWs)</h2>
+        <div class="note">Search feed by closest approach date, lookup by SPK-ID, or browse the dataset.</div>
+
+        <h3 style="margin:14px 0 6px">Feed (by date range)</h3>
+        <div class="toolbar">
+          <div class="pill">
+            <label for="neoStart">Start</label><input id="neoStart" type="date" />
+            <label for="neoEnd">End</label><input id="neoEnd" type="date" />
+          </div>
+          <button class="btn btn-primary" id="btnNeoFeed">Fetch Feed</button>
+          <div class="pill"><span class="note">Use ≤ 7-day span (API limit)</span></div>
+        </div>
+
+        <div id="neoFeedWrap" class="pad" style="padding:0">
+          <div class="pager" id="neoFeedPager" hidden>
+            <button class="btn" id="neoPrevWindow">◀ Previous window</button>
+            <span class="note" id="neoFeedWindow"></span>
+            <button class="btn" id="neoNextWindow">Next window ▶</button>
+          </div>
+          <div class="card" id="neoFeedCard" style="margin:10px 0" hidden>
+            <div class="pad" style="padding:0">
+              <table id="neoFeedTable" aria-label="NEO feed table"><thead>
+                <tr>
+                  <th>Date</th><th>Name</th><th>SPK-ID</th><th>Hazard</th>
+                  <th>Est. Diameter (m)</th><th>Miss Dist (Lunar)</th><th>Rel. Vel (km/s)</th>
+                </tr>
+              </thead><tbody></tbody></table>
+            </div>
+          </div>
+        </div>
+
+        <h3 style="margin:16px 0 6px">Lookup (by SPK-ID)</h3>
+        <div class="toolbar">
+          <div class="pill"><label for="neoId">Asteroid ID</label><input id="neoId" type="text" placeholder="e.g., 3542519" style="width:160px" /></div>
+          <button class="btn" id="btnNeoLookup">Lookup</button>
+        </div>
+        <div id="neoLookupCard" class="card" hidden>
+          <div class="pad" id="neoLookupBody"></div>
+        </div>
+
+        <h3 style="margin:16px 0 6px">Browse (paged)</h3>
+        <div class="toolbar">
+          <div class="pill"><label for="neoPage">Page</label><input id="neoPage" type="number" min="0" value="0" style="width:90px" /></div>
+          <button class="btn" id="btnNeoBrowse">Browse</button>
+        </div>
+        <div id="neoBrowseCard" class="card" hidden>
+          <div class="pad" id="neoBrowseBody"></div>
+          <div class="pager">
+            <button class="btn" id="btnPrevBrowse">◀ Prev</button>
+            <span class="note" id="browseInfo"></span>
+            <button class="btn" id="btnNextBrowse">Next ▶</button>
+          </div>
+        </div>
+
+        <div id="neoError" class="pad err" hidden></div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<script>
+(function(){
+  // ---------- Shared controls ----------
+  const $ = s => document.querySelector(s);
+  const todayStr = new Date().toISOString().slice(0,10);
+  const NASA_APOD = 'https://api.nasa.gov/planetary/apod';
+  const NASA_NEO_FEED = 'https://api.nasa.gov/neo/rest/v1/feed';
+  const NASA_NEO_LOOKUP = id => `https://api.nasa.gov/neo/rest/v1/neo/${encodeURIComponent(id)}`;
+  const NASA_NEO_BROWSE = 'https://api.nasa.gov/neo/rest/v1/neo/browse';
+  const PROXY = {
+    apod: '/api/apod',
+    neoFeed: '/api/neo/feed',
+    neoLookup: id => `/api/neo/lookup/${encodeURIComponent(id)}`,
+    neoBrowse: '/api/neo/browse'
+  };
+
+  const elApiKey = $('#apiKey');
+  const elUseProxy = $('#useProxy');
+  const elBtnSaveKey = $('#btnSaveKey');
+  const elStatus = $('#status');
+
+  function setStatus(msg, kind='note'){ elStatus.textContent = msg; elStatus.className = kind; }
+  function toast(msg){ setStatus(msg); setTimeout(()=> setStatus(''), 2000); }
+  function savePrefs(){ localStorage.setItem('nasa_prefs', JSON.stringify({ apiKey: elApiKey.value.trim(), useProxy: elUseProxy.checked })); }
+  function loadPrefs(){ try{ const p = JSON.parse(localStorage.getItem('nasa_prefs')||'{}'); if(p.apiKey) elApiKey.value=p.apiKey; if(typeof p.useProxy==='boolean') elUseProxy.checked=p.useProxy }catch{} }
+  elBtnSaveKey.addEventListener('click', ()=>{ savePrefs(); toast('Saved API key'); });
+  elUseProxy.addEventListener('change', savePrefs);
+  loadPrefs();
+
+  // ---------- Tabs ----------
+  const tabApod = $('#tab-apod'), tabNeo = $('#tab-neo');
+  const panelApod = $('#panel-apod'), panelNeo = $('#panel-neo');
+  function selectTab(tab){
+    const apod = (tab === 'apod');
+    tabApod.setAttribute('aria-selected', apod ? 'true':'false');
+    tabNeo .setAttribute('aria-selected', apod ? 'false':'true');
+    panelApod.hidden = !apod;
+    panelNeo.hidden  = apod;
+  }
+  tabApod.addEventListener('click', ()=>selectTab('apod'));
+  tabNeo .addEventListener('click', ()=>selectTab('neo'));
+
+  // ---------- APOD (existing features) ----------
+  const elDate = $('#date'), elCount = $('#count'), elThumbs = $('#thumbs');
+  const btnPrev = $('#btnPrev'), btnNext = $('#btnNext'), btnToday = $('#btnToday');
+  const btnFetch = $('#btnFetch'), btnRandom = $('#btnRandom');
+
+  const viewSingle = $('#single'), viewList = $('#list'), viewError = $('#error');
+  const elMedia = $('#media'), elTitle = $('#title'), elMeta = $('#meta'), elExp = $('#explanation');
+  const elLinkHd = $('#linkHd'), elLinkUrl = $('#linkUrl'), btnShare = $('#btnShare'), elCopyright = $('#copyright');
+  const elThumbGrid = $('#thumbGrid');
+
+  elDate.value = todayStr;
+  (function initFromQuery(){ const q=new URLSearchParams(location.search); const d=q.get('d'); if(d) elDate.value=d; })();
+
+  btnPrev.addEventListener('click',()=>shiftDate(-1));
+  btnNext.addEventListener('click',()=>shiftDate(1));
+  btnToday.addEventListener('click',()=>{ elDate.value=todayStr; fetchApod(); });
+  btnFetch.addEventListener('click', fetchApod);
+  btnRandom.addEventListener('click', ()=> fetchApod({random:true}));
+
+  function shiftDate(days){ const d=new Date(elDate.value||todayStr); d.setUTCDate(d.getUTCDate()+days); elDate.value=d.toISOString().slice(0,10); fetchApod(); }
+
+  async function fetchApod(opts={}){
+    viewError.hidden = true;
+    const useProxy = elUseProxy.checked;
+    const apiKey = elApiKey.value.trim() || 'DEMO_KEY';
+    const params = new URLSearchParams();
+    const random = !!opts.random || (+elCount.value > 1);
+    if (random) params.set('count', Math.min(Math.max(parseInt(elCount.value||'1',10),1),20));
+    else if (elDate.value) params.set('date', elDate.value);
+    params.set('thumbs', elThumbs.value);
+    if (!useProxy) params.set('api_key', apiKey);
+
+    const url = (useProxy ? PROXY.apod : NASA_APOD) + '?' + params.toString();
+
+    setStatus('Loading APOD…');
+    try{
+      const res = await fetch(url, {headers:{Accept:'application/json'}});
+      if(!res.ok) throw new Error(await res.text());
+      const data = await res.json();
+      const items = Array.isArray(data)?data:[data];
+      renderApodList(items);
+      setStatus(`Loaded ${items.length} APOD item${items.length>1?'s':''}.`);
+    }catch(e){ showApodError(e.message); }
+  }
+
+  function showApodError(msg){
+    viewSingle.hidden=true; viewList.hidden=true; viewError.hidden=false;
+    viewError.innerHTML = `<p class="err"><strong>Error:</strong> ${escapeHtml(msg)}</p>
+      <p class="note">Tip: DEMO_KEY is heavily rate-limited. Use your key or enable the proxy.</p>`;
+    setStatus('');
+  }
+
+  function renderApodList(items){
+    if (items.length>1){
+      viewList.hidden=false;
+      elThumbGrid.innerHTML = items.map((it,i)=>thumbCard(it,i)).join('');
+      [...elThumbGrid.querySelectorAll('.thumb')].forEach(card=>{
+        card.addEventListener('click',()=>{ const i=+card.dataset.idx; renderApod(items[i]); scrollTo({top:0,behavior:'smooth'}); });
+      });
+    } else { viewList.hidden=true; elThumbGrid.innerHTML=''; }
+    renderApod(items[0]);
+  }
+
+  function thumbCard(it, idx){
+    const imgSrc = it.media_type==='image' ? (it.url||it.hdurl) : (it.thumbnail_url||it.url);
+    return `<article class="thumb" data-idx="${idx}" title="${escapeHtml(it.title||'APOD')}">
+      <img alt="" loading="lazy" src="${escapeHtml(imgSrc||'')}" />
+      <div class="tpad"><div class="note">${escapeHtml(it.date||'')}</div>
+      <div style="font-size:13px">${escapeHtml(trunc(it.title||'',60))}</div></div></article>`;
+  }
+
+  function renderApod(it){
+    if(!it) return;
+    viewSingle.hidden=false;
+    elMedia.innerHTML='';
+    if (it.media_type==='image'){
+      const img=new Image(); img.alt=it.title||'APOD image'; img.src=it.hdurl||it.url; img.loading='eager'; elMedia.appendChild(img);
+    } else if (it.media_type==='video'){
+      const u=String(it.url||'');
+      if(/youtube\.com|youtu\.be|vimeo\.com/i.test(u)){ const ifr=document.createElement('iframe'); ifr.allow='accelerometer; autoplay; encrypted-media; picture-in-picture'; ifr.src=u; elMedia.appendChild(ifr); }
+      else if (/\.(mp4|webm|m4v)(\?|$)/i.test(u)){ const v=document.createElement('video'); v.controls=true; v.src=u; v.playsInline=true; elMedia.appendChild(v); }
+      else { elMedia.innerHTML=`<div class="pad"><a class="btn" target="_blank" rel="noopener" href="${escapeHtml(u)}">Open Video</a></div>`; }
+    } else { elMedia.textContent='Unsupported media type.'; }
+
+    elTitle.textContent = it.title || 'Astronomy Picture of the Day';
+    elMeta.textContent = [it.date||'', it.service_version?('v'+it.service_version):''].filter(Boolean).join(' • ');
+    elExp.textContent = it.explanation || '';
+    elLinkHd.href = it.hdurl || it.url || '#';
+    elLinkUrl.href = it.url || it.hdurl || '#';
+    btnShare.onclick = ()=> shareApod(it);
+    const c = it.copyright ? `© ${it.copyright}` : 'Public domain or NASA';
+    (document.getElementById('copyright')).textContent = c;
+  }
+
+  async function shareApod(it){
+    const link = new URL(location.href);
+    link.searchParams.set('d', it.date||'');
+    try{ if(navigator.share){ await navigator.share({title: it.title||'APOD', text:`${it.title||'APOD'} — ${it.date||''}`, url:String(link)}); toast('Shared!'); return; } }catch{}
+    try{ await navigator.clipboard.writeText(String(link)); toast('Link copied'); }catch{ toast('Copy failed'); }
+  }
+
+  // ---------- NEO (new) ----------
+  const neoStart = $('#neoStart'), neoEnd = $('#neoEnd'), btnNeoFeed = $('#btnNeoFeed');
+  const neoFeedCard = $('#neoFeedCard'), neoFeedTable = $('#neoFeedTable').querySelector('tbody');
+  const neoFeedPager = $('#neoFeedPager'), neoFeedWindow = $('#neoFeedWindow');
+  const btnNeoPrevWindow = $('#neoPrevWindow'), btnNeoNextWindow = $('#neoNextWindow');
+
+  const neoId = $('#neoId'), btnNeoLookup = $('#btnNeoLookup'), neoLookupCard = $('#neoLookupCard'), neoLookupBody = $('#neoLookupBody');
+
+  const neoPage = $('#neoPage'), btnNeoBrowse = $('#btnNeoBrowse'), neoBrowseCard = $('#neoBrowseCard'), neoBrowseBody = $('#neoBrowseBody'), browseInfo = $('#browseInfo'), btnPrevBrowse = $('#btnPrevBrowse'), btnNextBrowse = $('#btnNextBrowse');
+
+  const neoError = $('#neoError');
+
+  neoStart.value = todayStr; // sensible defaults: today→+6
+  const tmp = new Date(todayStr); tmp.setUTCDate(tmp.getUTCDate()+6); neoEnd.value = tmp.toISOString().slice(0,10);
+
+  btnNeoFeed.addEventListener('click', ()=> runNeoFeed(neoStart.value, neoEnd.value));
+  btnNeoPrevWindow.addEventListener('click', ()=> shiftFeedWindow(-1));
+  btnNeoNextWindow.addEventListener('click', ()=> shiftFeedWindow(1));
+
+  btnNeoLookup.addEventListener('click', ()=> runNeoLookup(neoId.value.trim()));
+
+  btnNeoBrowse.addEventListener('click', ()=> runNeoBrowse(parseInt(neoPage.value||'0',10)));
+  btnPrevBrowse.addEventListener('click', ()=> { const p=Math.max(0,parseInt(neoPage.value||'0',10)-1); neoPage.value=p; runNeoBrowse(p); });
+  btnNextBrowse.addEventListener('click', ()=> { const p=parseInt(neoPage.value||'0',10)+1; neoPage.value=p; runNeoBrowse(p); });
+
+  function showNeoError(msg){ neoError.hidden=false; neoError.textContent=msg; setStatus(''); }
+  function clearNeoError(){ neoError.hidden=true; neoError.textContent=''; }
+
+  async function runNeoFeed(start, end){
+    clearNeoError();
+    // Enforce ≤ 7 days
+    if(!start){ showNeoError('Choose a start date'); return; }
+    if(!end){ showNeoError('Choose an end date'); return; }
+    const s=new Date(start), e=new Date(end);
+    if(e - s > 7*24*3600*1000){ showNeoError('End date must be within 7 days of start'); return; }
+
+    const useProxy = elUseProxy.checked;
+    const apiKey = elApiKey.value.trim() || 'DEMO_KEY';
+    const qs = new URLSearchParams({ start_date:start, end_date:end });
+    if(!useProxy) qs.set('api_key', apiKey);
+
+    setStatus('Loading NEO feed…');
+    try{
+      const url = (useProxy? PROXY.neoFeed : NASA_NEO_FEED) + '?' + qs.toString();
+      const res = await fetch(url, {headers:{Accept:'application/json'}});
+      if(!res.ok) throw new Error(await res.text());
+      const data = await res.json();
+      renderNeoFeed(data);
+      // Remember for pager
+      neoFeedPager.hidden = false;
+      neoFeedWindow.textContent = `${start} → ${end}`;
+      neoFeedPager.dataset.start=start; neoFeedPager.dataset.end=end;
+      setStatus('NEO feed loaded.');
+    }catch(e){ showNeoError(trunc(String(e), 300)); }
+  }
+
+  function shiftFeedWindow(dir){
+    // move window by its length
+    const start = neoFeedPager.dataset.start, end = neoFeedPager.dataset.end;
+    if(!start||!end) return;
+    const s=new Date(start), e=new Date(end);
+    const spanDays = Math.round((e - s)/(24*3600*1000)) + 1;
+    s.setUTCDate(s.getUTCDate()+dir*spanDays);
+    e.setUTCDate(e.getUTCDate()+dir*spanDays);
+    neoStart.value = s.toISOString().slice(0,10);
+    neoEnd.value = e.toISOString().slice(0,10);
+    runNeoFeed(neoStart.value, neoEnd.value);
+  }
+
+  function renderNeoFeed(data){
+    neoFeedCard.hidden=false;
+    const tbody = neoFeedTable; tbody.innerHTML='';
+    // Data shape: near_earth_objects: { "YYYY-MM-DD": [NEO, ...], ... }
+    const days = Object.keys(data.near_earth_objects||{}).sort();
+    for(const day of days){
+      for(const obj of data.near_earth_objects[day]){
+        const cad = (obj.close_approach_data&&obj.close_approach_data[0]) || {};
+        const rel = cad.relative_velocity||{}, miss=cad.miss_distance||{}, diam=obj.estimated_diameter||{};
+        const minM = diam.meters?.estimated_diameter_min, maxM = diam.meters?.estimated_diameter_max;
+        const row = document.createElement('tr');
+        row.innerHTML = `
+          <td>${escapeHtml(day)}</td>
+          <td>${escapeHtml(obj.name||'')}</td>
+          <td><a class="btn" style="padding:4px 8px" data-lookup="${escapeHtml(obj.id)}" href="javascript:void(0)">${escapeHtml(obj.id||'')}</a></td>
+          <td>${obj.is_potentially_hazardous_asteroid ? '<span class="chip danger">Potentially Hazardous</span>' : '<span class="chip ok">Not Hazardous</span>'}</td>
+          <td>${fmtRange(minM,maxM,'m')}</td>
+          <td>${miss.lunar ? Number(miss.lunar).toFixed(2) : '—'}</td>
+          <td>${rel.kilometers_per_second ? Number(rel.kilometers_per_second).toFixed(2) : '—'}</td>
+        `;
+        tbody.appendChild(row);
+      }
+    }
+    // Bind lookup buttons inline
+    tbody.querySelectorAll('[data-lookup]').forEach(a=>{
+      a.addEventListener('click', ()=> runNeoLookup(a.getAttribute('data-lookup')));
+    });
+  }
+
+  async function runNeoLookup(id){
+    clearNeoError();
+    if(!id){ showNeoError('Enter an asteroid SPK-ID.'); return; }
+    const useProxy = elUseProxy.checked;
+    const apiKey = elApiKey.value.trim() || 'DEMO_KEY';
+    const qs = new URLSearchParams();
+    if(!useProxy) qs.set('api_key', apiKey);
+    const url = (useProxy? PROXY.neoLookup(id) : NASA_NEO_LOOKUP(id)) + (qs.toString()?('?'+qs.toString()):'');
+    setStatus('Looking up asteroid…');
+    try{
+      const res=await fetch(url,{headers:{Accept:'application/json'}});
+      if(!res.ok) throw new Error(await res.text());
+      const o = await res.json();
+      renderNeoLookup(o);
+      setStatus('Lookup loaded.');
+    }catch(e){ showNeoError(trunc(String(e), 300)); }
+  }
+
+  function renderNeoLookup(o){
+    neoLookupCard.hidden=false;
+    const diam=o.estimated_diameter||{}, km=diam.kilometers||{}, m=diam.meters||{};
+    const cad=(o.close_approach_data||[])[0]||{};
+    neoLookupBody.innerHTML = `
+      <div class="grid">
+        <div><div class="note">Name</div><div class="title" style="font-size:18px">${escapeHtml(o.name||'')}</div></div>
+        <div><div class="note">SPK-ID</div><div class="mono">${escapeHtml(o.id||'')}</div></div>
+        <div><div class="note">Hazard</div>${o.is_potentially_hazardous_asteroid?'<span class="chip danger">Potentially Hazardous</span>':'<span class="chip ok">Not Hazardous</span>'}</div>
+      </div>
+      <div class="grid" style="margin-top:10px">
+        <div><div class="note">Diameter (km)</div>${fmtRange(km.estimated_diameter_min, km.estimated_diameter_max, 'km')}</div>
+        <div><div class="note">Diameter (m)</div>${fmtRange(m.estimated_diameter_min, m.estimated_diameter_max, 'm')}</div>
+        <div><div class="note">Absolute Magnitude H</div>${o.absolute_magnitude_h ?? '—'}</div>
+      </div>
+      <div style="margin-top:10px">
+        <div class="note">First listed close approach</div>
+        <div>Date: ${escapeHtml(cad.close_approach_date_full || cad.close_approach_date || '—')}</div>
+        <div>Velocity: ${cad.relative_velocity?.kilometers_per_second ? (Number(cad.relative_velocity.kilometers_per_second).toFixed(2)+' km/s') : '—'}</div>
+        <div>Miss Distance: ${cad.miss_distance?.lunar ? (Number(cad.miss_distance.lunar).toFixed(2)+' lunar distances') : '—'}</div>
+        <div>Orbiting Body: ${escapeHtml(cad.orbiting_body||'—')}</div>
+      </div>
+      <div style="margin-top:10px" class="actions">
+        <a class="btn" target="_blank" rel="noopener" href="${escapeHtml(o.nasa_jpl_url||'#')}">Open JPL SBDB</a>
+        <button class="btn" id="btnLookupAgain">Lookup another</button>
+      </div>
+    `;
+    const again = document.getElementById('btnLookupAgain');
+    if (again) again.onclick = ()=> { neoId.focus(); neoId.select(); };
+  }
+
+  async function runNeoBrowse(page){
+    clearNeoError();
+    const useProxy = elUseProxy.checked;
+    const apiKey = elApiKey.value.trim() || 'DEMO_KEY';
+    const qs = new URLSearchParams({ page:String(Math.max(0,page||0)) });
+    if(!useProxy) qs.set('api_key', apiKey);
+
+    setStatus('Browsing NEOs…');
+    try{
+      const url = (useProxy? PROXY.neoBrowse : NASA_NEO_BROWSE) + '?' + qs.toString();
+      const res = await fetch(url, {headers:{Accept:'application/json'}});
+      if(!res.ok) throw new Error(await res.text());
+      const data = await res.json();
+      renderNeoBrowse(data);
+      setStatus('Browse page loaded.');
+    }catch(e){ showNeoError(trunc(String(e), 300)); }
+  }
+
+  function renderNeoBrowse(data){
+    neoBrowseCard.hidden=false;
+    const list = data.near_earth_objects || [];
+    neoBrowseBody.innerHTML = `
+      <table aria-label="Browse NEOs"><thead>
+        <tr><th>Name</th><th>SPK-ID</th><th>Hazard</th><th>H</th><th>Est. Diameter (m)</th></tr>
+      </thead><tbody>
+        ${list.map(o=>{
+          const m=o.estimated_diameter?.meters||{};
+          return `<tr>
+            <td>${escapeHtml(o.name||'')}</td>
+            <td><a class="btn" style="padding:4px 8px" data-lookup="${escapeHtml(o.id)}" href="javascript:void(0)">${escapeHtml(o.id||'')}</a></td>
+            <td>${o.is_potentially_hazardous_asteroid?'<span class="chip danger">Hazard</span>':'<span class="chip ok">OK</span>'}</td>
+            <td>${o.absolute_magnitude_h ?? '—'}</td>
+            <td>${fmtRange(m.estimated_diameter_min, m.estimated_diameter_max, 'm')}</td>
+          </tr>`;
+        }).join('')}
+      </tbody></table>
+    `;
+    // bind lookup
+    neoBrowseBody.querySelectorAll('[data-lookup]').forEach(a=>{
+      a.addEventListener('click', ()=> runNeoLookup(a.getAttribute('data-lookup')));
+    });
+
+    const p = data.page || {};
+    const pageNum = p.number ?? 0, total = p.total_pages ?? 0;
+    browseInfo.textContent = `Page ${pageNum+1} of ${total || '?'} • ${list.length} items`;
+    btnPrevBrowse.disabled = pageNum<=0;
+    btnNextBrowse.disabled = (typeof total==='number' && total>0) ? (pageNum>=total-1) : false;
+  }
+
+  // ---------- Boot ----------
+  selectTab('apod');
+  fetchApod();
+
+  // ---------- Utils ----------
+  function escapeHtml(s){ return String(s||'').replace(/[&<>"']/g, m=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[m])); }
+  function trunc(s,n){ s=String(s||''); return s.length>n ? s.slice(0,n-1)+'…' : s; }
+  function fmtRange(min,max,unit){ const a=Number(min), b=Number(max); if(Number.isFinite(a)&&Number.isFinite(b)) return `${a.toFixed(1)}–${b.toFixed(1)} ${unit}`; return '—'; }
+})();
+</script>
+</body>
+</html>
