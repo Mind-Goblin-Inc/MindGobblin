@@ -151,6 +151,28 @@ export async function loadGraphicsAssets() {
     spritesById.wall = { ...sprite, _canvas: spriteToCanvas(sprite, palette) };
   }
 
+  if (!spritesById.outpost) {
+    const sprite = makeGeneratedSprite("outpost", [
+      "................",
+      ".......s........",
+      ".......s........",
+      "......sss.......",
+      "......srs.......",
+      ".....ssrss......",
+      "...ssssrsssss...",
+      "...sdddddddds...",
+      "...sddwddwdds...",
+      "...sdddddddds...",
+      "...sdddddddds...",
+      "...sdddssddds...",
+      "...sdddddddds...",
+      "...ssssssssss...",
+      "................",
+      "................"
+    ]);
+    spritesById.outpost = { ...sprite, _canvas: spriteToCanvas(sprite, palette) };
+  }
+
   const envCanvas = bitmap565ToCanvas(envData);
 
   return {

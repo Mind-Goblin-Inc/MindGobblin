@@ -369,7 +369,7 @@ function buildInitialWildlife({ seed, width, height, regionsById, waterSources }
   const wolfRegions = Object.values(regionsById).filter(
     (r) => r.biome === "forest" || r.biome === "hills" || r.biome === "badlands"
   );
-  const wolfCount = clamp(Math.floor((width * height) / 420), 3, 12);
+  const wolfCount = clamp(Math.floor((width * height) / 700), 2, 7);
   const wolfPackId = "wild-pack-1";
   packsById[wolfPackId] = {
     id: wolfPackId,
@@ -554,6 +554,7 @@ export function generateWorldMapState({ seed, size = "standard", climatePreset =
     render: {
       overlayMode: "biome",
       showDebugWildlife: true,
+      showThreatOverlay: true,
       followTrackedGoblin: false,
       showLayers: {
         routes: true,

@@ -21,7 +21,7 @@ export function createInitialState(seed = "phase1-seed", goblinCount = 12) {
       runId: `run-${seed}`,
       tick: 0,
       simTimeMs: 0,
-      simulationSpeed: 1,
+      simulationSpeed: 4,
       paused: false,
       autoPause: {
         enabled: false,
@@ -34,6 +34,20 @@ export function createInitialState(seed = "phase1-seed", goblinCount = 12) {
       lastAutoPauseTick: null,
       seed,
       randomizationProfile,
+      tuning: {
+        wildlife: {
+          detectionRadiusScale: 1,
+          targetCommitTicks: 20,
+          retargetCooldownTicks: 6,
+          breakoffTicks: 10,
+          engageRange: 1.5,
+          wallPenaltyScale: 1
+        },
+        threat: {
+          localRadius: 9,
+          directRadius: 4.5
+        }
+      },
       rngState: rng.state,
       nextId: 1
     },

@@ -2,6 +2,7 @@ import { renderChronicleBrowser } from "./chronicleBrowser.js";
 import { renderArtifactInspector, renderArtifactList } from "./artifactInspector.js";
 import { causalityTraceForEntry } from "../sim/lore/causalityGraph.js";
 import { buildHoverSummary, buildMapInspector, buildOverlayLegend, renderWorldMap } from "./world/mapRenderer.js";
+import { TILES_PER_CHUNK } from "../sim/world/scale.js";
 
 function pct(n) {
   return `${Math.round(n)}%`;
@@ -9,9 +10,13 @@ function pct(n) {
 
 export function renderApp(state, els) {
   els.tick.textContent = String(state.meta.tick);
-  els.goblins.textContent = String(state.goblins.allIds.length);
+  const livingGoblinIds = state.goblins.allIds.filter((id) => {
+    const g = state.goblins.byId[id];
+    return g && g.flags?.alive && !g.flags?.missing;
+  });
+  els.goblins.textContent = String(livingGoblinIds.length);
 
-  const avgMorale = avg(state.goblins.allIds.map((id) => state.goblins.byId[id].psyche.morale));
+  const avgMorale = avg(livingGoblinIds.map((id) => state.goblins.byId[id].psyche.morale));
   els.avgMorale.textContent = pct(avgMorale);
   els.foodStock.textContent = String(state.tribe.resources.food || 0);
   els.waterStock.textContent = String(state.tribe.resources.water || 0);
@@ -21,8 +26,10 @@ export function renderApp(state, els) {
   const unitList = Object.values(state.worldMap?.units?.byGoblinId || {});
   const activeGoblins = unitList.filter((u) => (u.lastGoal || "idle") !== "idle").length;
   els.activeGoblins.textContent = String(activeGoblins);
+  const outpostCount = Object.keys(state.worldMap?.structures?.colonyOutpostsByTileKey || {}).length;
+  if (els.outpostCount) els.outpostCount.textContent = String(outpostCount);
 
-  const criticalNeeds = state.goblins.allIds.reduce((count, id) => {
+  const criticalNeeds = livingGoblinIds.reduce((count, id) => {
     const g = state.goblins.byId[id];
     if (!g) return count;
     const isCritical =
@@ -36,8 +43,9 @@ export function renderApp(state, els) {
   els.criticalNeeds.textContent = String(criticalNeeds);
 
   renderWorld(state, els);
+  const panelTickBucket = Math.floor(state.meta.tick / 4);
   const panelKey = [
-    state.meta.tick,
+    panelTickBucket,
     state.meta.paused ? 1 : 0,
     state.meta.simulationSpeed,
     state.debug.selectedGoblinId || "",
@@ -139,7 +147,7 @@ function renderRoster(state, mount) {
 }
 
 function buildRoleOptions(currentRole) {
-  const roles = ["forager", "woodcutter", "builder", "lookout"];
+  const roles = ["forager", "woodcutter", "fisherman", "hunter", "builder", "sentinel", "lookout", "hauler", "water-runner", "caretaker", "quartermaster", "scout", "colony-establisher"];
   const normalized = roles.includes(currentRole) ? currentRole : "forager";
   return roles
     .map((role) => `<option value="${role}"${role === normalized ? " selected" : ""}>${role}</option>`)
@@ -182,6 +190,7 @@ function renderProblemFeed(state, mount) {
   for (const key of ["urgent", "warning", "info"]) {
     const block = document.createElement("div");
     block.style.marginBottom = "0.5rem";
+    block.style.minHeight = "5.4rem";
     const title = key[0].toUpperCase() + key.slice(1);
     const list = buckets[key];
     const items = list.length
@@ -223,6 +232,10 @@ function classifySeverity(entry) {
     t === "BARBARIAN_RAID_TARGETED" ||
     t === "BARBARIAN_RAID_NEAR_HOME" ||
     t === "BARBARIAN_DAMAGED_WALL" ||
+    t === "GOBLIN_KILLED_BY_WILDLIFE" ||
+    t === "GOBLIN_INJURED_BY_WILDLIFE" ||
+    t === "WILDLIFE_ATTACKED_GOBLIN" ||
+    t === "WILDLIFE_REPELLED_BY_GOBLINS" ||
     t === "THREAT_SPOTTED" ||
     t === "WOLF_THREAT_NEAR_HOME" ||
     t === "NO_FIREWOOD" ||
@@ -232,6 +245,14 @@ function classifySeverity(entry) {
   }
   if (
     t === "NEED_SPIKE" ||
+    t === "SCOUT_SPOTTED_THREAT" ||
+    t === "GOBLIN_HUNTED_WILDLIFE" ||
+    t === "COLONY_HOME_ESTABLISHED" ||
+    t === "CARETAKER_ASSISTED" ||
+    t === "LOGISTICS_BOTTLENECK" ||
+    t === "ROLE_POLICY_OVERRIDE" ||
+    t === "ROLE_COORDINATION_SIGNAL" ||
+    t === "WILDLIFE_KILLED_BY_GOBLINS" ||
     t === "WOLF_HUNT_STARTED" ||
     t === "BARBARIAN_STOLE_RESOURCE" ||
     t === "WALL_PLAN_REPLANNED"
@@ -246,6 +267,10 @@ function resolveFocusTarget(state, entry) {
   if (!wm || !entry) return null;
   const details = entry.details || {};
   if (Number.isFinite(details.tileX) && Number.isFinite(details.tileY)) return { x: details.tileX, y: details.tileY };
+  if (typeof details.at === "string" && details.at.includes(",")) {
+    const [mx, my] = details.at.split(",").map((v) => Number(v));
+    if (Number.isFinite(mx) && Number.isFinite(my)) return { x: Math.floor(mx / TILES_PER_CHUNK), y: Math.floor(my / TILES_PER_CHUNK) };
+  }
   if (entry.siteId && wm.sitesById[entry.siteId]) return { x: wm.sitesById[entry.siteId].x, y: wm.sitesById[entry.siteId].y };
   if (entry.goblinId && wm.units?.byGoblinId?.[entry.goblinId]) {
     const unit = wm.units.byGoblinId[entry.goblinId];
@@ -321,7 +346,8 @@ function buildDebugView(state, depth, selected, selectedChronicle, trace) {
         selectedRegionId: state.worldMap.player.selectedRegionId,
         selectedSiteId: state.worldMap.player.selectedSiteId,
         startingSiteId: state.worldMap.player.startingSiteId,
-        overlayMode: state.worldMap.render.overlayMode
+        overlayMode: state.worldMap.render.overlayMode,
+        reproduction: state.worldMap.structures?.reproduction?.lastSnapshot || null
       }
     };
   }
@@ -345,7 +371,8 @@ function buildDebugView(state, depth, selected, selectedChronicle, trace) {
       selectedRegionId: state.worldMap.player.selectedRegionId,
       selectedSiteId: state.worldMap.player.selectedSiteId,
       startingSiteId: state.worldMap.player.startingSiteId,
-      overlayMode: state.worldMap.render.overlayMode
+      overlayMode: state.worldMap.render.overlayMode,
+      reproduction: state.worldMap.structures?.reproduction || null
     },
     tracking: {
       trackedGoblinId: state.debug.trackedGoblinId

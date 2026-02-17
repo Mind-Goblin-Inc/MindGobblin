@@ -71,6 +71,9 @@ function writeChronicle(state, event) {
   if (event.type === "BARBARIAN_DAMAGED_WALL") text = event.text || text;
   if (event.type === "BARBARIAN_STOLE_RESOURCE") text = event.text || text;
   if (event.type === "BARBARIAN_RAID_NEAR_HOME") text = event.text || text;
+  if (event.type === "WILDLIFE_ATTACKED_GOBLIN") text = event.text || text;
+  if (event.type === "GOBLIN_INJURED_BY_WILDLIFE") text = event.text || text;
+  if (event.type === "GOBLIN_KILLED_BY_WILDLIFE") text = event.text || text;
 
   state.chronicle.push({
     id: nextId(state, "chron"),

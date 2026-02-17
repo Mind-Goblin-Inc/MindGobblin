@@ -231,6 +231,26 @@ export function validateState(state) {
       if (deathTickByGoblinId[c.goblinId] === undefined) deathTickByGoblinId[c.goblinId] = c.tick;
       else warnings.push(`Duplicate goblin death transition: ${c.goblinId}`);
     }
+    if (c.type === "GOBLIN_INJURED_BY_WILDLIFE") {
+      const goblinId = c.goblinId || c.details?.goblinId;
+      const wildlifeId = c.details?.wildlifeId || c.wildlifeId;
+      if (!goblinId || !state.goblins.byId[goblinId]) {
+        warnings.push(`Injury event missing/invalid goblin reference: ${c.id}`);
+      }
+      if (wildlifeId && !state.worldMap?.wildlife?.byId?.[wildlifeId]) {
+        warnings.push(`Injury event missing/invalid wildlife reference: ${c.id}`);
+      }
+    }
+  }
+
+  for (const c of state.chronicle || []) {
+    if (c.type !== "WILDLIFE_ATTACKED_GOBLIN") continue;
+    const goblinId = c.goblinId || c.details?.goblinId;
+    if (!goblinId) continue;
+    const deathTick = deathTickByGoblinId[goblinId];
+    if (deathTick !== undefined && c.tick > deathTick) {
+      warnings.push(`Post-death wildlife attack event: ${goblinId}@${c.tick}`);
+    }
   }
 
   state.debug.warnings = warnings.slice(-20);

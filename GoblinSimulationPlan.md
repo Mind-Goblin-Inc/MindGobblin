@@ -3642,6 +3642,362 @@ Optional later:
 - `quartermaster`
 - `caretaker`
 
+### 16.2.1 Role Implementation Status (Source of Truth)
+Use this as the live role inventory for what exists in code right now.
+
+Included (implemented in simulation + selectable in UI):
+- `forager`
+- `woodcutter`
+- `fisherman`
+- `hunter`
+- `builder`
+- `sentinel`
+- `lookout`
+- `hauler`
+- `water-runner`
+- `scout`
+- `quartermaster`
+- `caretaker`
+- `colony-establisher`
+
+Not included yet (planned/useful additions):
+- `medic`
+- `engineer`
+- `storekeeper`
+- `firekeeper`
+- `diplomat`
+
+### 16.2.2 Role Notes (Included Roles)
+- `forager`: gathers food nodes and contributes food pipeline.
+- `woodcutter`: gathers wood nodes and contributes wall/logistics pipeline.
+- `fisherman`: harvests fish from water tiles and returns food to storage.
+- `hunter`: tracks deer/wolves, hunts them, and returns food.
+- `builder`: constructs and repairs wall plan segments.
+- `sentinel`: holds defense points and intercepts nearby threats.
+- `lookout`: patrols + detects hostile wildlife, emits threat alerts.
+- `hauler`: moves staged resources from source drops to home storage.
+- `water-runner`: collects/delivers water for hydration stability.
+- `scout`: explores low-confidence frontier, emits intel/threat/resource reports.
+- `quartermaster`: issues emergency role-priority overrides during spikes.
+- `caretaker`: seeks distressed goblins and applies direct recovery support.
+- `colony-establisher`: identifies frontier opportunities and relocates home anchors to seed expansion.
+
+### 16.2.3 Candidate Role Notes (Not Included Yet)
+- `medic`: advanced injury/health treatment specialization beyond caretaker.
+- `engineer`: defensive infrastructure specialist (gates/chokepoints/upgrades).
+- `storekeeper`: stockpile and flow optimization role (storage discipline).
+- `firekeeper`: warmth/fuel continuity role (camp survival baseline).
+- `diplomat`: social/faction pressure mitigation role for non-combat outcomes.
+
+### 16.2.4 Detailed Role Specs (Included Now)
+This section is intentionally implementation-oriented. It describes exactly what each role should be assumed to do in current gameplay.
+
+`forager` (Included)
+- Primary objective: increase edible supply by harvesting mushroom nodes.
+- Typical task chain:
+1. claim gather target (`gather-food`)
+2. move to node
+3. harvest and stage resource drop
+4. release node for regrow cycle
+- Key inputs:
+  - mushroom node availability
+  - local threat pressure
+  - personal thirst/hunger interrupts
+- Key outputs:
+  - staged mushrooms for logistics
+  - chronicle gather events
+- Common blocked reasons:
+  - `NO_NODE_READY`
+  - `NO_PATH`
+- Success indicators:
+  - stable/positive mushroom stock trend
+  - fewer food shortage alerts over time
+
+`woodcutter` (Included)
+- Primary objective: maintain wood supply for walls and utility use.
+- Typical task chain:
+1. claim tree target (`cut-tree`)
+2. move to tree
+3. chop and stage wood drop
+4. allow regrow timer
+- Key inputs:
+  - tree readiness
+  - current wood stock
+  - wall repair demand
+- Key outputs:
+  - staged wood for haulers/builders
+- Common blocked reasons:
+  - `NO_NODE_READY`
+  - `NO_PATH`
+- Success indicators:
+  - wood stock not bottlenecking builders
+  - reduced builder idle-blocked events
+
+`fisherman` (Included)
+- Primary objective: convert water access into direct food yield.
+- Typical task chain:
+1. claim fishable water target (`fish-water`)
+2. move to water tile
+3. catch fish
+4. return and deliver food (`deliver-home`)
+- Key inputs:
+  - nearby water source availability
+  - current food pressure
+  - personal survival interrupts (thirst/threat)
+- Key outputs:
+  - `GOBLIN_CAUGHT_FISH`
+  - `RESOURCE_DELIVERED` (`food`)
+- Common blocked reasons:
+  - `NO_NODE_READY` (no reachable water source)
+  - `NO_PATH`
+- Success indicators:
+  - smoother food baseline when mushrooms are sparse
+  - lower food-shortage variance across runs
+
+`builder` (Included)
+- Primary objective: construct/repair wall plan segments.
+- Typical task chain:
+1. claim wall segment (prefer breach or threat-adjacent slot)
+2. move to segment
+3. consume wood and build/repair
+- Key inputs:
+  - wall plan status
+  - wood stock
+  - threat memory + breach markers
+- Key outputs:
+  - new wall objects
+  - repaired breaches (`WALL_REPAIRED`)
+- Common blocked reasons:
+  - `STORAGE_UNAVAILABLE` (no usable wood)
+  - `NO_NODE_READY` (no assignable segment)
+- Success indicators:
+  - planned wall count decreases
+  - breach dwell time stays low
+
+`lookout` (Included)
+- Primary objective: detect nearby hostiles before direct home contact.
+- Typical task chain:
+1. patrol perimeter route
+2. switch to investigate known threat when confidence is high
+3. refresh threat memory and emit alerts
+- Key inputs:
+  - threat memory map
+  - hostile proximity sampling
+- Key outputs:
+  - `THREAT_SPOTTED`
+  - refreshed threat confidence/location
+- Common blocked reasons:
+  - no meaningful threat target, falls back to patrol
+- Success indicators:
+  - threat alerts arrive before interior breach
+  - higher builder prioritization accuracy
+
+`hauler` (Included)
+- Primary objective: move staged resources from drops to home storage.
+- Typical task chain:
+1. claim haul task from logistics queue
+2. move to source drop (`haul-pickup`)
+3. pick up bundle
+4. deliver home (`deliver-home`)
+5. complete or partially reduce task
+- Key inputs:
+  - logistics queue state
+  - source drop availability
+  - storage capacity
+- Key outputs:
+  - `HAUL_TASK_PICKED_UP`
+  - `RESOURCE_DELIVERED`
+  - queue pressure reduction
+- Common blocked reasons:
+  - `NO_NODE_READY`
+  - `STORAGE_UNAVAILABLE`
+- Success indicators:
+  - queue backlog stays near target band
+  - fewer logistics bottleneck events
+
+`water-runner` (Included)
+- Primary objective: stabilize water access under thirst pressure.
+- Typical task chain:
+1. path to closest viable water source (`collect-water`)
+2. fill carry payload
+3. return and deliver to storage/home
+- Key inputs:
+  - water source distribution
+  - tribe thirst pressure
+  - emergency overrides
+- Key outputs:
+  - `WATER_COLLECTED`
+  - `RESOURCE_DELIVERED` (water)
+- Common blocked reasons:
+  - `NO_NODE_READY`
+  - `NO_PATH`
+- Success indicators:
+  - lower average thirst
+  - reduced critical-thirst count
+
+`scout` (Included)
+- Primary objective: reduce unknown map regions and publish intel.
+- Typical task chain:
+1. pick low-confidence frontier target with hazard gate
+2. move/explore
+3. update region/site confidence
+4. emit intel/resource/threat reports
+- Key inputs:
+  - intel confidence map
+  - hazard policy thresholds
+- Key outputs:
+  - `SCOUT_INTEL_UPDATED`
+  - `SCOUT_SPOTTED_THREAT`
+  - `SCOUT_FOUND_RESOURCE_CLUSTER`
+  - coordination signal events
+- Common blocked reasons:
+  - `NO_NODE_READY` (no valid frontier)
+- Success indicators:
+  - unknown area shrinks over time
+  - higher quality target selection for other roles
+
+`quartermaster` (Included)
+- Primary objective: coordinate labor during emergencies.
+- Typical task chain:
+1. monitor alert + critical-needs pressure
+2. activate temporary policy override window
+3. bias role targets (builder/lookout/water-runner)
+4. emit coordination status events
+- Key inputs:
+  - threat level
+  - critical-needs count
+  - role policy state
+- Key outputs:
+  - `ROLE_POLICY_OVERRIDE`
+  - `ROLE_COORDINATION_SIGNAL`
+- Success indicators:
+  - faster role response to spikes
+  - fewer prolonged emergency states
+
+`caretaker` (Included)
+- Primary objective: stabilize distressed goblins.
+- Typical task chain:
+1. detect distress target (needs/morale/vitality thresholds)
+2. move adjacent (`assist-goblin`)
+3. apply recovery package (needs down, morale/vitality up)
+- Key inputs:
+  - per-goblin distress scoring
+  - proximity/pathing feasibility
+- Key outputs:
+  - `CARETAKER_ASSISTED` with before/after stats
+- Success indicators:
+  - critical-needs population declines
+  - fewer collapses during raids/shortages
+
+### 16.2.5 Detailed Role Specs (Not Included Yet)
+These are design-complete enough to start coding in later phases.
+
+`sentinel` (Not Included)
+- Mission: lock defense coverage to fixed points (gate corners, breach-prone segments).
+- Core behaviors:
+1. claim guard post
+2. hold position with short patrol radius
+3. immediate engage/alarm on hostile proximity
+- Primary difference from lookout:
+  - lookout explores/ranges
+  - sentinel holds and anchors lines
+- First implementation hooks:
+  - guard-post data structure
+  - post assignment policy
+  - alarm event with post id
+
+`hunter` (Not Included)
+- Mission: controlled wildlife pressure + meat/fur resource pipeline.
+- Core behaviors:
+1. target selection (deer first, wolves situational)
+2. stalk/chase/engage
+3. recover carcass outputs to haul network
+- Dependencies:
+  - combat/hit resolution quality
+  - carcass resource schema
+- Risks:
+  - overhunting ecological collapse
+  - excessive aggro pull into homes
+
+`medic` (Not Included)
+- Mission: specialized treatment for injuries and persistent conditions.
+- Core behaviors:
+1. triage queue by severity
+2. move to patient or clinic point
+3. apply treatment step and cooldown
+- Difference from caretaker:
+  - caretaker = short, broad stabilization
+  - medic = deeper, slower clinical recovery
+
+`engineer` (Not Included)
+- Mission: turn raw walls into structured defense systems.
+- Core behaviors:
+1. choose upgrade/fortification blueprint
+2. build gates/chokes/reinforcements/traps
+3. maintain structural health
+- Dependencies:
+  - richer structure schema
+  - multi-step construction orders
+
+`storekeeper` (Not Included)
+- Mission: keep inventory flow legible and efficient.
+- Core behaviors:
+1. classify supply lanes
+2. prioritize sink/source routing
+3. retune storage caps/categories
+- Expected value:
+  - fewer stalled jobs
+  - lower haul path inefficiency
+
+`firekeeper` (Not Included)
+- Mission: maintain warmth/fuel safety loops.
+- Core behaviors:
+1. track fuel threshold
+2. schedule refuel tasks
+3. monitor warmth-risk conditions
+- Expected value:
+  - reduced warmth/rest/morale cascades in harsh cycles
+
+`diplomat` (Not Included)
+- Mission: reduce conflict cost via social actions.
+- Core behaviors:
+1. detect faction tension windows
+2. trigger negotiation/intimidation/offering flows
+3. alter hostility outcomes when successful
+- Dependencies:
+  - faction reputation model
+  - deterministic negotiation resolution
+
+### 16.2.6 Implementation Checklist Matrix
+Use this checklist before calling any role “production-ready”.
+
+Per-role readiness gates:
+1. Role appears in roster selector.
+2. Role has at least one complete task loop.
+3. Role emits at least one role-specific event.
+4. Blocked reasons are understandable in feed.
+5. Role participates correctly in auto-balancer targets.
+6. Role behavior is visible in map inspector/debug summaries.
+
+Current readiness summary:
+1. `forager`: 1-6 complete.
+2. `woodcutter`: 1-6 complete.
+3. `fisherman`: 1-6 complete.
+4. `builder`: 1-6 complete.
+5. `lookout`: 1-6 complete.
+6. `hauler`: 1-6 complete.
+7. `water-runner`: 1-6 complete.
+8. `scout`: 1-6 complete.
+9. `quartermaster`: 1-6 complete (thin override slice).
+10. `caretaker`: 1-6 complete (stabilization slice).
+11. `sentinel`: 1-6 complete (defense-hold/intercept slice).
+12. `hunter`: 1-6 complete (hunt/harvest slice).
+13. `medic`: not started.
+14. `engineer`: not started.
+15. `storekeeper`: not started.
+16. `firekeeper`: not started.
+17. `diplomat`: not started.
+
 ### 16.3 Shared Role Data Contract
 
 ```ts
@@ -3649,12 +4005,16 @@ type RoleKey =
   | "forager"
   | "water-runner"
   | "woodcutter"
+  | "fisherman"
+  | "hunter"
   | "builder"
+  | "sentinel"
   | "scout"
   | "hauler"
   | "lookout"
   | "quartermaster"
-  | "caretaker";
+  | "caretaker"
+  | "colony-establisher";
 
 interface RoleTask {
   kind: string;
@@ -3683,6 +4043,7 @@ interface RolePolicy {
     foragerCount: number;
     waterRunnerCount: number;
     woodcutterCount: number;
+    fishermanCount: number;
     builderCount: number;
     scoutCount: number;
     haulerCount: number;
@@ -3698,6 +4059,7 @@ Add role-centric event types:
 - `ROLE_TASK_CLAIMED`
 - `ROLE_TASK_BLOCKED`
 - `RESOURCE_DELIVERED`
+- `GOBLIN_CAUGHT_FISH`
 - `WALL_REPAIRED`
 - `SCOUT_INTEL_UPDATED`
 - `THREAT_SPOTTED`
@@ -4364,3 +4726,327 @@ Use this as the build contract for Plan A. Do not mark complete until acceptance
   Include lightweight UI-state checks for season strip/forecast/overlay selectors.
 - Acceptance:
   `npm run sim:verify` (or equivalent check + test suite) passes consistently.
+
+### 17.6 Plan C Deep Dive - Dynamic Site Lifecycle (Weather-Free Track)
+Goal:
+- make sites evolve over time so map strategy changes after day 1.
+- create opportunity/risk windows players can exploit.
+- keep lifecycle transitions deterministic and explainable.
+
+#### 17.6.1 Site States
+Core lifecycle states:
+- `stable`: baseline output/risk.
+- `growing`: improving productivity/influence.
+- `contested`: external pressure, instability.
+- `depleted`: low output, high maintenance cost.
+- `reviving`: recovering from depleted/contested state.
+
+Optional content states (later):
+- `ruin-exposed`, `ruin-collapsed`, `dungeon-active`, `dungeon-dormant`.
+
+#### 17.6.2 Transition Drivers
+Primary drivers:
+- nearby hazard pressure.
+- faction influence delta.
+- route connectivity quality.
+- local extraction pressure (resource draw around site).
+- player support actions (patrol, supply, fortify).
+
+Design rule:
+- no purely random flips; all transitions need explicit contributing factors.
+
+#### 17.6.3 Data Model Additions
+Add to site model in world state:
+```ts
+siteLifecycle: {
+  state: "stable" | "growing" | "contested" | "depleted" | "reviving";
+  trend: -2 | -1 | 0 | 1 | 2;
+  pressure: {
+    hazard: number;      // 0..1
+    faction: number;     // 0..1
+    logistics: number;   // 0..1
+    extraction: number;  // 0..1
+  };
+  timers: {
+    enteredTick: number;
+    minHoldTicks: number;
+    nextEvaluationTick: number;
+  };
+  opportunities: Array<{
+    id: Id;
+    kind: "salvage-window" | "trade-window" | "fortify-window" | "scout-window";
+    expiresAtTick: number;
+    valueTier: 1 | 2 | 3;
+  }>;
+}
+```
+
+#### 17.6.4 Systems
+1. `sitePressureAggregationSystem`
+- computes per-site pressure components from current world state.
+
+2. `siteLifecycleTransitionSystem`
+- evaluates state transitions on interval (not every tick).
+- enforces hysteresis + minimum hold duration.
+
+3. `siteOpportunityGenerationSystem`
+- emits temporary windows based on lifecycle and pressure context.
+
+4. `siteConsequenceProjectionSystem`
+- applies effects to nearby regions/routes/resources and emits chronicle events.
+
+#### 17.6.5 Tick Integration
+Insert in world pipeline after core world updates:
+1. `sitePressureAggregationSystem`
+2. `siteLifecycleTransitionSystem`
+3. `siteOpportunityGenerationSystem`
+4. `siteConsequenceProjectionSystem`
+
+Performance rule:
+- evaluate transitions every N ticks (for example 5 or 10), not each tick.
+
+#### 17.6.6 UI Contract
+Required surfaces:
+1. site status badge on map + inspector.
+2. trend arrow + plain-language cause summary.
+3. opportunity list with expiration timer.
+4. feed card on transitions with focus jump.
+
+Acceptance UX:
+1. player can identify top 3 unstable sites in < 5 seconds.
+2. every site transition explains: cause, impact, suggested action.
+
+#### 17.6.7 Event Schema
+```ts
+type SiteLifecycleEvent =
+  | { type: "SITE_STATE_CHANGED"; siteId: Id; from: string; to: string; causes: string[] }
+  | { type: "SITE_TREND_UPDATED"; siteId: Id; trend: number; summary: string }
+  | { type: "SITE_OPPORTUNITY_OPENED"; siteId: Id; opportunityId: Id; kind: string; expiresAtTick: number }
+  | { type: "SITE_OPPORTUNITY_EXPIRED"; siteId: Id; opportunityId: Id }
+  | { type: "SITE_DEPLETION_WARNING"; siteId: Id; severity: "warning" | "urgent" };
+```
+
+#### 17.6.8 Balancing Knobs
+- evaluation cadence (`siteLifecycleEvalTicks`)
+- pressure weights (`hazard/faction/logistics/extraction`)
+- transition thresholds per state
+- hysteresis margins
+- opportunity spawn rate + duration
+
+Rule:
+- tune via config table, not inline constants.
+
+### 17.7 Dynamic Site Lifecycle Execution Checklist (File-Mapped)
+1. Site lifecycle schema + defaults
+- Files:
+  `wwwroot/goblin-sim/sim/world/worldGen.js`, `wwwroot/goblin-sim/sim/state.js`
+- Build:
+  Add lifecycle block to each site with deterministic defaults.
+- Acceptance:
+  All sites initialize with valid lifecycle state and timers.
+
+2. Pressure aggregation system
+- Files:
+  `wwwroot/goblin-sim/sim/world/mapSimulation.js`
+- Build:
+  Compute hazard/faction/logistics/extraction pressure per site.
+- Acceptance:
+  Inspector can display component pressures per selected site.
+
+3. Transition system + hysteresis
+- Files:
+  `wwwroot/goblin-sim/sim/world/mapSimulation.js`
+- Build:
+  Evaluate transitions on interval; enforce min hold ticks and anti-thrash margins.
+- Acceptance:
+  Sites do not oscillate rapidly between adjacent states.
+
+4. Opportunity generation + expiry
+- Files:
+  `wwwroot/goblin-sim/sim/world/mapSimulation.js`
+- Build:
+  Emit deterministic opportunity windows with expiration.
+- Acceptance:
+  Opportunities open/expire deterministically for fixed seed.
+
+5. Chronicle and explainability events
+- Files:
+  `wwwroot/goblin-sim/sim/tick.js`, `wwwroot/goblin-sim/sim/lore/loreSystems.js`
+- Build:
+  Add lifecycle event text with cause summaries and links.
+- Acceptance:
+  Every site state change has a readable cause chain anchor.
+
+6. Map + inspector lifecycle UI
+- Files:
+  `wwwroot/goblin-sim/ui/world/mapRenderer.js`, `wwwroot/goblin-sim/ui/render.js`, `wwwroot/goblin-simulation.html`
+- Build:
+  Site badges, trend markers, lifecycle block in inspector.
+- Acceptance:
+  Player can identify unstable/depleted sites directly from map + inspector.
+
+7. Opportunity panel + focus actions
+- Files:
+  `wwwroot/goblin-sim/ui/render.js`, `wwwroot/goblin-sim/ui/bindings.js`, `wwwroot/goblin-simulation.html`
+- Build:
+  Show active opportunities with expiry and jump-to-site buttons.
+- Acceptance:
+  Clicking an opportunity reliably centers camera on relevant site.
+
+8. Validation rules
+- Files:
+  `wwwroot/goblin-sim/sim/validation.js`
+- Build:
+  Validate state enums, timer monotonicity, and opportunity ownership/expiry integrity.
+- Acceptance:
+  Invalid lifecycle states/timers are flagged in debug warnings.
+
+9. Tests
+- Files:
+  `wwwroot/goblin-sim/sim/world/worldGen.test.mjs`, `package.json`
+- Build:
+  Add deterministic lifecycle progression test and anti-thrash transition test.
+- Acceptance:
+  Repeat runs with same seed produce identical lifecycle event timelines.
+
+---
+
+## 18) Barebones Priority 2 - Resource + Job Fundamentals (Goblin Activity First)
+Goal:
+- make the core loop readable: what each goblin is doing, why, and what is blocked.
+- stabilize gather/consume/build flow before advanced world features.
+
+### 18.1 Player Outcomes
+Player should answer quickly:
+1. What is each goblin doing right now?
+2. What are they trying to do next?
+3. What is blocked and how do I fix it?
+
+### 18.2 MVP Scope
+- per-goblin live activity state (`current`, `target`, `status`, `blockedReason`).
+- lightweight job queue with priorities.
+- blocked-reason enums (human-readable in UI).
+- one-click focus from goblin activity row to map context.
+
+### 18.3 Data Additions (Minimal)
+Add on goblin runtime state:
+```ts
+activity: {
+  currentAction: "idle" | "move" | "gather-water" | "gather-food" | "cut-wood" | "build-wall";
+  nextAction?: string;
+  target?: { tileX: number; tileY: number; siteId?: Id };
+  status: "active" | "moving" | "waiting" | "blocked";
+  blockedReason?: "NO_PATH" | "NO_RESOURCE_NODE" | "NO_TOOL" | "NO_STOCK" | "RESERVED_BY_OTHER" | "NEEDS_CRITICAL";
+  lastUpdatedTick: number;
+}
+```
+
+Add on jobs:
+```ts
+job: {
+  id: Id;
+  kind: string;
+  priority: 1 | 2 | 3 | 4 | 5;
+  assignedGoblinId?: Id;
+  status: "queued" | "active" | "blocked" | "done" | "failed";
+  blockedReason?: string;
+  target?: { tileX: number; tileY: number; siteId?: Id };
+}
+```
+
+### 18.4 Systems (Barebones)
+1. `jobQueueNormalizationSystem`
+- keeps queue valid and sorted by priority + urgency.
+
+2. `jobAssignmentSystem`
+- assigns best available goblin with simple suitability + distance.
+
+3. `jobExecutionStatusSystem`
+- updates goblin `activity` snapshot each tick.
+- emits blocked reasons with actionable context.
+
+4. `jobFailureExplainabilitySystem`
+- standardizes failure/blocked message text for UI feed.
+
+### 18.5 UI Contract (Goblin Activity View)
+New UI surfaces:
+- Activity table/card list (one row per goblin):
+  - Name
+  - Current action
+  - Next action
+  - Status chip
+  - Blocked reason (if any)
+  - Focus button
+- Job queue card:
+  - top queued jobs
+  - blocked jobs with primary reason
+
+Interaction:
+- clicking row/focus centers camera on goblin or target.
+- blocked reason row offers “suggested fix” text.
+
+### 18.6 File-Mapped Execution Checklist
+1. Add activity schema defaults
+- Files:
+  `wwwroot/goblin-sim/sim/goblinFactory.js`, `wwwroot/goblin-sim/sim/state.js`
+- Build:
+  initialize `activity` block for each goblin.
+- Acceptance:
+  all goblins have valid activity object at tick 0.
+
+2. Add blocked reason enums + message map
+- Files:
+  `wwwroot/goblin-sim/sim/constants.js`, `wwwroot/goblin-sim/sim/tick.js`
+- Build:
+  define reason keys + plain-language formatter.
+- Acceptance:
+  blocked rows always show consistent human text.
+
+3. Update map simulation to write activity continuously
+- Files:
+  `wwwroot/goblin-sim/sim/world/mapSimulation.js`
+- Build:
+  set `currentAction`, `nextAction`, `status`, `target`, and `blockedReason`.
+- Acceptance:
+  selecting goblins shows accurate current behavior every tick.
+
+4. Basic priority queue handling
+- Files:
+  `wwwroot/goblin-sim/sim/world/mapSimulation.js` or `wwwroot/goblin-sim/sim/systems.js`
+- Build:
+  deterministic ordering by priority + tie-break seed.
+- Acceptance:
+  same seed yields same job assignment timeline.
+
+5. Activity panel UI
+- Files:
+  `wwwroot/goblin-simulation.html`, `wwwroot/goblin-sim/ui/render.js`, `wwwroot/goblin-sim/ui/bindings.js`
+- Build:
+  render activity rows + focus buttons + status chips.
+- Acceptance:
+  player can identify each goblin’s current/next action in under 5 seconds.
+
+6. Job queue panel UI
+- Files:
+  `wwwroot/goblin-simulation.html`, `wwwroot/goblin-sim/ui/render.js`
+- Build:
+  show queued/active/blocked jobs and top blocked reasons.
+- Acceptance:
+  top bottleneck is visible without opening debug JSON.
+
+7. Focus/jump integration
+- Files:
+  `wwwroot/goblin-sim/ui/bindings.js`, `wwwroot/goblin-sim/ui/world/interactions.js`
+- Build:
+  row click -> camera jump to goblin/target tile.
+- Acceptance:
+  every activity row focus action moves camera to correct context.
+
+8. Validation + tests
+- Files:
+  `wwwroot/goblin-sim/sim/validation.js`, `package.json`
+- Build:
+  validate activity status/blocked reason coherence.
+  add deterministic tests for assignment + blocked-reason output.
+- Acceptance:
+  checks pass and no invalid activity states are produced.

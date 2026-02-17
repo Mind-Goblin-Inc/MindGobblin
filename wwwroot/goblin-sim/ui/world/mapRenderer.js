@@ -123,6 +123,22 @@ function overlayColor(mode, region, worldMap) {
   return biomeColor(region.biome);
 }
 
+function chooseGroundTileSprite(worldMap, region, x, y) {
+  if (!region) return null;
+  const variantsByBiome = {
+    forest: ["grass_tile", "grass_tile_2", "grass_tile_3", "grass_tile_4", "grass_tile_5", "grass_tile_6", "grass_tile_7", "grass_tile_8"],
+    swamp: ["swamp_tile_1", "swamp_tile_2", "swamp_tile_3", "swamp_tile_4", "swamp_tile_5", "swamp_tile_6", "swamp_tile_7", "swamp_tile_8"],
+    hills: ["hills_tile_1", "hills_tile_2", "hills_tile_3", "hills_tile_4", "hills_tile_5", "hills_tile_6", "hills_tile_7", "hills_tile_8"],
+    caves: ["caves_tile_1", "caves_tile_2", "caves_tile_3", "caves_tile_4", "caves_tile_5", "caves_tile_6", "caves_tile_7", "caves_tile_8"],
+    ruins: ["ruins_tile_1", "ruins_tile_2", "ruins_tile_3", "ruins_tile_4", "ruins_tile_5", "ruins_tile_6", "ruins_tile_7", "ruins_tile_8"],
+    badlands: ["badlands_tile_1", "badlands_tile_2", "badlands_tile_3", "badlands_tile_4", "badlands_tile_5", "badlands_tile_6", "badlands_tile_7", "badlands_tile_8"]
+  };
+  const variants = variantsByBiome[region.biome];
+  if (!variants) return null;
+  const h = hash32(`${worldMap.seed}|ground|${region.id}|${x},${y}`);
+  return variants[h % variants.length];
+}
+
 function visibleRegionBounds(worldMap, canvas) {
   const worldLeft = (-worldMap.camera.x / worldMap.camera.zoom) / TILE;
   const worldTop = (-worldMap.camera.y / worldMap.camera.zoom) / TILE;
@@ -137,7 +153,8 @@ function visibleRegionBounds(worldMap, canvas) {
   };
 }
 
-function drawGrid(ctx, canvas, worldMap) {
+function drawGrid(ctx, canvas, state) {
+  const worldMap = state.worldMap;
   const bounds = visibleRegionBounds(worldMap, canvas);
   for (let y = bounds.minY; y <= bounds.maxY; y += 1) {
     for (let x = bounds.minX; x <= bounds.maxX; x += 1) {
@@ -152,6 +169,15 @@ function drawGrid(ctx, canvas, worldMap) {
       ctx.globalAlpha = alpha;
       ctx.fillStyle = overlayColor(worldMap.render.overlayMode, region, worldMap);
       ctx.fillRect(x * TILE, y * TILE, TILE + 1, TILE + 1);
+
+      if (!tileIsWater && worldMap.render.overlayMode === "biome") {
+        const spriteId = chooseGroundTileSprite(worldMap, region, x, y);
+        if (spriteId) {
+          ctx.globalAlpha = Math.min(1, alpha * 0.34);
+          drawIndexedSprite(ctx, state.graphics, spriteId, x * TILE, y * TILE, TILE, TILE);
+          ctx.globalAlpha = alpha;
+        }
+      }
     }
   }
 
@@ -346,6 +372,32 @@ function drawHomes(ctx, canvas, state) {
   }
 }
 
+function drawColonyOutposts(ctx, canvas, state) {
+  const wm = state.worldMap;
+  const assets = state.graphics;
+  const style = entityRenderStyle(wm.camera.zoom);
+  const bounds = visibleRegionBounds(wm, canvas);
+  for (const outpost of Object.values(wm.structures?.colonyOutpostsByTileKey || {})) {
+    const tileX = tileToChunkCoord(outpost.microX);
+    const tileY = tileToChunkCoord(outpost.microY);
+    if (tileX < bounds.minX || tileX > bounds.maxX || tileY < bounds.minY || tileY > bounds.maxY) continue;
+
+    const px = tileToWorldCell(outpost.microX + 0.5) * TILE;
+    const py = tileToWorldCell(outpost.microY + 0.5) * TILE;
+    const size = UNIFORM_ENTITY_SIZE * style.sizeMul;
+    drawEntityBackdrop(ctx, px, py, style);
+    if (!drawIndexedSprite(ctx, assets, "outpost", px - size * 0.5, py - size * 0.5, size, size)) {
+      ctx.fillStyle = "rgba(206,112,80,0.92)";
+      ctx.fillRect(px - size * 0.25, py - size * 0.25, size * 0.5, size * 0.5);
+    }
+    if (wm.camera.zoom >= 2.6) {
+      ctx.strokeStyle = "rgba(252,216,146,0.9)";
+      ctx.lineWidth = 1;
+      ctx.strokeRect(px - size * 0.35, py - size * 0.35, size * 0.7, size * 0.7);
+    }
+  }
+}
+
 function drawWalls(ctx, canvas, state) {
   const wm = state.worldMap;
   const assets = state.graphics;
@@ -490,10 +542,75 @@ function drawDebugWildlife(ctx, canvas, state) {
 
 }
 
-function drawMinimap(state, miniCtx, miniCanvas) {
+function drawThreatOverlay(ctx, canvas, state) {
+  const wm = state.worldMap;
+  if (wm.render.showThreatOverlay === false) return;
+  if (!wm.wildlife?.allIds?.length) return;
+  const bounds = visibleRegionBounds(wm, canvas);
+
+  const toPx = (microX, microY) => ({
+    x: tileToWorldCell(microX + 0.5) * TILE,
+    y: tileToWorldCell(microY + 0.5) * TILE
+  });
+
+  for (const id of wm.wildlife.allIds) {
+    const creature = wm.wildlife.byId[id];
+    if (!creature || !creature.alive) continue;
+    if (creature.tileX < bounds.minX || creature.tileX > bounds.maxX || creature.tileY < bounds.minY || creature.tileY > bounds.maxY) continue;
+    if (creature.kind !== "wolf" && creature.kind !== "barbarian") continue;
+    const hunt = creature.huntState || {};
+    const from = toPx(creature.microX, creature.microY);
+
+    if (hunt.targetGoblinId) {
+      const target = wm.units?.byGoblinId?.[hunt.targetGoblinId];
+      if (target) {
+        const to = toPx(target.microX, target.microY);
+        ctx.strokeStyle = creature.kind === "wolf" ? "rgba(214,228,255,0.5)" : "rgba(255,170,145,0.55)";
+        ctx.lineWidth = 1.2;
+        ctx.setLineDash([4, 2]);
+        ctx.beginPath();
+        ctx.moveTo(from.x, from.y);
+        ctx.lineTo(to.x, to.y);
+        ctx.stroke();
+        ctx.setLineDash([]);
+      }
+    } else if (hunt.lastKnownTargetTile) {
+      const to = toPx(hunt.lastKnownTargetTile.tileX, hunt.lastKnownTargetTile.tileY);
+      ctx.strokeStyle = "rgba(245,224,154,0.35)";
+      ctx.lineWidth = 1;
+      ctx.setLineDash([2, 3]);
+      ctx.beginPath();
+      ctx.moveTo(from.x, from.y);
+      ctx.lineTo(to.x, to.y);
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
+  }
+
+  for (const [goblinId, unit] of Object.entries(wm.units?.byGoblinId || {})) {
+    const goblin = state.goblins.byId[goblinId];
+    const response = goblin?.modData?.threatResponse;
+    if (!goblin || !response || response.mode === "none") continue;
+    if (unit.tileX < bounds.minX || unit.tileX > bounds.maxX || unit.tileY < bounds.minY || unit.tileY > bounds.maxY) continue;
+    const p = toPx(unit.microX, unit.microY);
+    const score = Math.max(0, Math.min(100, response.threatScore || 0));
+    const r = 2.2 + (score / 100) * 2.6;
+    ctx.strokeStyle = response.mode === "defend"
+      ? "rgba(252,214,125,0.7)"
+      : response.mode === "flee"
+        ? "rgba(255,140,140,0.74)"
+        : "rgba(145,207,255,0.64)";
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
+    ctx.stroke();
+  }
+}
+
+function drawMinimap(state, miniCtx, miniCanvas, miniCssWidth, miniCssHeight) {
   const worldMap = state.worldMap;
-  const w = miniCanvas.width;
-  const h = miniCanvas.height;
+  const w = miniCssWidth;
+  const h = miniCssHeight;
   miniCtx.clearRect(0, 0, w, h);
 
   const cacheKey = `${worldMap.worldHash}|${w}x${h}`;
@@ -521,8 +638,8 @@ function drawMinimap(state, miniCtx, miniCanvas) {
   miniCtx.lineWidth = 1;
   const cellW = w / worldMap.width;
   const cellH = h / worldMap.height;
-  const viewW = state.ui.mapCanvas.width / TILE / worldMap.camera.zoom;
-  const viewH = state.ui.mapCanvas.height / TILE / worldMap.camera.zoom;
+  const viewW = state.ui.mapCanvas.clientWidth / TILE / worldMap.camera.zoom;
+  const viewH = state.ui.mapCanvas.clientHeight / TILE / worldMap.camera.zoom;
   miniCtx.strokeRect(
     (-worldMap.camera.x / TILE) * cellW,
     (-worldMap.camera.y / TILE) * cellH,
@@ -555,7 +672,7 @@ function applyTrackedEntityCamera(state, canvas) {
 
 export function renderWorldMap(state, canvas, miniCanvas) {
   const worldMap = state.worldMap;
-  if (!worldMap || !canvas) return;
+  if (!worldMap || !canvas || !miniCanvas) return;
   const layers = worldMap.render?.showLayers || {};
 
   const ctx = canvas.getContext("2d");
@@ -585,12 +702,14 @@ export function renderWorldMap(state, canvas, miniCanvas) {
   ctx.translate(worldMap.camera.x, worldMap.camera.y);
   ctx.scale(worldMap.camera.zoom, worldMap.camera.zoom);
 
-  drawGrid(ctx, canvas, worldMap);
+  drawGrid(ctx, canvas, state);
   if (layers.water !== false) drawWaterTiles(ctx, canvas, state);
   drawRegionMicroDetails(ctx, canvas, state);
   if (layers.resources !== false) drawHarvestNodes(ctx, canvas, state);
   drawDebugWildlife(ctx, canvas, state);
+  drawThreatOverlay(ctx, canvas, state);
   if (layers.homes !== false) drawHomes(ctx, canvas, state);
+  if (layers.homes !== false) drawColonyOutposts(ctx, canvas, state);
   if (layers.walls !== false) drawWalls(ctx, canvas, state);
   if (layers.sites !== false) drawSites(ctx, state);
   if (layers.goblins !== false) drawGoblins(ctx, state);
@@ -598,7 +717,7 @@ export function renderWorldMap(state, canvas, miniCanvas) {
   ctx.restore();
 
   miniCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
-  drawMinimap(state, miniCtx, miniCanvas);
+  drawMinimap(state, miniCtx, miniCanvas, miniCssWidth, miniCssHeight);
 }
 
 export function pickCellFromCanvas(state, canvas, clientX, clientY) {
@@ -653,6 +772,12 @@ export function buildMapInspector(state) {
   const selectedWildlife = state.debug?.selectedWildlifeId
     ? wm.wildlife?.byId?.[state.debug.selectedWildlifeId] || null
     : null;
+  const roleCounts = { forager: 0, woodcutter: 0, fisherman: 0, hunter: 0, builder: 0, sentinel: 0, lookout: 0, hauler: 0, "water-runner": 0, caretaker: 0, quartermaster: 0, scout: 0, "colony-establisher": 0 };
+  for (const unit of Object.values(wm.units?.byGoblinId || {})) {
+    const role = unit?.roleState?.role || "forager";
+    if (!Object.prototype.hasOwnProperty.call(roleCounts, role)) continue;
+    roleCounts[role] += 1;
+  }
 
   return {
     worldHash: wm.worldHash,
@@ -673,11 +798,18 @@ export function buildMapInspector(state) {
     },
     homes: {
       count: Object.keys(wm.units.byGoblinId || {}).length,
+      colonyOutposts: Object.keys(wm.structures?.colonyOutpostsByTileKey || {}).length,
       wallsBuilt: Object.keys(wm.structures?.wallsByTileKey || {}).length,
       threatMemory: {
         activeThreats: wm.structures?.threatMemory?.allIds?.length || 0,
         recentBreaches: wm.structures?.threatMemory?.recentBreaches?.length || 0
-      }
+      },
+      logistics: {
+        drops: Object.keys(wm.structures?.resourceDropsByTileKey || {}).length,
+        queue: wm.structures?.logistics?.queueIds?.length || 0
+      },
+      roles: roleCounts,
+      rolePolicy: wm.structures?.rolePolicy || null
     },
     wildlife: {
       total: wm.wildlife?.allIds?.length || 0,
@@ -689,8 +821,20 @@ export function buildMapInspector(state) {
       trackedGoblinId: state.debug?.trackedGoblinId || null,
       trackedWildlifeId: state.debug?.trackedWildlifeId || null
     },
+    tuning: state.meta?.tuning || null,
     layers: wm.render?.showLayers || null,
+    threatOverlayVisible: wm.render.showThreatOverlay !== false,
     selectedWildlife,
+    selectedWildlifeHunt: selectedWildlife
+      ? {
+          id: selectedWildlife.id,
+          kind: selectedWildlife.kind,
+          aiState: selectedWildlife.aiState,
+          targetType: selectedWildlife.targetType || null,
+          targetId: selectedWildlife.targetId || null,
+          huntState: selectedWildlife.huntState || null
+        }
+      : null,
     selectedRegion: region
       ? {
           id: region.id,

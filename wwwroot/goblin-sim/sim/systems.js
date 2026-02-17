@@ -14,12 +14,18 @@ function randomStimuliForTick(state) {
   return stimuli;
 }
 
+function hydrationProfile(goblin) {
+  return goblin?.modData?.hydrationProfile || {};
+}
+
 export function goblinNeedDecaySystem(state) {
   const events = [];
   for (const id of state.goblins.allIds) {
     const g = state.goblins.byId[id];
     if (!g.flags.alive || g.flags.missing) continue;
-    events.push(...applyNeedDecay(g, {}));
+    const profile = hydrationProfile(g);
+    const thirstMul = Number.isFinite(profile.thirstDecayMul) ? profile.thirstDecayMul : 1;
+    events.push(...applyNeedDecay(g, { thirst: thirstMul }));
   }
   return events;
 }
@@ -100,10 +106,14 @@ export function resourcePurposeSystem(state) {
     for (const goblinId of state.goblins.allIds) {
       const goblin = state.goblins.byId[goblinId];
       if (!goblin || !goblin.flags.alive || goblin.flags.missing) continue;
+      const profile = hydrationProfile(goblin);
+      const waterNeedMul = Number.isFinite(profile.waterNeedMul) ? profile.waterNeedMul : 1;
+      const shortThirstDelta = Math.max(1, Math.round(8 * waterNeedMul));
+      const reliefThirstDelta = Math.max(1, Math.round(5 * waterNeedMul));
       if (foodShort) goblin.needs.hunger = Math.min(100, goblin.needs.hunger + 6);
       else goblin.needs.hunger = Math.max(0, goblin.needs.hunger - 3);
-      if (waterShort) goblin.needs.thirst = Math.min(100, goblin.needs.thirst + 8);
-      else goblin.needs.thirst = Math.max(0, goblin.needs.thirst - 4);
+      if (waterShort) goblin.needs.thirst = Math.min(100, goblin.needs.thirst + shortThirstDelta);
+      else goblin.needs.thirst = Math.max(0, goblin.needs.thirst - reliefThirstDelta);
     }
 
     if (foodShort) {

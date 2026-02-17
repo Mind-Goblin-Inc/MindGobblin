@@ -116,6 +116,246 @@ def mushroom_sprite():
     return s
 
 
+def fish_sprite():
+    s = make_sprite()
+    rect(s, 4, 7, 7, 3, 12)
+    put(s, 3, 8, 12)
+    put(s, 11, 7, 12)
+    put(s, 11, 9, 12)
+    put(s, 12, 8, 7)
+    put(s, 6, 8, 1)
+    return s
+
+
+def deer_sprite():
+    s = make_sprite()
+    rect(s, 5, 8, 6, 4, 4)
+    rect(s, 10, 7, 3, 3, 4)
+    rect(s, 6, 12, 1, 3, 4)
+    rect(s, 9, 12, 1, 3, 4)
+    put(s, 12, 8, 7)
+    put(s, 13, 7, 10)
+    put(s, 13, 6, 10)
+    return s
+
+
+def wolf_sprite():
+    s = make_sprite()
+    rect(s, 4, 8, 8, 3, 5)
+    rect(s, 10, 7, 3, 2, 5)
+    rect(s, 5, 11, 1, 3, 5)
+    rect(s, 9, 11, 1, 3, 5)
+    put(s, 3, 9, 5)
+    put(s, 12, 7, 7)
+    put(s, 13, 7, 8)
+    return s
+
+
+def barbarian_sprite():
+    s = make_sprite()
+    circle(s, 8, 5, 3, 7)
+    rect(s, 5, 8, 6, 6, 4)
+    rect(s, 11, 9, 2, 1, 6)
+    put(s, 13, 9, 8)
+    put(s, 7, 5, 1)
+    put(s, 9, 5, 1)
+    return s
+
+
+def pine_tree_sprite():
+    s = make_sprite()
+    rect(s, 7, 12, 2, 3, 4)
+    for y in range(3, 13):
+        span = 1 + (y - 3) // 2
+        for x in range(8 - span, 9 + span):
+            put(s, x, y, 3 if (x + y) % 3 else 11)
+    put(s, 8, 2, 11)
+    return s
+
+
+def dead_tree_sprite():
+    s = make_sprite()
+    rect(s, 7, 6, 2, 9, 4)
+    rect(s, 5, 7, 2, 1, 5)
+    rect(s, 9, 8, 2, 1, 5)
+    rect(s, 4, 9, 2, 1, 5)
+    rect(s, 10, 10, 2, 1, 5)
+    put(s, 8, 5, 6)
+    return s
+
+
+def berry_bush_sprite():
+    s = make_sprite()
+    circle(s, 8, 9, 5, 3)
+    put(s, 6, 8, 8)
+    put(s, 9, 7, 8)
+    put(s, 10, 10, 8)
+    put(s, 7, 11, 8)
+    put(s, 8, 6, 11)
+    return s
+
+
+def fern_sprite():
+    s = make_sprite()
+    for y in range(7, 14):
+        put(s, 8, y, 11)
+    for i in range(5):
+        put(s, 8 - i, 10 - i, 3)
+        put(s, 8 + i, 10 - i, 3)
+        put(s, 8 - i, 11 + i, 3)
+        put(s, 8 + i, 11 + i, 3)
+    return s
+
+
+def reed_sprite():
+    s = make_sprite()
+    for x in (6, 8, 10):
+        for y in range(5, 15):
+            put(s, x, y, 11 if (x + y) % 4 else 3)
+    for x in (5, 7, 9, 11):
+        put(s, x, 5, 10)
+        put(s, x, 6, 10)
+    return s
+
+
+def flower_red_sprite():
+    s = make_sprite()
+    rect(s, 7, 9, 2, 6, 11)
+    put(s, 8, 8, 10)
+    for dx, dy in [(-1, -1), (0, -2), (1, -1), (-1, 0), (1, 0)]:
+        put(s, 8 + dx, 8 + dy, 8)
+    return s
+
+
+def flower_blue_sprite():
+    s = make_sprite()
+    rect(s, 7, 9, 2, 6, 11)
+    put(s, 8, 8, 10)
+    for dx, dy in [(-1, -1), (0, -2), (1, -1), (-1, 0), (1, 0)]:
+        put(s, 8 + dx, 8 + dy, 12)
+    return s
+
+
+def sapling_sprite():
+    s = make_sprite()
+    rect(s, 7, 10, 2, 5, 4)
+    circle(s, 8, 8, 3, 11)
+    put(s, 6, 9, 3)
+    put(s, 10, 9, 3)
+    return s
+
+
+def rabbit_sprite():
+    s = make_sprite()
+    rect(s, 6, 9, 5, 3, 6)
+    rect(s, 10, 8, 2, 2, 6)
+    rect(s, 10, 5, 1, 3, 6)
+    rect(s, 11, 5, 1, 3, 6)
+    put(s, 11, 8, 1)
+    put(s, 5, 10, 6)
+    return s
+
+
+def boar_sprite():
+    s = make_sprite()
+    rect(s, 4, 8, 8, 4, 4)
+    rect(s, 11, 9, 2, 2, 4)
+    rect(s, 5, 12, 1, 3, 4)
+    rect(s, 9, 12, 1, 3, 4)
+    put(s, 12, 10, 7)
+    put(s, 13, 10, 7)
+    return s
+
+
+def crow_sprite():
+    s = make_sprite()
+    rect(s, 5, 8, 6, 3, 1)
+    put(s, 10, 8, 6)
+    put(s, 11, 9, 9)
+    put(s, 4, 9, 1)
+    put(s, 6, 11, 5)
+    put(s, 8, 11, 5)
+    return s
+
+
+def snake_sprite():
+    s = make_sprite()
+    for i in range(10):
+        x = 3 + i
+        y = 9 + ((i % 3) - 1)
+        put(s, x, y, 11)
+    put(s, 12, 8, 7)
+    put(s, 13, 8, 8)
+    return s
+
+
+def bear_sprite():
+    s = make_sprite()
+    circle(s, 8, 9, 5, 5)
+    circle(s, 6, 6, 2, 5)
+    circle(s, 10, 6, 2, 5)
+    put(s, 7, 8, 1)
+    put(s, 9, 8, 1)
+    put(s, 8, 10, 7)
+    return s
+
+
+def goblin_child_sprite():
+    s = make_sprite()
+    circle(s, 8, 6, 2, 11)
+    rect(s, 6, 8, 4, 4, 3)
+    put(s, 7, 6, 8)
+    put(s, 9, 6, 8)
+    put(s, 6, 12, 4)
+    put(s, 9, 12, 4)
+    return s
+
+
+def shaman_sprite():
+    s = make_sprite()
+    circle(s, 8, 5, 3, 11)
+    rect(s, 5, 8, 6, 6, 13)
+    rect(s, 3, 7, 2, 1, 10)
+    rect(s, 4, 8, 1, 5, 10)
+    put(s, 7, 5, 7)
+    put(s, 9, 5, 7)
+    put(s, 8, 3, 10)
+    return s
+
+
+def human_raider_sprite():
+    s = make_sprite()
+    circle(s, 8, 5, 3, 7)
+    rect(s, 5, 8, 6, 6, 2)
+    rect(s, 11, 9, 2, 1, 6)
+    put(s, 13, 9, 8)
+    put(s, 7, 5, 1)
+    put(s, 9, 5, 1)
+    return s
+
+
+def elf_ranger_sprite():
+    s = make_sprite()
+    circle(s, 8, 5, 3, 7)
+    put(s, 4, 5, 11)
+    put(s, 12, 5, 11)
+    rect(s, 5, 8, 6, 6, 3)
+    rect(s, 11, 9, 2, 1, 6)
+    put(s, 13, 9, 10)
+    return s
+
+
+def ogre_sprite():
+    s = make_sprite()
+    circle(s, 8, 5, 4, 4)
+    rect(s, 4, 8, 8, 7, 5)
+    rect(s, 12, 10, 2, 2, 6)
+    put(s, 7, 5, 1)
+    put(s, 10, 5, 1)
+    put(s, 8, 7, 7)
+    return s
+
+
 def water_tile():
     s = make_sprite(fill=12)
     # wave bands
@@ -141,14 +381,167 @@ def grass_tile():
     return s
 
 
+def grass_tile_variant(seed):
+    s = make_sprite(fill=3)
+    for y in range(H):
+        for x in range(W):
+            n = (x * (11 + seed) + y * (7 + seed * 2) + seed * 13) % 37
+            if n < 4:
+                put(s, x, y, 11)
+            elif n in (9, 10):
+                put(s, x, y, 10)
+            elif (x + y + seed) % 11 == 0:
+                put(s, x, y, 6)
+    return s
+
+
+def swamp_tile_variant(seed):
+    s = make_sprite(fill=1)
+    for y in range(H):
+        for x in range(W):
+            n = (x * (9 + seed) + y * (5 + seed) + seed * 17) % 41
+            if n < 8:
+                put(s, x, y, 3)
+            elif n in (11, 12, 13):
+                put(s, x, y, 12)
+            elif (x + y + seed) % 9 == 0:
+                put(s, x, y, 5)
+    return s
+
+
+def hills_tile_variant(seed):
+    s = make_sprite(fill=4)
+    for y in range(H):
+        for x in range(W):
+            n = (x * (7 + seed) + y * (13 + seed) + seed * 19) % 47
+            if n < 10:
+                put(s, x, y, 5)
+            elif n in (20, 21, 22):
+                put(s, x, y, 6)
+            elif (x * 3 + y + seed) % 12 == 0:
+                put(s, x, y, 10)
+    return s
+
+
+def caves_tile_variant(seed):
+    s = make_sprite(fill=5)
+    for y in range(H):
+        for x in range(W):
+            n = (x * (5 + seed) + y * (11 + seed * 2) + seed * 23) % 43
+            if n < 11:
+                put(s, x, y, 1)
+            elif n in (16, 17):
+                put(s, x, y, 6)
+            elif (x + y * 2 + seed) % 13 == 0:
+                put(s, x, y, 13)
+    return s
+
+
+def ruins_tile_variant(seed):
+    s = make_sprite(fill=5)
+    for y in range(H):
+        for x in range(W):
+            n = (x * (13 + seed) + y * (9 + seed) + seed * 7) % 53
+            if n < 9:
+                put(s, x, y, 4)
+            elif n in (15, 16, 17):
+                put(s, x, y, 6)
+            elif (x * 2 + y + seed) % 10 == 0:
+                put(s, x, y, 7)
+    return s
+
+
+def badlands_tile_variant(seed):
+    s = make_sprite(fill=4)
+    for y in range(H):
+        for x in range(W):
+            n = (x * (15 + seed) + y * (3 + seed) + seed * 29) % 59
+            if n < 12:
+                put(s, x, y, 9)
+            elif n in (21, 22, 23):
+                put(s, x, y, 10)
+            elif (x + y + seed) % 8 == 0:
+                put(s, x, y, 5)
+    return s
+
+
 def make_sprites_pack():
     sprites = {
         "goblin": goblin_sprite(),
         "tree": tree_sprite(),
         "rock": rock_sprite(),
         "mushroom": mushroom_sprite(),
+        "fish": fish_sprite(),
+        "deer": deer_sprite(),
+        "wolf": wolf_sprite(),
+        "barbarian": barbarian_sprite(),
+        "pine_tree": pine_tree_sprite(),
+        "dead_tree": dead_tree_sprite(),
+        "berry_bush": berry_bush_sprite(),
+        "fern": fern_sprite(),
+        "reed": reed_sprite(),
+        "flower_red": flower_red_sprite(),
+        "flower_blue": flower_blue_sprite(),
+        "sapling": sapling_sprite(),
+        "rabbit": rabbit_sprite(),
+        "boar": boar_sprite(),
+        "crow": crow_sprite(),
+        "snake": snake_sprite(),
+        "bear": bear_sprite(),
+        "goblin_child": goblin_child_sprite(),
+        "shaman": shaman_sprite(),
+        "human_raider": human_raider_sprite(),
+        "elf_ranger": elf_ranger_sprite(),
+        "ogre": ogre_sprite(),
         "water_tile": water_tile(),
         "grass_tile": grass_tile(),
+        "grass_tile_2": grass_tile_variant(2),
+        "grass_tile_3": grass_tile_variant(3),
+        "grass_tile_4": grass_tile_variant(4),
+        "grass_tile_5": grass_tile_variant(5),
+        "grass_tile_6": grass_tile_variant(6),
+        "grass_tile_7": grass_tile_variant(7),
+        "grass_tile_8": grass_tile_variant(8),
+        "swamp_tile_1": swamp_tile_variant(1),
+        "swamp_tile_2": swamp_tile_variant(2),
+        "swamp_tile_3": swamp_tile_variant(3),
+        "swamp_tile_4": swamp_tile_variant(4),
+        "swamp_tile_5": swamp_tile_variant(5),
+        "swamp_tile_6": swamp_tile_variant(6),
+        "swamp_tile_7": swamp_tile_variant(7),
+        "swamp_tile_8": swamp_tile_variant(8),
+        "hills_tile_1": hills_tile_variant(1),
+        "hills_tile_2": hills_tile_variant(2),
+        "hills_tile_3": hills_tile_variant(3),
+        "hills_tile_4": hills_tile_variant(4),
+        "hills_tile_5": hills_tile_variant(5),
+        "hills_tile_6": hills_tile_variant(6),
+        "hills_tile_7": hills_tile_variant(7),
+        "hills_tile_8": hills_tile_variant(8),
+        "caves_tile_1": caves_tile_variant(1),
+        "caves_tile_2": caves_tile_variant(2),
+        "caves_tile_3": caves_tile_variant(3),
+        "caves_tile_4": caves_tile_variant(4),
+        "caves_tile_5": caves_tile_variant(5),
+        "caves_tile_6": caves_tile_variant(6),
+        "caves_tile_7": caves_tile_variant(7),
+        "caves_tile_8": caves_tile_variant(8),
+        "ruins_tile_1": ruins_tile_variant(1),
+        "ruins_tile_2": ruins_tile_variant(2),
+        "ruins_tile_3": ruins_tile_variant(3),
+        "ruins_tile_4": ruins_tile_variant(4),
+        "ruins_tile_5": ruins_tile_variant(5),
+        "ruins_tile_6": ruins_tile_variant(6),
+        "ruins_tile_7": ruins_tile_variant(7),
+        "ruins_tile_8": ruins_tile_variant(8),
+        "badlands_tile_1": badlands_tile_variant(1),
+        "badlands_tile_2": badlands_tile_variant(2),
+        "badlands_tile_3": badlands_tile_variant(3),
+        "badlands_tile_4": badlands_tile_variant(4),
+        "badlands_tile_5": badlands_tile_variant(5),
+        "badlands_tile_6": badlands_tile_variant(6),
+        "badlands_tile_7": badlands_tile_variant(7),
+        "badlands_tile_8": badlands_tile_variant(8),
     }
     data = {
         "version": 1,

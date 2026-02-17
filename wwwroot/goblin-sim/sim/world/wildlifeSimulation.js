@@ -22,6 +22,24 @@ const HOSTILE_TARGET_COMMIT_TICKS = 20;
 const HOSTILE_RETARGET_COOLDOWN_TICKS = 6;
 const HOSTILE_BREAKOFF_TICKS = 10;
 const HOSTILE_ENGAGE_RANGE = 1.5;
+const WILDLIFE_ATTACK_COOLDOWN_TICKS = 3;
+
+function wildlifeAttackCooldownTicksForKind(kind) {
+  if (kind === "wolf") return 5;
+  return WILDLIFE_ATTACK_COOLDOWN_TICKS;
+}
+
+function wildlifeTuning(state) {
+  const t = state.meta?.tuning?.wildlife || {};
+  return {
+    detectionRadiusScale: Number.isFinite(t.detectionRadiusScale) ? t.detectionRadiusScale : 1,
+    targetCommitTicks: Number.isFinite(t.targetCommitTicks) ? t.targetCommitTicks : HOSTILE_TARGET_COMMIT_TICKS,
+    retargetCooldownTicks: Number.isFinite(t.retargetCooldownTicks) ? t.retargetCooldownTicks : HOSTILE_RETARGET_COOLDOWN_TICKS,
+    breakoffTicks: Number.isFinite(t.breakoffTicks) ? t.breakoffTicks : HOSTILE_BREAKOFF_TICKS,
+    engageRange: Number.isFinite(t.engageRange) ? t.engageRange : HOSTILE_ENGAGE_RANGE,
+    wallPenaltyScale: Number.isFinite(t.wallPenaltyScale) ? t.wallPenaltyScale : 1
+  };
+}
 
 function isHostileKind(kind) {
   return kind === "wolf" || kind === "barbarian";
@@ -51,6 +69,12 @@ function dist(a, b) {
   const dx = a.x - b.x;
   const dy = a.y - b.y;
   return Math.sqrt(dx * dx + dy * dy);
+}
+
+function isWaterMicroTile(wm, microX, microY) {
+  const tileX = clamp(tileToChunkCoord(microX), 0, wm.width - 1);
+  const tileY = clamp(tileToChunkCoord(microY), 0, wm.height - 1);
+  return Boolean(wm.waterTiles?.byTileKey?.[`${tileX},${tileY}`]);
 }
 
 function speciesKnobs(state, kind) {
@@ -239,6 +263,110 @@ function isValidGoblinTarget(state, goblinId) {
   return Boolean(findGoblinUnit(state, goblinId));
 }
 
+function removeGoblinUnitOnDeath(state, goblinId) {
+  if (!state.worldMap?.units?.byGoblinId?.[goblinId]) return;
+  delete state.worldMap.units.byGoblinId[goblinId];
+
+  const wallPlan = state.worldMap?.structures?.wallPlan;
+  if (!wallPlan) return;
+  for (const key of wallPlan.orderedTileKeys || []) {
+    if (wallPlan.assignedGoblinByKey?.[key] === goblinId) {
+      wallPlan.assignedGoblinByKey[key] = null;
+      wallPlan.assignedUntilTickByKey[key] = 0;
+    }
+  }
+}
+
+function computeWildlifeDamage(creature, state, tick, goblinId) {
+  const roll = rand01("wildlife-attack-damage", state.meta.seed, tick, creature.id, goblinId);
+  if (creature.kind === "barbarian") return 9 + Math.floor(roll * 10);
+  return 4 + Math.floor(roll * 5);
+}
+
+function applyWildlifeAttackToGoblin(state, creature, goblinId, tick, atKey) {
+  const events = [];
+  const goblin = state.goblins.byId[goblinId];
+  const targetUnit = findGoblinUnit(state, goblinId);
+  if (!goblin || !targetUnit || !goblin.flags.alive || goblin.flags.missing) return events;
+
+  const lastAttackTick = creature.lastGoblinAttackTickByGoblinId?.[goblinId] ?? -1000;
+  if (tick - lastAttackTick < wildlifeAttackCooldownTicksForKind(creature.kind)) return events;
+  if (!creature.lastGoblinAttackTickByGoblinId) creature.lastGoblinAttackTickByGoblinId = {};
+  creature.lastGoblinAttackTickByGoblinId[goblinId] = tick;
+
+  const damage = computeWildlifeDamage(creature, state, tick, goblinId);
+  const health = goblin.body.health;
+  const beforeVitality = health.vitality;
+  health.vitality = clamp(health.vitality - damage, 0, 100);
+  health.pain = clamp(health.pain + Math.max(2, Math.round(damage * 0.55)), 0, 100);
+  const bleedInc = Math.max(0, Math.round(damage * (creature.kind === "barbarian" ? 0.34 : 0.22)));
+  health.bleeding = clamp(health.bleeding + bleedInc, 0, 100);
+
+  const injuryId = `${tick}-${creature.id}-${goblinId}-${Math.floor(rand01("injury-id", state.meta.seed, tick, creature.id, goblinId) * 1e6)}`;
+  goblin.body.injuries.push({
+    id: injuryId,
+    kind: creature.kind === "barbarian" ? "slash" : "bite",
+    sourceType: "wildlife",
+    sourceId: creature.id,
+    severity: damage,
+    tick
+  });
+
+  goblin.modData = goblin.modData || {};
+  goblin.modData.threatResponse = goblin.modData.threatResponse || { mode: "none", activeThreatId: null, lastThreatTick: null };
+  goblin.modData.threatResponse.lastThreatTick = tick;
+  goblin.modData.threatResponse.activeThreatId = creature.id;
+
+  events.push({
+    type: "WILDLIFE_ATTACKED_GOBLIN",
+    wildlifeId: creature.id,
+    wildlifeKind: creature.kind,
+    goblinId,
+    damage,
+    tileX: targetUnit.tileX,
+    tileY: targetUnit.tileY,
+    at: atKey,
+    text: `${creature.kind} ${creature.id} hit goblin ${goblinId} for ${damage} damage at ${atKey}.`
+  });
+
+  const lethal = health.vitality <= 0;
+  if (!lethal) {
+    events.push({
+      type: "GOBLIN_INJURED_BY_WILDLIFE",
+      goblinId,
+      wildlifeId: creature.id,
+      wildlifeKind: creature.kind,
+      injuryId,
+      damage,
+      vitalityBefore: beforeVitality,
+      vitalityAfter: health.vitality,
+      tileX: targetUnit.tileX,
+      tileY: targetUnit.tileY,
+      at: atKey,
+      text: `${goblin.identity.name} was injured by ${creature.kind} ${creature.id} (${health.vitality} vitality left).`
+    });
+    return events;
+  }
+
+  goblin.flags.alive = false;
+  goblin.assignment.currentJobId = undefined;
+  goblin.modData.threatResponse.mode = "none";
+  goblin.modData.threatResponse.activeThreatId = null;
+  removeGoblinUnitOnDeath(state, goblinId);
+
+  events.push({
+    type: "GOBLIN_KILLED_BY_WILDLIFE",
+    goblinId,
+    wildlifeId: creature.id,
+    wildlifeKind: creature.kind,
+    tileX: targetUnit.tileX,
+    tileY: targetUnit.tileY,
+    at: atKey,
+    text: `${goblin.identity.name} was killed by ${creature.kind} ${creature.id} at ${atKey}.`
+  });
+  return events;
+}
+
 function nearbyGoblinCount(state, tileX, tileY, radius = 2) {
   let count = 0;
   for (const id of state.goblins.allIds) {
@@ -264,35 +392,42 @@ function scoreGoblinTarget(state, creature, goblinId) {
   const goblin = state.goblins.byId[goblinId];
   const unit = findGoblinUnit(state, goblinId);
   if (!goblin || !unit || !goblin.flags.alive || goblin.flags.missing) return -Infinity;
+  const tune = wildlifeTuning(state);
 
   const from = { x: creature.microX, y: creature.microY };
   const to = { x: unit.microX, y: unit.microY };
   const d = dist(from, to);
-  const detectionRadius = creature.kind === "wolf" ? 22 : 28;
+  const detectionRadius = (creature.kind === "wolf" ? 5.5 : 7) * tune.detectionRadiusScale;
   if (d > detectionRadius) return -Infinity;
 
   const vitality = Math.max(0, Math.min(100, goblin.body?.health?.vitality ?? 100));
   const stress = Math.max(0, Math.min(100, goblin.psyche?.stress ?? 0));
   const vulnerability = (100 - vitality) * 0.012 + stress * 0.006;
   const defenders = nearbyGoblinCount(state, unit.microX, unit.microY, 2);
-  const defensePenalty = Math.max(0, defenders - 1) * 0.4;
-  const wallPenalty = localWallDensity(state, unit.microX, unit.microY, 2) * 0.18;
+  const defensePenalty = Math.min(2.2, Math.max(0, defenders - 1) * 0.34);
+  const wallPenalty = Math.min(2.4, localWallDensity(state, unit.microX, unit.microY, 2) * 0.16 * tune.wallPenaltyScale);
   const exposure = wallPenalty < 0.2 ? 0.9 : 0.15;
 
   return (1 / (1 + d)) * 10 + vulnerability + exposure - defensePenalty - wallPenalty;
 }
 
 function ensureHuntState(creature) {
-  if (creature.huntState) return creature.huntState;
-  creature.huntState = {
-    mode: "patrol",
-    targetGoblinId: undefined,
-    lastKnownTargetTile: undefined,
-    targetAcquiredTick: undefined,
-    targetCommitUntilTick: undefined,
-    breakoffUntilTick: undefined,
-    retargetAfterTick: 0
-  };
+  if (!creature.huntState) {
+    creature.huntState = {
+      mode: "patrol",
+      targetGoblinId: undefined,
+      targetScore: undefined,
+      targetConfidence: undefined,
+      lastKnownTargetTile: undefined,
+      targetAcquiredTick: undefined,
+      targetCommitUntilTick: undefined,
+      breakoffUntilTick: undefined,
+      retargetAfterTick: 0
+    };
+    return creature.huntState;
+  }
+  if (!Object.prototype.hasOwnProperty.call(creature.huntState, "targetScore")) creature.huntState.targetScore = undefined;
+  if (!Object.prototype.hasOwnProperty.call(creature.huntState, "targetConfidence")) creature.huntState.targetConfidence = undefined;
   return creature.huntState;
 }
 
@@ -312,7 +447,28 @@ function chooseHostileGoblinTarget(state, creature) {
       if (tieA > tieB) bestId = goblinId;
     }
   }
-  return bestId;
+  if (!bestId || !Number.isFinite(bestScore)) {
+    const allowFallback = creature.kind === "barbarian";
+    if (!allowFallback) return null;
+    // Fallback: keep long-range pressure by pursuing nearest valid goblin if no target is in
+    // immediate detection radius. Confidence is intentionally low so normal nearby targets win.
+    let nearestId = null;
+    let nearestDist = Infinity;
+    for (const goblinId of state.goblins.allIds) {
+      const unit = findGoblinUnit(state, goblinId);
+      const goblin = state.goblins.byId[goblinId];
+      if (!goblin || !unit || !goblin.flags.alive || goblin.flags.missing) continue;
+      const d = dist({ x: creature.microX, y: creature.microY }, { x: unit.microX, y: unit.microY });
+      if (d < nearestDist) {
+        nearestDist = d;
+        nearestId = goblinId;
+      }
+    }
+    if (!nearestId) return null;
+    return { goblinId: nearestId, score: 0.5, confidence: 0.15 };
+  }
+  const confidence = clamp(bestScore / 10, 0, 1);
+  return { goblinId: bestId, score: bestScore, confidence };
 }
 
 function assignHostileGoblinTargets(state, events) {
@@ -337,38 +493,48 @@ function assignHostileGoblinTargets(state, events) {
     }
     if ((hunt.retargetAfterTick || 0) > tick) continue;
 
-    const nextTargetId = chooseHostileGoblinTarget(state, creature);
-    if (!nextTargetId) {
+    const tuning = wildlifeTuning(state);
+    const nextTarget = chooseHostileGoblinTarget(state, creature);
+    if (!nextTarget) {
       hunt.targetGoblinId = undefined;
+      hunt.targetScore = undefined;
+      hunt.targetConfidence = undefined;
       hunt.mode = "patrol";
       continue;
     }
 
-    const unit = findGoblinUnit(state, nextTargetId);
-    hunt.targetGoblinId = nextTargetId;
+    const sameTarget = hunt.targetGoblinId === nextTarget.goblinId;
+    const unit = findGoblinUnit(state, nextTarget.goblinId);
+    hunt.targetGoblinId = nextTarget.goblinId;
+    hunt.targetScore = nextTarget.score;
+    hunt.targetConfidence = nextTarget.confidence;
     hunt.targetAcquiredTick = tick;
-    hunt.targetCommitUntilTick = tick + HOSTILE_TARGET_COMMIT_TICKS;
+    hunt.targetCommitUntilTick = tick + tuning.targetCommitTicks;
     hunt.breakoffUntilTick = undefined;
-    hunt.retargetAfterTick = tick + HOSTILE_RETARGET_COOLDOWN_TICKS;
+    hunt.retargetAfterTick = tick + tuning.retargetCooldownTicks;
     hunt.lastKnownTargetTile = unit ? { tileX: unit.microX, tileY: unit.microY } : undefined;
     hunt.mode = "chase";
     creature.targetType = "goblin";
-    creature.targetId = nextTargetId;
+    creature.targetId = nextTarget.goblinId;
 
-    events.push({
-      type: "WILDLIFE_TARGET_ACQUIRED",
-      wildlifeId: creature.id,
-      wildlifeKind: creature.kind,
-      goblinId: nextTargetId,
-      text: `${creature.kind} ${creature.id} acquired goblin target ${nextTargetId}.`
-    });
-    events.push({
-      type: "WILDLIFE_CHASE_STARTED",
-      wildlifeId: creature.id,
-      wildlifeKind: creature.kind,
-      goblinId: nextTargetId,
-      text: `${creature.kind} ${creature.id} started chasing goblin ${nextTargetId}.`
-    });
+    if (!sameTarget) {
+      events.push({
+        type: "WILDLIFE_TARGET_ACQUIRED",
+        wildlifeId: creature.id,
+        wildlifeKind: creature.kind,
+        goblinId: nextTarget.goblinId,
+        targetConfidence: Number(nextTarget.confidence.toFixed(2)),
+        text: `${creature.kind} ${creature.id} acquired goblin target ${nextTarget.goblinId}.`
+      });
+      events.push({
+        type: "WILDLIFE_CHASE_STARTED",
+        wildlifeId: creature.id,
+        wildlifeKind: creature.kind,
+        goblinId: nextTarget.goblinId,
+        targetConfidence: Number(nextTarget.confidence.toFixed(2)),
+        text: `${creature.kind} ${creature.id} started chasing goblin ${nextTarget.goblinId}.`
+      });
+    }
   }
 }
 
@@ -545,6 +711,7 @@ function chooseGoal(state, creature, tick) {
   const wildlife = state.worldMap.wildlife;
   const from = { x: creature.microX, y: creature.microY };
   const hunt = ensureHuntState(creature);
+  const tuning = wildlifeTuning(state);
 
   if (creature.kind === "fish") {
     const fishKnobs = speciesKnobs(state, "fish");
@@ -601,9 +768,9 @@ function chooseGoal(state, creature, tick) {
       if (targetUnit) {
         hunt.lastKnownTargetTile = { tileX: targetUnit.microX, tileY: targetUnit.microY };
         const d = dist(from, { x: targetUnit.microX, y: targetUnit.microY });
-        hunt.mode = d <= HOSTILE_ENGAGE_RANGE ? "engage" : "chase";
+        hunt.mode = d <= tuning.engageRange ? "engage" : "chase";
         return {
-          kind: d <= HOSTILE_ENGAGE_RANGE ? "engage-goblin" : "hunt-goblin",
+          kind: d <= tuning.engageRange ? "engage-goblin" : "hunt-goblin",
           targetId: hunt.targetGoblinId,
           targetX: targetUnit.microX,
           targetY: targetUnit.microY
@@ -647,6 +814,18 @@ function chooseGoal(state, creature, tick) {
       };
     }
 
+    // Limited wolf pressure on goblin outskirts only under high hunger.
+    if (creature.hunger >= 78) {
+      const home = nearestGoblinHomeTarget(state, from);
+      if (home) {
+        return {
+          kind: "pressure-goblin-outskirts",
+          targetX: home.homeMicroX,
+          targetY: home.homeMicroY
+        };
+      }
+    }
+
     if (pack?.targetMicroX !== undefined && pack?.targetMicroY !== undefined) {
       return {
         kind: "regroup",
@@ -671,9 +850,9 @@ function chooseGoal(state, creature, tick) {
       if (targetUnit) {
         hunt.lastKnownTargetTile = { tileX: targetUnit.microX, tileY: targetUnit.microY };
         const d = dist(from, { x: targetUnit.microX, y: targetUnit.microY });
-        hunt.mode = d <= HOSTILE_ENGAGE_RANGE ? "engage" : "chase";
+        hunt.mode = d <= tuning.engageRange ? "engage" : "chase";
         return {
-          kind: d <= HOSTILE_ENGAGE_RANGE ? "engage-goblin" : "hunt-goblin",
+          kind: d <= tuning.engageRange ? "engage-goblin" : "hunt-goblin",
           targetId: hunt.targetGoblinId,
           targetX: targetUnit.microX,
           targetY: targetUnit.microY
@@ -749,11 +928,12 @@ function chooseNextStep(state, creature, goal, occupiedNext) {
     const tileX = clamp(tileToChunkCoord(nx), 0, wm.width - 1);
     const tileY = clamp(tileToChunkCoord(ny), 0, wm.height - 1);
     const region = wm.regionsById[wm.regionGrid[tileY][tileX]];
-    const isWater = Boolean(wm.waterSources?.byTileKey?.[k]);
+    const isWater = isWaterMicroTile(wm, nx, ny);
     const blockedByWall = Boolean(wm.structures?.wallsByTileKey?.[k]);
 
     if (creature.kind === "fish" && !isWater) continue;
     if (creature.kind === "deer" && goal?.kind !== "drink" && isWater) continue;
+    if ((creature.kind === "wolf" || creature.kind === "barbarian") && goal?.kind !== "drink" && isWater) continue;
     if (blockedByWall && (creature.kind === "wolf" || creature.kind === "barbarian")) continue;
 
     let score = 0;
@@ -788,7 +968,63 @@ function chooseNextStep(state, creature, goal, occupiedNext) {
     if (score > best.score) best = { x: nx, y: ny, score };
   }
 
+  if (best.x === creature.microX && best.y === creature.microY && goal?.kind && goal.kind !== "staging") {
+    const detour = findDetourStepForWildlife(state, creature, goal, occupiedNext);
+    if (detour) return detour;
+  }
+
   return { x: best.x, y: best.y };
+}
+
+function findDetourStepForWildlife(state, creature, goal, occupiedNext) {
+  const wm = state.worldMap;
+  const target = goal?.targetX !== undefined ? { x: goal.targetX, y: goal.targetY } : null;
+  if (!target) return null;
+
+  const maxDepth = 18;
+  const maxVisited = 420;
+  const neighborOffsets = NEIGHBOR_OFFSETS.filter((o) => !(o.x === 0 && o.y === 0));
+  const queue = [{
+    x: creature.microX,
+    y: creature.microY,
+    depth: 0,
+    firstStep: null
+  }];
+  const visited = new Set([tileKey(creature.microX, creature.microY)]);
+
+  for (let q = 0; q < queue.length; q += 1) {
+    const node = queue[q];
+    if (node.depth > 0 && dist({ x: node.x, y: node.y }, target) <= 1.1) {
+      return node.firstStep || null;
+    }
+    if (node.depth >= maxDepth) continue;
+
+    for (const off of neighborOffsets) {
+      const nx = clamp(node.x + off.x, 0, wm.width * TILES_PER_CHUNK - 1);
+      const ny = clamp(node.y + off.y, 0, wm.height * TILES_PER_CHUNK - 1);
+      const key = tileKey(nx, ny);
+      if (visited.has(key)) continue;
+      if (occupiedNext.has(key) && occupiedNext.get(key) !== creature.id) continue;
+
+      const isWater = isWaterMicroTile(wm, nx, ny);
+      const blockedByWall = Boolean(wm.structures?.wallsByTileKey?.[key]);
+      if (creature.kind === "fish" && !isWater) continue;
+      if (creature.kind === "deer" && goal?.kind !== "drink" && isWater) continue;
+      if ((creature.kind === "wolf" || creature.kind === "barbarian") && goal?.kind !== "drink" && isWater) continue;
+      if (blockedByWall && (creature.kind === "wolf" || creature.kind === "barbarian")) continue;
+
+      visited.add(key);
+      queue.push({
+        x: nx,
+        y: ny,
+        depth: node.depth + 1,
+        firstStep: node.firstStep || { x: nx, y: ny }
+      });
+      if (visited.size >= maxVisited) break;
+    }
+    if (visited.size >= maxVisited) break;
+  }
+  return null;
 }
 
 function rebuildOccupancy(wildlife) {
@@ -807,6 +1043,7 @@ function maybeDoAction(state, creature, goal, tick) {
   if (!goal) return null;
   const key = tileKey(creature.microX, creature.microY);
   const isWater = Boolean(state.worldMap.waterSources?.byTileKey?.[key]);
+  const tuning = wildlifeTuning(state);
 
   if (creature.kind === "deer" && goal.kind === "drink" && isWater) {
     const before = creature.thirst;
@@ -866,15 +1103,8 @@ function maybeDoAction(state, creature, goal, tick) {
     const targetUnit = findGoblinUnit(state, goal.targetId);
     if (!targetUnit) return null;
     const d = dist({ x: creature.microX, y: creature.microY }, { x: targetUnit.microX, y: targetUnit.microY });
-    if (d > HOSTILE_ENGAGE_RANGE) return null;
-    return {
-      type: "WILDLIFE_ATTACKED_GOBLIN",
-      wildlifeId: creature.id,
-      wildlifeKind: creature.kind,
-      goblinId: goal.targetId,
-      at: key,
-      text: `${creature.kind} ${creature.id} engaged goblin ${goal.targetId} at ${key}.`
-    };
+    if (d > tuning.engageRange) return null;
+    return applyWildlifeAttackToGoblin(state, creature, goal.targetId, tick, key);
   }
 
   if (creature.kind === "barbarian" && goal.kind === "raid-breach") {
@@ -955,14 +1185,15 @@ export function wildlifeSimulationSystem(state) {
     const wasHunting = hunt.mode === "chase" || hunt.mode === "stalk" || hunt.mode === "engage";
 
     if (isHostileKind(creature.kind)) {
+      const tuning = wildlifeTuning(state);
       const hasValidTarget = hunt.targetGoblinId && isValidGoblinTarget(state, hunt.targetGoblinId);
       const commitExpired = (hunt.targetCommitUntilTick || 0) < state.meta.tick;
       if (!hasValidTarget && !hunt.lastKnownTargetTile && wasHunting) {
         hunt.mode = "breakoff";
-        hunt.breakoffUntilTick = state.meta.tick + HOSTILE_BREAKOFF_TICKS;
+        hunt.breakoffUntilTick = state.meta.tick + tuning.breakoffTicks;
         hunt.targetGoblinId = undefined;
         hunt.targetCommitUntilTick = undefined;
-        hunt.retargetAfterTick = state.meta.tick + HOSTILE_BREAKOFF_TICKS;
+        hunt.retargetAfterTick = state.meta.tick + tuning.breakoffTicks;
         events.push({
           type: "WILDLIFE_BROKE_OFF",
           wildlifeId: creature.id,
@@ -971,10 +1202,10 @@ export function wildlifeSimulationSystem(state) {
         });
       } else if (commitExpired && !hasValidTarget && hunt.mode !== "breakoff") {
         hunt.mode = "breakoff";
-        hunt.breakoffUntilTick = state.meta.tick + HOSTILE_BREAKOFF_TICKS;
+        hunt.breakoffUntilTick = state.meta.tick + tuning.breakoffTicks;
         hunt.targetGoblinId = undefined;
         hunt.targetCommitUntilTick = undefined;
-        hunt.retargetAfterTick = state.meta.tick + HOSTILE_BREAKOFF_TICKS;
+        hunt.retargetAfterTick = state.meta.tick + tuning.breakoffTicks;
         events.push({
           type: "WILDLIFE_BROKE_OFF",
           wildlifeId: creature.id,
@@ -1008,7 +1239,8 @@ export function wildlifeSimulationSystem(state) {
     }
 
     const actionEvent = maybeDoAction(state, creature, goal, state.meta.tick);
-    if (actionEvent) events.push(actionEvent);
+    if (Array.isArray(actionEvent)) events.push(...actionEvent);
+    else if (actionEvent) events.push(actionEvent);
   }
 
   rebuildOccupancy(wildlife);

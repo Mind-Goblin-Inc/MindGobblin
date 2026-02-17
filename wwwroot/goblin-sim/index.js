@@ -12,6 +12,7 @@ const els = {
   goblins: document.getElementById("goblins"),
   avgMorale: document.getElementById("avgMorale"),
   activeGoblins: document.getElementById("activeGoblins"),
+  outpostCount: document.getElementById("outpostCount"),
   criticalNeeds: document.getElementById("criticalNeeds"),
   foodStock: document.getElementById("foodStock"),
   waterStock: document.getElementById("waterStock"),
@@ -26,12 +27,15 @@ const els = {
   mapInspector: document.getElementById("mapInspector"),
   randomizationSummary: document.getElementById("randomizationSummary"),
   mapHoverSummary: document.getElementById("mapHoverSummary"),
+  legendWrap: document.getElementById("legendWrap"),
+  toggleLegend: document.getElementById("toggleLegend"),
   overlayLegend: document.getElementById("overlayLegend"),
   overlayMode: document.getElementById("overlayMode"),
   toggleFollowMode: document.getElementById("toggleFollowMode"),
   snapTrackedGoblin: document.getElementById("snapTrackedGoblin"),
   snapTrackedGoblinPanel: document.getElementById("snapTrackedGoblinPanel"),
   toggleWildlifeLayer: document.getElementById("toggleWildlifeLayer"),
+  toggleThreatOverlay: document.getElementById("toggleThreatOverlay"),
   resetCamera: document.getElementById("resetCamera"),
   resetCameraPanel: document.getElementById("resetCameraPanel"),
   setStartSite: document.getElementById("setStartSite"),
@@ -53,7 +57,9 @@ const els = {
   simSpeed2: document.getElementById("simSpeed2"),
   simSpeed4: document.getElementById("simSpeed4"),
   simSpeed8: document.getElementById("simSpeed8"),
+  simSpeed16: document.getElementById("simSpeed16"),
   autoPauseEnabled: document.getElementById("autoPauseEnabled"),
+  rolePolicyMode: document.getElementById("rolePolicyMode"),
   autoPauseUrgent: document.getElementById("autoPauseUrgent"),
   autoPauseCriticalNeeds: document.getElementById("autoPauseCriticalNeeds"),
   autoPauseResourceShortage: document.getElementById("autoPauseResourceShortage"),
@@ -64,6 +70,22 @@ const els = {
   layerWalls: document.getElementById("layerWalls"),
   layerSites: document.getElementById("layerSites"),
   layerGoblins: document.getElementById("layerGoblins"),
+  tuneDetectionScale: document.getElementById("tuneDetectionScale"),
+  tuneCommitTicks: document.getElementById("tuneCommitTicks"),
+  tuneBreakoffTicks: document.getElementById("tuneBreakoffTicks"),
+  tuneEngageRange: document.getElementById("tuneEngageRange"),
+  tuneWallPenaltyScale: document.getElementById("tuneWallPenaltyScale"),
+  reproEnabled: document.getElementById("reproEnabled"),
+  reproCooldownTicks: document.getElementById("reproCooldownTicks"),
+  reproPairDurationTicks: document.getElementById("reproPairDurationTicks"),
+  reproMinIdleTicks: document.getElementById("reproMinIdleTicks"),
+  reproMaxBirthsPerDay: document.getElementById("reproMaxBirthsPerDay"),
+  reproSafePredatorRadius: document.getElementById("reproSafePredatorRadius"),
+  reproMinWallsForSafety: document.getElementById("reproMinWallsForSafety"),
+  reproMinWallProtectionScore: document.getElementById("reproMinWallProtectionScore"),
+  tunePresetAggressive: document.getElementById("tunePresetAggressive"),
+  tunePresetBalanced: document.getElementById("tunePresetBalanced"),
+  tunePresetDefensive: document.getElementById("tunePresetDefensive"),
   saveSnapshotBtn: document.getElementById("saveSnapshotBtn"),
   loadSnapshotSelect: document.getElementById("loadSnapshotSelect"),
   loadSnapshotBtn: document.getElementById("loadSnapshotBtn"),
@@ -84,10 +106,17 @@ function syncControls() {
   if (els.toggleWildlifeLayer) {
     els.toggleWildlifeLayer.textContent = state.worldMap.render.showDebugWildlife ? "Hide Wildlife" : "Show Wildlife";
   }
+  if (els.toggleThreatOverlay) {
+    els.toggleThreatOverlay.textContent = state.worldMap.render.showThreatOverlay === false ? "Show Threat Overlay" : "Hide Threat Overlay";
+  }
+  if (els.toggleLegend && els.legendWrap) {
+    els.toggleLegend.textContent = els.legendWrap.classList.contains("open") ? "Hide Legend" : "Show Legend";
+  }
   if (els.chronicleSeverity) els.chronicleSeverity.value = state.debug.chronicleSeverity || "all";
   if (els.inspectionDepth) els.inspectionDepth.value = String(state.debug.inspectionDepth || 2);
 
   if (els.autoPauseEnabled) els.autoPauseEnabled.checked = Boolean(state.meta.autoPause?.enabled);
+  if (els.rolePolicyMode) els.rolePolicyMode.value = state.worldMap?.structures?.rolePolicy?.mode || "assist";
   if (els.autoPauseUrgent) els.autoPauseUrgent.checked = Boolean(state.meta.autoPause?.onUrgent);
   if (els.autoPauseCriticalNeeds) els.autoPauseCriticalNeeds.checked = Boolean(state.meta.autoPause?.onCriticalNeeds);
   if (els.autoPauseResourceShortage) els.autoPauseResourceShortage.checked = Boolean(state.meta.autoPause?.onResourceShortage);
@@ -102,8 +131,24 @@ function syncControls() {
   if (els.layerWalls) els.layerWalls.checked = layers.walls !== false;
   if (els.layerSites) els.layerSites.checked = layers.sites !== false;
   if (els.layerGoblins) els.layerGoblins.checked = layers.goblins !== false;
+  const tuning = state.meta.tuning || {};
+  const wildlifeTuning = tuning.wildlife || {};
+  if (els.tuneDetectionScale) els.tuneDetectionScale.value = String(wildlifeTuning.detectionRadiusScale ?? 1);
+  if (els.tuneCommitTicks) els.tuneCommitTicks.value = String(wildlifeTuning.targetCommitTicks ?? 20);
+  if (els.tuneBreakoffTicks) els.tuneBreakoffTicks.value = String(wildlifeTuning.breakoffTicks ?? 10);
+  if (els.tuneEngageRange) els.tuneEngageRange.value = String(wildlifeTuning.engageRange ?? 1.5);
+  if (els.tuneWallPenaltyScale) els.tuneWallPenaltyScale.value = String(wildlifeTuning.wallPenaltyScale ?? 1);
+  const repro = state.worldMap?.structures?.reproduction || {};
+  if (els.reproEnabled) els.reproEnabled.checked = repro.enabled !== false;
+  if (els.reproCooldownTicks) els.reproCooldownTicks.value = String(repro.cooldownTicks ?? 120);
+  if (els.reproPairDurationTicks) els.reproPairDurationTicks.value = String(repro.pairDurationTicks ?? 10);
+  if (els.reproMinIdleTicks) els.reproMinIdleTicks.value = String(repro.minIdleTicks ?? 12);
+  if (els.reproMaxBirthsPerDay) els.reproMaxBirthsPerDay.value = String(repro.maxBirthsPerDay ?? 2);
+  if (els.reproSafePredatorRadius) els.reproSafePredatorRadius.value = String(repro.safePredatorRadius ?? 10);
+  if (els.reproMinWallsForSafety) els.reproMinWallsForSafety.value = String(repro.minWallsForSafety ?? 10);
+  if (els.reproMinWallProtectionScore) els.reproMinWallProtectionScore.value = String(repro.minWallProtectionScore ?? 0.45);
 
-  for (const [id, btn] of [[1, els.simSpeed1], [2, els.simSpeed2], [4, els.simSpeed4], [8, els.simSpeed8]]) {
+  for (const [id, btn] of [[1, els.simSpeed1], [2, els.simSpeed2], [4, els.simSpeed4], [8, els.simSpeed8], [16, els.simSpeed16]]) {
     if (!btn) continue;
     btn.style.outline = state.meta.simulationSpeed === id ? "2px solid rgba(58,214,143,.75)" : "none";
   }
@@ -213,8 +258,9 @@ function replaceState(nextState) {
   if (!state.graphics && graphics) state.graphics = graphics;
   state.meta = state.meta || {};
   if (!Number.isFinite(state.meta.simulationSpeed)) {
-    state.meta.simulationSpeed = Number.isFinite(state.meta.speed) ? state.meta.speed : 1;
+    state.meta.simulationSpeed = Number.isFinite(state.meta.speed) ? state.meta.speed : 4;
   }
+  state.meta.simulationSpeed = Math.max(1, Math.min(MAX_SIMULATION_SPEED, state.meta.simulationSpeed));
   delete state.meta.speed;
   delete state.meta.renderFpsCap;
   state.meta.autoPause = state.meta.autoPause || {
@@ -224,6 +270,19 @@ function replaceState(nextState) {
     criticalNeedsThreshold: 3,
     onResourceShortage: true,
     minTicksBetweenPauses: 30
+  };
+  state.meta.tuning = state.meta.tuning || {};
+  state.meta.tuning.wildlife = {
+    detectionRadiusScale: Number(state.meta.tuning.wildlife?.detectionRadiusScale ?? 1),
+    targetCommitTicks: Number(state.meta.tuning.wildlife?.targetCommitTicks ?? 20),
+    retargetCooldownTicks: Number(state.meta.tuning.wildlife?.retargetCooldownTicks ?? 6),
+    breakoffTicks: Number(state.meta.tuning.wildlife?.breakoffTicks ?? 10),
+    engageRange: Number(state.meta.tuning.wildlife?.engageRange ?? 1.5),
+    wallPenaltyScale: Number(state.meta.tuning.wildlife?.wallPenaltyScale ?? 1)
+  };
+  state.meta.tuning.threat = {
+    localRadius: Number(state.meta.tuning.threat?.localRadius ?? 9),
+    directRadius: Number(state.meta.tuning.threat?.directRadius ?? 4.5)
   };
   state.debug = state.debug || {};
   if (!state.debug.pauseSummary) {
@@ -241,6 +300,7 @@ function replaceState(nextState) {
     sites: true,
     goblins: true
   };
+  if (state.worldMap.render.showThreatOverlay === undefined) state.worldMap.render.showThreatOverlay = true;
 }
 
 bindUI(state, els, { step, render, pushEvent, syncControls, replaceState });
@@ -270,11 +330,14 @@ loadGraphicsAssets()
 
 const BASE_TICK_MS = 1000;
 const MAX_TICKS_PER_FRAME = 24;
+const MAX_SIMULATION_SPEED = 32;
 let lastFrameTime = performance.now();
 let simAccumulatorMs = 0;
 
 function simulationTickStepMs() {
-  const simSpeed = Number.isFinite(state.meta.simulationSpeed) ? Math.max(1, state.meta.simulationSpeed) : 1;
+  const simSpeed = Number.isFinite(state.meta.simulationSpeed)
+    ? Math.max(1, Math.min(MAX_SIMULATION_SPEED, state.meta.simulationSpeed))
+    : 4;
   return BASE_TICK_MS / simSpeed;
 }
 

@@ -1,5 +1,6 @@
 import { queryChronicle } from "../sim/lore/chronicleIndex.js";
 import { causalityTraceForEntry } from "../sim/lore/causalityGraph.js";
+import { TILES_PER_CHUNK } from "../sim/world/scale.js";
 
 export function renderChronicleBrowser(state, mount) {
   mount.innerHTML = "";
@@ -39,6 +40,10 @@ function classifySeverity(entry) {
     t === "BARBARIAN_RAID_TARGETED" ||
     t === "BARBARIAN_RAID_NEAR_HOME" ||
     t === "BARBARIAN_DAMAGED_WALL" ||
+    t === "GOBLIN_KILLED_BY_WILDLIFE" ||
+    t === "GOBLIN_INJURED_BY_WILDLIFE" ||
+    t === "WILDLIFE_ATTACKED_GOBLIN" ||
+    t === "WILDLIFE_REPELLED_BY_GOBLINS" ||
     t === "WOLF_THREAT_NEAR_HOME" ||
     t === "NO_FIREWOOD" ||
     (t === "RESOURCE_SHORTAGE" && (resource === "water" || resource === "food"))
@@ -47,6 +52,7 @@ function classifySeverity(entry) {
   }
   if (
     t === "NEED_SPIKE" ||
+    t === "WILDLIFE_KILLED_BY_GOBLINS" ||
     t === "WOLF_HUNT_STARTED" ||
     t === "BARBARIAN_STOLE_RESOURCE" ||
     t === "WALL_PLAN_REPLANNED"
@@ -63,6 +69,10 @@ function resolveFocusTarget(state, entry) {
 
   if (Number.isFinite(details.tileX) && Number.isFinite(details.tileY)) {
     return { x: details.tileX, y: details.tileY };
+  }
+  if (typeof details.at === "string" && details.at.includes(",")) {
+    const [mx, my] = details.at.split(",").map((v) => Number(v));
+    if (Number.isFinite(mx) && Number.isFinite(my)) return { x: Math.floor(mx / TILES_PER_CHUNK), y: Math.floor(my / TILES_PER_CHUNK) };
   }
   if (entry.siteId && wm.sitesById[entry.siteId]) {
     const site = wm.sitesById[entry.siteId];
