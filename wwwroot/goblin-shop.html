@@ -1,0 +1,275 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Goblin Shop</title>
+  <link rel="icon" type="image/png" href="img/mindgoblin.png" />
+  <style>
+    :root{
+      --bg-deep:#090f0b;
+      --bg-forest:#102218;
+      --gold:#d7b462;
+      --gold-dim:#9b7a31;
+      --ink:#ece0c3;
+      --emerald:#3ad68f;
+      --ember:#d46a42;
+      --card:#16291f;
+      --card-2:#1d3327;
+      --line:#355541;
+      --muted:#bcae8a;
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0;
+      color:var(--ink);
+      font-family:"Cinzel","Garamond",serif;
+      background:
+        radial-gradient(1200px 480px at 20% -20%, rgba(212,106,66,.2), transparent 55%),
+        radial-gradient(900px 440px at 85% -15%, rgba(58,214,143,.18), transparent 60%),
+        linear-gradient(170deg, var(--bg-forest), var(--bg-deep));
+      min-height:100vh;
+    }
+    .mist{
+      position:fixed; inset:0; pointer-events:none; opacity:.35;
+      background:
+        radial-gradient(500px 100px at 10% 30%, rgba(255,255,255,.08), transparent 70%),
+        radial-gradient(650px 130px at 80% 55%, rgba(255,255,255,.07), transparent 70%),
+        radial-gradient(400px 80px at 35% 85%, rgba(255,255,255,.06), transparent 70%);
+      animation:drift 16s ease-in-out infinite alternate;
+    }
+    @keyframes drift{from{transform:translateY(0)}to{transform:translateY(-12px)}}
+    .wrap{width:min(1120px,100%); margin:0 auto; padding:1rem; position:relative; z-index:1}
+    .hero{
+      border:1px solid var(--line);
+      border-radius:22px;
+      overflow:hidden;
+      background:linear-gradient(160deg, rgba(23,41,31,.96), rgba(13,22,17,.96));
+      box-shadow:0 22px 60px rgba(0,0,0,.45), inset 0 0 0 1px rgba(255,255,255,.03);
+      margin-bottom:1rem;
+    }
+    .hero-top{
+      display:grid;
+      grid-template-columns:108px 1fr auto;
+      gap:1rem;
+      align-items:center;
+      padding:1rem;
+      border-bottom:1px solid var(--line);
+      background:linear-gradient(90deg, rgba(212,106,66,.18), rgba(58,214,143,.08));
+    }
+    .sigil{
+      width:108px; height:108px; border-radius:18px;
+      border:1px solid rgba(215,180,98,.5);
+      background:#0e1a13; object-fit:cover;
+      box-shadow:0 0 0 4px rgba(0,0,0,.22), 0 12px 28px rgba(0,0,0,.35);
+    }
+    h1{
+      margin:0;
+      font-size:clamp(1.4rem, 4.8vw, 2.2rem);
+      letter-spacing:.05em;
+      text-transform:uppercase;
+      color:#f2e4bf;
+    }
+    .sub{margin-top:.35rem; color:#d8ccab; font-family:"Cormorant Garamond","Garamond",serif}
+    .btn{
+      border:1px solid var(--gold-dim);
+      background:linear-gradient(170deg,#3a2c14,#2c210f);
+      color:#f0ddb0;
+      border-radius:999px;
+      text-decoration:none;
+      text-align:center;
+      padding:.48rem .9rem;
+      font-size:.92rem;
+      letter-spacing:.03em;
+      display:inline-block;
+    }
+    .bank{
+      border:1px solid rgba(215,180,98,.55);
+      background:rgba(10,18,13,.82);
+      border-radius:999px;
+      padding:.42rem .7rem;
+      display:inline-flex;
+      align-items:center;
+      gap:.45rem;
+      font-size:.9rem;
+      letter-spacing:.03em;
+      white-space:nowrap;
+    }
+    .bank img{width:18px; height:18px; object-fit:contain}
+    .muted{color:var(--muted)}
+
+    .grid{
+      display:grid;
+      grid-template-columns:repeat(3, minmax(0, 1fr));
+      gap:.85rem;
+    }
+    .item{
+      border:1px solid var(--line);
+      border-radius:16px;
+      background:
+        radial-gradient(220px 120px at 100% 0%, rgba(58,214,143,.10), transparent 75%),
+        linear-gradient(170deg, var(--card-2), var(--card));
+      box-shadow: inset 0 0 0 1px rgba(255,255,255,.03), 0 12px 30px rgba(0,0,0,.28);
+      overflow:hidden;
+      display:flex;
+      flex-direction:column;
+      min-height: 220px;
+    }
+    .thumb{
+      height:120px;
+      border-bottom:1px solid var(--line);
+      background:
+        radial-gradient(420px 160px at 20% 15%, rgba(212,106,66,.18), transparent 55%),
+        radial-gradient(360px 140px at 80% 10%, rgba(58,214,143,.14), transparent 60%),
+        #0f1d15;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+    }
+    .thumb img{
+      width:86px;
+      height:86px;
+      object-fit:contain;
+      opacity:.95;
+      filter: drop-shadow(0 10px 18px rgba(0,0,0,.45));
+    }
+    .body{padding:.8rem; display:grid; gap:.45rem; flex:1}
+    h2{margin:0; font-size:1rem; letter-spacing:.04em; text-transform:uppercase; color:#f1e3bd}
+    .price{display:flex; gap:.45rem; align-items:center; font-weight:700}
+    .price img{width:18px; height:18px; object-fit:contain}
+    .buy{
+      margin-top:auto;
+      border:1px solid #4f7b62;
+      background:linear-gradient(170deg,#244332,#1a3023);
+      color:#d4f3e3;
+      border-radius:10px;
+      padding:.55rem .7rem;
+      text-transform:uppercase;
+      letter-spacing:.05em;
+      font-size:.78rem;
+      cursor:not-allowed;
+      opacity:.65;
+    }
+
+    .floating-bank{
+      position:fixed;
+      right:14px;
+      bottom:14px;
+      z-index:30;
+      border:1px solid rgba(215,180,98,.55);
+      background:rgba(10,18,13,.92);
+      border-radius:14px;
+      padding:.55rem .7rem;
+      box-shadow:0 12px 30px rgba(0,0,0,.45);
+      display:flex;
+      align-items:center;
+      gap:.6rem;
+      min-width:170px;
+    }
+    .floating-bank img{width:22px; height:22px; object-fit:contain}
+    .floating-bank .label{font-size:.7rem; letter-spacing:.06em; color:#bcae88; text-transform:uppercase; line-height:1}
+    .floating-bank .value{margin-top:.15rem; font-size:1.25rem; font-weight:700; letter-spacing:.03em; color:#f5e8c6; line-height:1}
+
+    @media (max-width: 980px){
+      .grid{grid-template-columns:repeat(2, minmax(0, 1fr))}
+    }
+    @media (max-width: 900px){
+      .hero-top{grid-template-columns:82px 1fr}
+      .sigil{width:82px; height:82px}
+    }
+    @media (max-width: 640px){
+      .grid{grid-template-columns:1fr}
+      .floating-bank{left:10px; right:10px; bottom:10px; min-width:0; justify-content:center}
+      .floating-bank .value{font-size:1.15rem}
+    }
+  </style>
+</head>
+<body>
+  <div class="mist" aria-hidden="true"></div>
+  <div class="wrap">
+    <section class="hero">
+      <div class="hero-top">
+        <img class="sigil" src="img/casino/hero-sigil.png" onerror="this.src='img/springgoblin.png'" alt="Shop Crest">
+        <div>
+          <h1>Goblin Shop</h1>
+          <div class="sub">Buy nonsense. Hoard glory. Spend clinkbits on future shinies.</div>
+        </div>
+        <div style="display:flex; flex-direction:column; gap:.45rem; align-items:flex-end;">
+          <div class="bank"><img src="img/clinkbit.png" alt="Clinkbit"><span id="bankValue">--</span> clinkbits</div>
+          <a class="btn" href="index.html">Back to MindGobblin</a>
+        </div>
+      </div>
+    </section>
+
+    <div class="muted" style="margin:0 0 .85rem;">
+      Shop purchases are scaffolded. Items are cosmetic-only and currently marked as coming soon.
+    </div>
+
+    <section class="grid">
+      <article class="item">
+        <div class="thumb"><img src="img/clinkbit.png" alt="Crate"></div>
+        <div class="body">
+          <h2>Mystery Crate</h2>
+          <div class="muted">Random cosmetic. Duplicate conversion coming soon.</div>
+          <div class="price"><img src="img/clinkbit.png" alt="Clinkbit"> 150</div>
+          <button class="buy" type="button" disabled>Coming Soon</button>
+        </div>
+      </article>
+
+      <article class="item">
+        <div class="thumb"><img src="img/cat.png" alt="Cursor"></div>
+        <div class="body">
+          <h2>Cursor Skin</h2>
+          <div class="muted">A ridiculous pointer for desktop. Mobile ignores it.</div>
+          <div class="price"><img src="img/clinkbit.png" alt="Clinkbit"> 80</div>
+          <button class="buy" type="button" disabled>Coming Soon</button>
+        </div>
+      </article>
+
+      <article class="item">
+        <div class="thumb"><img src="img/pumpkin.png" alt="Badge"></div>
+        <div class="body">
+          <h2>Profile Badge</h2>
+          <div class="muted">Show off your goblin rank. Cosmetic only.</div>
+          <div class="price"><img src="img/clinkbit.png" alt="Clinkbit"> 40</div>
+          <button class="buy" type="button" disabled>Coming Soon</button>
+        </div>
+      </article>
+    </section>
+  </div>
+
+  <div class="floating-bank" aria-live="polite">
+    <img src="img/clinkbit.png" alt="Clinkbit">
+    <div>
+      <div class="label">Clinkbits</div>
+      <div id="floatingBankValue" class="value">--</div>
+    </div>
+  </div>
+
+  <script>
+    const bankValue = document.getElementById("bankValue");
+    const floatingBankValue = document.getElementById("floatingBankValue");
+    const fmt = (n) => new Intl.NumberFormat().format(n);
+
+    async function fetchJson(url, options) {
+      const res = await fetch(url, options);
+      let data = null;
+      try { data = await res.json(); } catch {}
+      return { ok: res.ok, data };
+    }
+
+    (async function init() {
+      const me = await fetchJson("/api/clinkbits/me");
+      if (!me.ok) {
+        bankValue.textContent = "Login required";
+        floatingBankValue.textContent = "--";
+        return;
+      }
+      const formatted = fmt(me.data.balance);
+      bankValue.textContent = formatted;
+      floatingBankValue.textContent = formatted;
+    })();
+  </script>
+</body>
+</html>
+

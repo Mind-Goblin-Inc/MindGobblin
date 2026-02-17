@@ -1,0 +1,1009 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Hoard Pile</title>
+  <link rel="icon" type="image/png" href="img/mindgoblin.png" />
+  <style>
+    :root{
+      --bg-deep:#090f0b;
+      --bg-forest:#102218;
+      --gold:#d7b462;
+      --gold-dim:#9b7a31;
+      --ink:#ece0c3;
+      --emerald:#3ad68f;
+      --ember:#d46a42;
+      --card:#16291f;
+      --card-2:#1d3327;
+      --line:#355541;
+      --muted:#bcae8a;
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0;
+      color:var(--ink);
+      font-family:"Cinzel","Garamond",serif;
+      background:
+        radial-gradient(1200px 480px at 20% -20%, rgba(212,106,66,.2), transparent 55%),
+        radial-gradient(900px 440px at 85% -15%, rgba(58,214,143,.18), transparent 60%),
+        linear-gradient(170deg, var(--bg-forest), var(--bg-deep));
+      min-height:100vh;
+    }
+    .mist{
+      position:fixed; inset:0; pointer-events:none; opacity:.35;
+      background:
+        radial-gradient(500px 100px at 10% 30%, rgba(255,255,255,.08), transparent 70%),
+        radial-gradient(650px 130px at 80% 55%, rgba(255,255,255,.07), transparent 70%),
+        radial-gradient(400px 80px at 35% 85%, rgba(255,255,255,.06), transparent 70%);
+      animation:drift 16s ease-in-out infinite alternate;
+    }
+    @keyframes drift{from{transform:translateY(0)}to{transform:translateY(-12px)}}
+    .wrap{width:min(1120px,100%); margin:0 auto; padding:1rem; position:relative; z-index:1}
+    .hero{
+      border:1px solid var(--line);
+      border-radius:22px;
+      overflow:hidden;
+      background:linear-gradient(160deg, rgba(23,41,31,.96), rgba(13,22,17,.96));
+      box-shadow:0 22px 60px rgba(0,0,0,.45), inset 0 0 0 1px rgba(255,255,255,.03);
+      margin-bottom:1rem;
+    }
+    .hero-top{
+      display:grid;
+      grid-template-columns:108px 1fr auto;
+      gap:1rem;
+      align-items:center;
+      padding:1rem;
+      border-bottom:1px solid var(--line);
+      background:linear-gradient(90deg, rgba(212,106,66,.18), rgba(58,214,143,.08));
+    }
+    .sigil{
+      width:108px; height:108px; border-radius:18px;
+      border:1px solid rgba(215,180,98,.5);
+      background:#0e1a13; object-fit:cover;
+      box-shadow:0 0 0 4px rgba(0,0,0,.22), 0 12px 28px rgba(0,0,0,.35);
+    }
+    h1{
+      margin:0;
+      font-size:clamp(1.4rem, 4.8vw, 2.2rem);
+      letter-spacing:.05em;
+      text-transform:uppercase;
+      color:#f2e4bf;
+    }
+    .sub{margin-top:.35rem; color:#d8ccab; font-family:"Cormorant Garamond","Garamond",serif}
+    .btn{
+      border:1px solid var(--gold-dim);
+      background:linear-gradient(170deg,#3a2c14,#2c210f);
+      color:#f0ddb0;
+      border-radius:999px;
+      text-decoration:none;
+      text-align:center;
+      padding:.48rem .9rem;
+      font-size:.92rem;
+      letter-spacing:.03em;
+      display:inline-block;
+    }
+    .bank{
+      border:1px solid rgba(215,180,98,.55);
+      background:rgba(10,18,13,.82);
+      border-radius:999px;
+      padding:.42rem .7rem;
+      display:inline-flex;
+      align-items:center;
+      gap:.45rem;
+      font-size:.9rem;
+      letter-spacing:.03em;
+      white-space:nowrap;
+    }
+    .bank img{width:18px; height:18px; object-fit:contain}
+    .muted{color:var(--muted)}
+
+    .card{
+      border:1px solid var(--line);
+      border-radius:16px;
+      background:
+        radial-gradient(220px 120px at 100% 0%, rgba(58,214,143,.10), transparent 75%),
+        linear-gradient(170deg, var(--card-2), var(--card));
+      box-shadow: inset 0 0 0 1px rgba(255,255,255,.03), 0 12px 30px rgba(0,0,0,.28);
+      padding:.9rem;
+    }
+    h2{margin:0 0 .5rem; letter-spacing:.04em; text-transform:uppercase; color:#f1e3bd; font-size:1rem}
+    .small{font-size:.86rem}
+
+    /* ---- Hoard inventory ---- */
+    .hint{font-size:.82rem; color:#c5b690}
+    .toolbar{
+      display:flex;
+      flex-wrap:wrap;
+      gap:.55rem;
+      align-items:flex-end;
+      justify-content:space-between;
+      margin:.25rem 0 .85rem;
+      border:1px solid rgba(215,180,98,.16);
+      background:rgba(12,20,15,.65);
+      border-radius:14px;
+      padding:.7rem;
+    }
+    .tool-left{display:flex; flex-wrap:wrap; gap:.55rem; align-items:flex-end}
+    .field{display:grid; gap:.2rem}
+    .field label{
+      font-size:.72rem;
+      letter-spacing:.08em;
+      text-transform:uppercase;
+      color:#cbbd98;
+    }
+    .field input[type="text"], .field input[type="number"]{
+      border:1px solid rgba(215,180,98,.22);
+      background:#0e1a13;
+      color:var(--ink);
+      border-radius:10px;
+      padding:.45rem .55rem;
+      font-family:inherit;
+      min-width: 140px;
+      outline:none;
+    }
+    .field input[type="number"]{min-width: 110px;}
+    .field input[type="text"]:focus, .field input[type="number"]:focus{
+      border-color: rgba(215,180,98,.5);
+      box-shadow:0 0 0 3px rgba(215,180,98,.12);
+    }
+    .btn2{
+      border:1px solid #4f7b62;
+      background:linear-gradient(170deg,#244332,#1a3023);
+      color:#d4f3e3;
+      border-radius:999px;
+      text-decoration:none;
+      text-align:center;
+      padding:.48rem .9rem;
+      font-size:.88rem;
+      letter-spacing:.04em;
+      cursor:pointer;
+    }
+    .btn2:active{transform:translateY(1px)}
+
+    .inv-grid{
+      display:grid;
+      grid-template-columns:repeat(4, minmax(0, 1fr));
+      gap:.85rem;
+    }
+    .gcard{
+      position:relative;
+      isolation:isolate; /* contain blend-mode overlays per-card (prevents weird bleed/overdraw) */
+      /* Keep content well inside the visible "window" of the frame PNGs */
+      --win-top: 11.5%;
+      --win-right: 12.5%;
+      --win-bottom: 13%;
+      --win-left: 12.5%;
+      /* Frame PNGs often have outer padding; draw them slightly zoomed-in. */
+      --frame-scale: 1.14;
+      --frame-offset-x: 0%;
+      --frame-offset-y: 0%;
+      border-radius:18px;
+      overflow:hidden;
+      border:none; /* frame PNG is the only border */
+      background:transparent;
+      box-shadow:0 16px 34px rgba(0,0,0,.28);
+      aspect-ratio: 1024 / 1400; /* match frame PNGs */
+      min-height: 360px;
+      transform: translateZ(0);
+    }
+    .gcard:hover{box-shadow:0 18px 44px rgba(0,0,0,.42), inset 0 0 0 1px rgba(255,255,255,.05)}
+    .gcard::before{
+      content:"";
+      position:absolute; inset:0;
+      pointer-events:none;
+      opacity:1;
+      mix-blend-mode:normal;
+      z-index:1;
+      background-image: var(--frame-img);
+      background-repeat: no-repeat;
+      background-position: calc(50% + var(--frame-offset-x)) calc(50% + var(--frame-offset-y));
+      background-size:
+        calc(100% * var(--frame-scale))
+        calc(100% * var(--frame-scale));
+    }
+    .gcard::after{
+      content:"";
+      position:absolute; inset:0;
+      pointer-events:none;
+      opacity:.55;
+      z-index:1;
+    }
+
+    /* Place all content inside the transparent "window" of the frame image. */
+    .g-content{
+      position:absolute;
+      inset: var(--win-top) var(--win-right) var(--win-bottom) var(--win-left);
+      z-index:2;
+      display:flex;
+      flex-direction:column;
+      min-height:0;
+      overflow:hidden; /* hard guarantee: no content can draw onto the border */
+    }
+
+    .g-name{
+      margin:0;
+      letter-spacing:.05em;
+      text-transform:uppercase;
+      color:#f2e4bf;
+      font-size:1.02rem;
+      line-height:1.1;
+      display:-webkit-box;
+      -webkit-line-clamp:2;
+      -webkit-box-orient:vertical;
+      overflow:hidden;
+    }
+
+    /* Full-width art, then text underneath */
+    .g-artwide{
+      position:relative;
+      border-radius:14px;
+      border:1px solid rgba(215,180,98,.24);
+      background:
+        radial-gradient(360px 160px at 20% 10%, rgba(212,106,66,.18), transparent 55%),
+        radial-gradient(320px 160px at 85% 10%, rgba(58,214,143,.16), transparent 60%),
+        #0e1a13;
+      box-shadow:0 10px 24px rgba(0,0,0,.30), inset 0 0 0 1px rgba(255,255,255,.03);
+      overflow:hidden;
+      aspect-ratio: 16 / 10;
+      flex:0 0 auto;
+    }
+    .g-artwide img{
+      width:100%;
+      height:100%;
+      object-fit:cover; /* user request: fill side-to-side */
+      object-position:center;
+      opacity:.96;
+      filter: saturate(1.05) contrast(1.02);
+    }
+
+    .badge{
+      position:absolute;
+      top:.5rem; left:.6rem;
+      z-index:3;
+      border-radius:999px;
+      padding:.25rem .5rem;
+      font-size:.74rem;
+      letter-spacing:.06em;
+      text-transform:uppercase;
+      border:1px solid rgba(255,255,255,.10);
+      background:rgba(10,18,13,.76);
+      display:inline-flex;
+      align-items:center;
+      gap:.4rem;
+      white-space:nowrap;
+      box-shadow:0 10px 22px rgba(0,0,0,.28);
+    }
+    .stars{
+      font-weight:900;
+      letter-spacing:.10em;
+      font-size:1.05rem;
+      line-height:1;
+      text-shadow:0 1px 0 rgba(0,0,0,.6);
+    }
+
+    .g-body{
+      padding:.55rem .1rem .1rem;
+      display:flex;
+      flex-direction:column;
+      gap:.45rem;
+      min-height:0;
+      flex:1;
+    }
+    .flavor{
+      margin:0;
+      color:#d8ccab;
+      font-size:.9rem;
+      line-height:1.25;
+      display:-webkit-box;
+      -webkit-line-clamp:3;
+      -webkit-box-orient:vertical;
+      overflow:hidden;
+    }
+    .note{
+      margin-top:.15rem;
+      color:#bcae8a;
+      font-size:.82rem;
+      line-height:1.25;
+      font-style:italic;
+      display:-webkit-box;
+      -webkit-line-clamp:2;
+      -webkit-box-orient:vertical;
+      overflow:hidden;
+    }
+    .g-footer{
+      margin-top:.15rem;
+      display:flex;
+      justify-content:flex-end;
+      gap:.6rem;
+      align-items:flex-end;
+    }
+    .g-body .g-footer{ margin-top:auto; }
+    .id{
+      font-size:.72rem;
+      letter-spacing:.08em;
+      color:#9f936f;
+      text-transform:uppercase;
+      opacity:.95;
+      white-space:nowrap;
+    }
+
+    /* Rarity tint (stars = main rarity) */
+    .r1 .stars{color:#d6d0bf}
+    .r2 .stars{color:#86f1bf}
+    .r3 .stars{color:#6ac2ff}
+    .r4 .stars{color:#f08bd3}
+    .r5 .stars{color:#ffd16a}
+    .r1 .badge{border-color:rgba(214,208,191,.35)}
+    .r2 .badge{border-color:rgba(134,241,191,.35)}
+    .r3 .badge{border-color:rgba(106,194,255,.35)}
+    .r4 .badge{border-color:rgba(240,139,211,.35)}
+    .r5 .badge{border-color:rgba(255,209,106,.35)}
+
+    /* Frame styles (use your new PNG frame assets) */
+    .gcard{ --frame-img: none; }
+    .frame-wood{ --frame-img: url("img/items/frames/wood.png"); }
+    .frame-brass{ --frame-img: url("img/items/frames/brass.png"); }
+    .frame-fungal{ --frame-img: url("img/items/frames/fungal.png"); }
+    .frame-stone{ --frame-img: url("img/items/frames/stone.png"); }
+    .frame-gnome{ --frame-img: url("img/items/frames/gnome.png"); }
+    .frame-scrap{ --frame-img: url("img/items/frames/metal.png"); }
+    .frame-birch{ --frame-img: url("img/items/frames/birch.png"); }
+    .frame-glass{ --frame-img: url("img/items/frames/glass.png"); }
+    .frame-lantern{ --frame-img: url("img/items/frames/lantern.png"); }
+
+    /* Wear levels (overlay) */
+    .wear-pristine::after{ background: radial-gradient(520px 200px at 30% 0%, rgba(255,255,255,.07), transparent 60%); }
+    .wear-loved::after{
+      background:
+        radial-gradient(520px 200px at 30% 0%, rgba(255,255,255,.06), transparent 60%),
+        radial-gradient(300px 220px at 80% 90%, rgba(0,0,0,.18), transparent 60%);
+      opacity:.5;
+    }
+    .wear-grubby::after{
+      background:
+        radial-gradient(280px 220px at 80% 90%, rgba(0,0,0,.30), transparent 60%),
+        repeating-linear-gradient(0deg, rgba(120,100,60,.08) 0 8px, rgba(0,0,0,0) 8px 18px);
+      opacity:.65;
+    }
+    .wear-rust::after{
+      background:
+        radial-gradient(240px 240px at 10% 85%, rgba(160,120,70,.22), transparent 62%),
+        radial-gradient(240px 240px at 92% 20%, rgba(90,170,120,.15), transparent 62%),
+        repeating-linear-gradient(45deg, rgba(160,120,70,.06) 0 6px, rgba(0,0,0,0) 6px 14px);
+      opacity:.7;
+    }
+    .wear-battle::after{
+      background:
+        repeating-linear-gradient(115deg, rgba(255,255,255,.08) 0 2px, rgba(0,0,0,0) 2px 12px),
+        repeating-linear-gradient(20deg, rgba(0,0,0,.24) 0 1px, rgba(0,0,0,0) 1px 9px);
+      opacity:.55;
+    }
+    .wear-stitch::after{
+      background:
+        repeating-linear-gradient(90deg, rgba(0,0,0,.25) 0 1px, rgba(0,0,0,0) 1px 10px),
+        radial-gradient(240px 200px at 20% 90%, rgba(160,120,70,.26), transparent 60%);
+      opacity:.6;
+    }
+    .wear-soaked::after{
+      background:
+        radial-gradient(320px 240px at 30% 20%, rgba(160,225,255,.10), transparent 62%),
+        radial-gradient(320px 240px at 80% 90%, rgba(0,0,0,.24), transparent 62%),
+        repeating-linear-gradient(0deg, rgba(255,255,255,.05) 0 6px, rgba(0,0,0,0) 6px 16px);
+      opacity:.6;
+    }
+
+    /* ---- Ledger ---- */
+    .ledger{margin:0; padding:0; list-style:none; display:grid; gap:.45rem}
+    .row{
+      border:1px solid rgba(215,180,98,.18);
+      border-radius:12px;
+      background:#13231b;
+      padding:.65rem .7rem;
+      display:flex;
+      justify-content:space-between;
+      gap:.75rem;
+      align-items:flex-start;
+    }
+    .delta{font-weight:700; letter-spacing:.02em}
+    .delta.pos{color:#93f0c5}
+    .delta.neg{color:#f4a281}
+    .pill{
+      border:1px solid rgba(58,214,143,.35);
+      color:#a5e8c8;
+      background:rgba(58,214,143,.08);
+      border-radius:999px;
+      padding:.15rem .45rem;
+      font-size:.7rem;
+      letter-spacing:.04em;
+      text-transform:uppercase;
+    }
+
+    .grid2{
+      display:grid;
+      grid-template-columns:repeat(2, minmax(0, 1fr));
+      gap:.85rem;
+      margin-top:.85rem;
+    }
+
+    .floating-bank{
+      position:fixed;
+      right:14px;
+      bottom:14px;
+      z-index:30;
+      border:1px solid rgba(215,180,98,.55);
+      background:rgba(10,18,13,.92);
+      border-radius:14px;
+      padding:.55rem .7rem;
+      box-shadow:0 12px 30px rgba(0,0,0,.45);
+      display:flex;
+      align-items:center;
+      gap:.6rem;
+      min-width:170px;
+    }
+    .floating-bank img{width:22px; height:22px; object-fit:contain}
+    .floating-bank .label{font-size:.7rem; letter-spacing:.06em; color:#bcae88; text-transform:uppercase; line-height:1}
+    .floating-bank .value{margin-top:.15rem; font-size:1.25rem; font-weight:700; letter-spacing:.03em; color:#f5e8c6; line-height:1}
+
+    @media (max-width: 980px){
+      .inv-grid{grid-template-columns:repeat(3, minmax(0, 1fr))}
+    }
+    @media (max-width: 900px){
+      .hero-top{grid-template-columns:82px 1fr}
+      .sigil{width:82px; height:82px}
+      .inv-grid{grid-template-columns:repeat(2, minmax(0, 1fr))}
+      .grid2{grid-template-columns:1fr}
+    }
+    @media (max-width: 760px){
+      .floating-bank{left:10px; right:10px; bottom:10px; min-width:0; justify-content:center}
+      .floating-bank .value{font-size:1.15rem}
+    }
+    @media (max-width: 560px){
+      .inv-grid{grid-template-columns:1fr}
+      .toolbar{align-items:stretch}
+      .tool-left{width:100%}
+      .field input[type="text"]{min-width:0; width:100%}
+    }
+  </style>
+</head>
+<body>
+  <div class="mist" aria-hidden="true"></div>
+  <div class="wrap">
+    <section class="hero">
+      <div class="hero-top">
+        <img class="sigil" src="img/casino/hero-sigil.png" onerror="this.src='img/springgoblin.png'" alt="Hoard Crest">
+        <div>
+          <h1>Hoard Pile</h1>
+          <div class="sub">Your clinkbits, trinkets, and suspicious receipts.</div>
+        </div>
+        <div style="display:flex; flex-direction:column; gap:.45rem; align-items:flex-end;">
+          <div class="bank"><img src="img/clinkbit.png" alt="Clinkbit"><span id="bankValue">--</span> clinkbits</div>
+          <a class="btn" href="index.html">Back to MindGobblin</a>
+        </div>
+      </div>
+    </section>
+
+    <section class="card" style="padding:.85rem .9rem 1rem;">
+      <h2>Inventory</h2>
+      <div class="hint">Randomized example cards using existing site assets. Variants: stars (rarity), wear, frame, and an embellish line.</div>
+      <div class="toolbar" role="group" aria-label="Inventory generator">
+        <div class="tool-left">
+          <div class="field">
+            <label for="seed">Seed</label>
+            <input id="seed" type="text" value="goblin-hoard" autocomplete="off" spellcheck="false" />
+          </div>
+          <div class="field">
+            <label for="count">Count</label>
+            <input id="count" type="number" value="48" min="6" max="160" step="1" />
+          </div>
+          <div class="field">
+            <label for="dupes">Duplicate %</label>
+            <input id="dupes" type="number" value="55" min="0" max="100" step="1" title="Higher = more repeats of the same base item" />
+          </div>
+          <button id="reroll" class="btn2" type="button">Reroll</button>
+        </div>
+        <div class="hint">Tip: change the seed for a new hoard. Duplicate % controls how gacha-y it feels.</div>
+      </div>
+      <section id="inventory" class="inv-grid" aria-label="Hoard inventory"></section>
+    </section>
+
+    <div class="grid2">
+      <section class="card">
+        <h2>Ledger</h2>
+        <ul id="ledger" class="ledger">
+          <li class="muted">Loading transactions...</li>
+        </ul>
+      </section>
+
+      <section class="card">
+        <h2>Notes</h2>
+        <div class="muted small">This page is UI-only for now: it generates local sample cards. Later we can back it with a real "items owned" table (bought with clinkbits or won in games).</div>
+      </section>
+    </div>
+  </div>
+
+  <div class="floating-bank" aria-live="polite">
+    <img src="img/clinkbit.png" alt="Clinkbit">
+    <div>
+      <div class="label">Clinkbits</div>
+      <div id="floatingBankValue" class="value">--</div>
+    </div>
+  </div>
+
+  <script>
+    const bankValue = document.getElementById("bankValue");
+    const floatingBankValue = document.getElementById("floatingBankValue");
+    const ledger = document.getElementById("ledger");
+    const fmt = (n) => new Intl.NumberFormat().format(n);
+
+    const inv = document.getElementById("inventory");
+    const seedInput = document.getElementById("seed");
+    const countInput = document.getElementById("count");
+    const dupesInput = document.getElementById("dupes");
+    const rerollBtn = document.getElementById("reroll");
+
+    async function fetchJson(url, options) {
+      const res = await fetch(url, options);
+      let data = null;
+      try { data = await res.json(); } catch {}
+      return { ok: res.ok, data };
+    }
+
+    function setBalance(n) {
+      const v = (typeof n === "number") ? fmt(n) : "--";
+      bankValue.textContent = v;
+      floatingBankValue.textContent = v;
+    }
+
+    function renderTx(rows) {
+      if (!rows || !rows.length) {
+        ledger.innerHTML = `<li class="muted">No transactions yet.</li>`;
+        return;
+      }
+      ledger.innerHTML = "";
+      rows.forEach((t) => {
+        const li = document.createElement("li");
+        li.className = "row";
+        const delta = t.amount >= 0 ? `+${t.amount}` : `${t.amount}`;
+        li.innerHTML = `
+          <div style="min-width:0;">
+            <div class="small"><span class="pill">${t.reason}</span></div>
+            <div class="muted small" style="margin-top:.25rem;">${new Date(t.createdUtc).toLocaleString()}</div>
+          </div>
+          <div style="text-align:right;">
+            <div class="delta ${t.amount >= 0 ? "pos" : "neg"}">${delta}</div>
+            <div class="muted small">Bal ${fmt(t.balanceAfter)}</div>
+          </div>
+        `;
+        ledger.appendChild(li);
+      });
+    }
+
+    // ---- Inventory generator (deterministic per seed) ----
+    function xmur3(str) {
+      let h = 1779033703 ^ str.length;
+      for (let i = 0; i < str.length; i++) {
+        h = Math.imul(h ^ str.charCodeAt(i), 3432918353);
+        h = (h << 13) | (h >>> 19);
+      }
+      return function() {
+        h = Math.imul(h ^ (h >>> 16), 2246822507);
+        h = Math.imul(h ^ (h >>> 13), 3266489909);
+        h ^= h >>> 16;
+        return h >>> 0;
+      };
+    }
+    function mulberry32(a) {
+      return function() {
+        let t = a += 0x6D2B79F5;
+        t = Math.imul(t ^ (t >>> 15), t | 1);
+        t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+        return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+      };
+    }
+    function clampInt(v, lo, hi, def) {
+      const n = Number.parseInt(String(v ?? ""), 10);
+      if (!Number.isFinite(n)) return def;
+      return Math.max(lo, Math.min(hi, n));
+    }
+    function pick(rng, arr) { return arr[Math.floor(rng() * arr.length)]; }
+    function pickWeighted(rng, items) {
+      const total = items.reduce((s, it) => s + it.w, 0);
+      let roll = rng() * total;
+      for (const it of items) {
+        roll -= it.w;
+        if (roll <= 0) return it.v;
+      }
+      return items[items.length - 1].v;
+    }
+    function pad2(n) { return String(n).padStart(2, "0"); }
+
+    const RARITY = {
+      1: { name: "Common",  cls: "r1" },
+      2: { name: "Uncommon",cls: "r2" },
+      3: { name: "Rare",    cls: "r3" },
+      4: { name: "Epic",    cls: "r4" },
+      5: { name: "Mythic",  cls: "r5" },
+    };
+
+    const WEAR = [
+      { key: "pristine", cls: "wear-pristine", name: "Pristine", desc: "Clean edges, bright brass, no stains." },
+      { key: "loved", cls: "wear-loved", name: "Well-Loved", desc: "Soft scuffs, dulled corners, handled a lot." },
+      { key: "grubby", cls: "wear-grubby", name: "Grubby", desc: "Soot smudges, muddy thumbprints, moss flecks." },
+      { key: "rust", cls: "wear-rust", name: "Rust-Kissed", desc: "Brass patina, tiny oxidized freckles, greenish tint." },
+      { key: "battle", cls: "wear-battle", name: "Battle-Scratched", desc: "Deep scratches, chipped paint, taped corner patch." },
+      { key: "stitch", cls: "wear-stitch", name: "Splintered & Stitched", desc: "Cracked wood, stitched wrap, repair rivets." },
+      { key: "soaked", cls: "wear-soaked", name: "Stream-Soaked", desc: "Water staining, warped paper, dried mineral rings." },
+    ];
+
+    const FRAMES = [
+      { key: "wood", cls: "frame-wood", name: "Common Wood", blurb: "Simple carved timber, twine wrap." },
+      { key: "brass", cls: "frame-brass", name: "Ornate Brass", blurb: "Engraved brass, coin-inlay corners." },
+      { key: "fungal", cls: "frame-fungal", name: "Fungal", blurb: "Mushroom gills, spore dots, soft red accents." },
+      { key: "stone", cls: "frame-stone", name: "Mossy Stone", blurb: "Lichen texture, tiny runes, damp look." },
+      { key: "gnome", cls: "frame-gnome", name: "Gnome-Carved", blurb: "Neat chiseling, geometric folk patterns." },
+      { key: "scrap", cls: "frame-scrap", name: "Scrap-Metal Patchwork", blurb: "Mismatched plates, rivets, dangling key." },
+      { key: "birch", cls: "frame-birch", name: "Birchbark + Twine", blurb: "Papery bark, stitched thread seams." },
+      { key: "glass", cls: "frame-glass", name: "Streamglass Edge", blurb: "Watery sheen, rounded glassy border." },
+      { key: "lantern", cls: "frame-lantern", name: "Firefly Lantern", blurb: "Little lantern corners with a faint glow." },
+    ];
+
+    const EMBELLISH = [
+      "Thumb-smudged brilliance",
+      "Moss-flecked corners",
+      "Soot-kissed edges",
+      "Slightly sticky sheen",
+      "Pocket-warmed patina",
+      "Dented, but proud",
+      "Scraped by bramble",
+      "Tarnish with character",
+      "River-splashed gloss",
+      "Mud-caked charm",
+      "Twine-scuffed binding",
+      "Smelled once... regretted",
+      "Fingerprint constellation",
+      "Grease-ghost highlights",
+      "Softly bruised brass",
+      "Chipped like a grin",
+      "Bent in a story",
+      "Glitter in the cracks",
+      "Bark-rubbed border",
+      "Sanded by time",
+      "Pebble-pocked surface",
+      "Crinkle-worn papergrain",
+      "Tea-stained legend",
+      "Honey-dabbed spot",
+      "Smudged with luck",
+      "Slightly singed corner",
+      "Frost-nipped trim",
+      "Sun-faded but sunny",
+      "Rain-wrinkled finish",
+      "Stream-soaked edges",
+      "Sticker-residue halo",
+      "Wax-drip freckles",
+      "Pollen-dusted frame",
+      "Spore-speckled shine",
+      "Leaf-pressed imprint",
+      "Thorn-snagged seam",
+      "Stitch-mended tear",
+      "Patchwork pride",
+      "Rivet-repaired wrinkle",
+      "Tape-braced corner",
+      "Scribbled-on (illegible)",
+      "Smudged signature mark",
+      "Bite-marked (small)",
+      "Chewed slightly (sorry)",
+      "Paw-scuffed surface",
+      "Beak-tapped dents",
+      "Claw-scratched flourish",
+      "Boot-scraped bottom",
+      "Satchel-rubbed gloss",
+      "Coin-rattle scuffs",
+      "Keyring-scraped streaks",
+      "Pocket-lint garnish",
+      "Dust-bunny cuddle",
+      "Smelled like mushrooms",
+      "Smelled like victory",
+      "Smelled like damp socks",
+      "Smelled like \"maybe magic\"",
+      "Lantern-warm glow",
+      "Firefly-lit sparkle",
+      "Glow-specked aura",
+      "Rune-dusted border",
+      "Charm-sprinkled trim",
+      "Whispering faintly",
+      "Humming (barely)",
+      "Buzzing when jealous",
+      "Sighing when ignored",
+      "Grumbling on Tuesdays",
+      "Moody shimmer",
+      "Sulky shine",
+      "Proudly grubby",
+      "Improbably intact",
+      "Surprisingly polished",
+      "Accidentally pristine",
+      "Cleaned once (never again)",
+      "Over-loved edges",
+      "Handled by experts*",
+      "Handled by goblins",
+      "Handled by gnomes",
+      "Handled by someone sticky",
+      "Borrowed (not returned)",
+      "Traded under moonlight",
+      "Won in a dare",
+      "Found near the stream",
+      "Fished from a puddle",
+      "Dug up gently-ish",
+      "Unearthed with enthusiasm",
+      "Rolled down a hill",
+      "Tumbled through bracken",
+      "Survived the market crush",
+      "Survived a squirrel incident",
+      "Survived a goose incident",
+      "Survived \"testing\"",
+      "\"Field verified\"",
+      "\"Mostly safe\"",
+      "\"Probably fine\"",
+      "\"Do not lick\"",
+      "\"Do not sniff\"",
+      "\"Do not shake\"",
+      "\"Do not feed after midnight\"",
+      "\"Not haunted\" (allegedly)",
+      "\"Lightly haunted\"",
+      "\"Haunted, but polite\"",
+      "\"Cursed in a friendly way\"",
+      "\"Blessed by accident\"",
+      "\"Blessed by a toad\"",
+      "\"Blessed by a gnome\"",
+      "\"Blessed by vibes\"",
+      "\"Gnome-approved craftsmanship\"",
+      "\"Goblin-certified shiny\"",
+      "\"Market-tested sparkle\"",
+      "\"Brass-burnished pride\"",
+      "Verdigris-kissed brass",
+      "Green-patina freckles",
+      "Rust-tinged grin",
+      "Flake-of-gold glint",
+      "Coin-inlay wink",
+      "Scrapped-from-shipwreck chic",
+      "Salvaged-splendor look",
+      "Upcycled mischief",
+      "Patch-stitched elegance",
+      "Twine-tied dignity",
+      "Button-fastened bravado",
+      "Mismatched rivet charm",
+      "Crooked but confident",
+      "Slightly askew (stylish)",
+      "Wonky on purpose",
+      "Bent toward destiny",
+      "Loosely aligned magic",
+      "Faintly sparkly grime",
+      "Dirt with sparkle",
+      "Glittery mud flecks",
+      "Mossy sparkle dust",
+      "Spore-glitter drizzle",
+      "Firefly-flecked finish",
+      "Glow-in-the-cracks",
+      "Glow-under-the-dust",
+      "Glow-after-dark",
+      "Glow-before-dawn",
+      "Moonlit scuff marks",
+      "Dew-beaded edge",
+      "Fog-kissed surface",
+      "Mist-softened paint",
+      "Dappled-light shading",
+      "Soft-shadowed wear",
+      "Gentle-outline nicks",
+      "Rounded-corner chipping",
+      "Gouache-grain texture",
+      "Paper-fiber fuzz",
+      "Handmade wobble",
+      "Brushstroke bruises",
+      "Watercolor bleed (tiny)",
+      "Ink-wash smudge",
+      "Gently smirched",
+      "Lovingly scuffed",
+      "Respectfully dented",
+      "Purposefully grubbed",
+      "Heroically scratched",
+      "Adventurer-worn",
+      "Trail-tested trim",
+      "Bramble-tested border",
+      "Stream-tested seal",
+      "Market-tested frame",
+      "Hoard-tested shine",
+      "Satchel-tested corners",
+      "Pocket-tested patina",
+      "Lantern-tested glow",
+      "Campfire-smoked edge",
+      "Ash-dusted corner",
+      "Char-speckled trim",
+      "Warm-ember kiss",
+      "Candle-wax drizzle",
+      "Sealing-wax stamp scar",
+      "Sticker-peel shadow",
+      "Tape-line tan",
+      "Fold-crease memory",
+      "Corner-curl swagger",
+      "Slight ripple (cozy)",
+      "Warped by whimsy",
+      "Softly crumpled charm",
+      "Smushed in transit",
+      "Shaken, not stirred",
+      "Jostled by coins",
+      "Rattled by keys",
+      "Scraped by scrap",
+      "Polished by jealousy",
+      "Buffed by bargaining",
+      "Spritzed by streamwater",
+      "Splattered by berry juice",
+      "Jam-smear evidence",
+      "Mushroom-stain mystery",
+      "Spore-print souvenir",
+      "Leaf-sap streak",
+      "Resin-gloss dab",
+      "Pine-needle scratch",
+      "Pebble-etched line",
+      "Thornline scar",
+      "Tiny notch of valor",
+      "A nick for luck",
+      "Scarred, but cozy",
+      "Shiny through the grime"
+    ];
+
+    const ASSET_ITEMS = [
+      { key: "cardflip", name: "Card-Flip Charm", flavor: "A lucky bend in the deck, still warm.", img: "img/casino/card-flip.png" },
+      { key: "chestpick", name: "Chest-Pick Token", flavor: "Rattles when you lie. Convenient.", img: "img/casino/chest-pick.png" },
+      { key: "mushroomslots", name: "Mushroom Slot Sigil", flavor: "It smells like odds. And spores.", img: "img/casino/mushroom-slots.png" },
+      { key: "cauldron", name: "Cauldron Crash Lid", flavor: "A dented lid. A proud dent.", img: "img/casino/cauldron-crash.png" },
+      { key: "wheel", name: "Wheel of Mischief Wedge", flavor: "Pointy, unfair, and eager.", img: "img/casino/wheel-mischief.png" },
+      { key: "bombbag", name: "Bomb-Bag Patch", flavor: "Stitched in haste. Survived anyway.", img: "img/casino/bomb-bag.png" },
+      { key: "dice", name: "Dice Duel Die", flavor: "Always lands on something suspicious.", img: "img/casino/dice-duel.png" },
+      { key: "tunnel", name: "Tunnel Roulette Chip", flavor: "Keeps rolling when nobody's watching.", img: "img/casino/tunnel-roulette.png" },
+      { key: "cointoss", name: "Coin Toss Doubloon", flavor: "Two heads. Both smirking.", img: "img/casino/coin-toss.png" },
+      { key: "liarsbones", name: "Liar's Bones Knucklebone", flavor: "A truth-detector. Easily bribed.", img: "img/casino/liars-bones.png" },
+      { key: "clinkbit", name: "Clinkbit Relic", flavor: "A coin that remembers every pocket.", img: "img/clinkbit.png" },
+      { key: "bee", name: "Bee Idol", flavor: "Buzzes once when praised.", img: "img/bee.png" },
+      { key: "cat", name: "Cat Totem", flavor: "Judges your inventory choices.", img: "img/cat.png" },
+      { key: "pumpkin", name: "Pumpkin Crest", flavor: "Seasonal menace. Permanent charm.", img: "img/pumpkin.png" },
+      { key: "tree", name: "Festive Tree Badge", flavor: "Tinsel that fights back.", img: "img/christmastree.png" },
+      { key: "snowman", name: "Snowman Seal", flavor: "Cold to the touch. Emotionally.", img: "img/snowman.png" },
+      { key: "spring", name: "Spring Goblin Banner", flavor: "Smells like rain and bad deals.", img: "img/springgoblin.png" },
+      { key: "mindgoblin", name: "Mind Goblin Mark", flavor: "Don't ask what it means. You know.", img: "img/mindgoblin.png" },
+      { key: "gnomehome", name: "Gnome-Home Postcard", flavor: "Hand-delivered. Never invited.", img: "img/gnomesandtheirmushroomhome.png" }
+    ];
+
+    function starsBadgeText(stars) {
+      return "\u2605".repeat(stars);
+    }
+    function makeId(rng, baseKey, stars) {
+      const a = Math.floor(rng() * 36);
+      const b = Math.floor(rng() * 36);
+      const c = Math.floor(rng() * 100);
+      const alpha = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+      return `MG-${baseKey.toUpperCase().slice(0,4)}-${stars}${alpha[a]}${alpha[b]}-${pad2(c)}`;
+    }
+
+    function renderInventory() {
+      const seed = String(seedInput.value || "goblin-hoard");
+      const count = clampInt(countInput.value, 6, 160, 48);
+      const dupes = clampInt(dupesInput.value, 0, 100, 55);
+
+      const seedFn = xmur3(seed);
+      const rng = mulberry32(seedFn());
+
+      const starRoll = [
+        { w: 50, v: 1 },
+        { w: 28, v: 2 },
+        { w: 14, v: 3 },
+        { w: 6,  v: 4 },
+        { w: 2,  v: 5 }
+      ];
+      const wearRoll = [
+        { w: 18, v: WEAR[0] },
+        { w: 22, v: WEAR[1] },
+        { w: 22, v: WEAR[2] },
+        { w: 14, v: WEAR[3] },
+        { w: 12, v: WEAR[4] },
+        { w: 7,  v: WEAR[5] },
+        { w: 5,  v: WEAR[6] }
+      ];
+      const frameRoll = [
+        { w: 22, v: FRAMES[0] },
+        { w: 14, v: FRAMES[1] },
+        { w: 11, v: FRAMES[2] },
+        { w: 10, v: FRAMES[3] },
+        { w: 10, v: FRAMES[4] },
+        { w: 10, v: FRAMES[5] },
+        { w: 10, v: FRAMES[6] },
+        { w: 7,  v: FRAMES[7] },
+        { w: 6,  v: FRAMES[8] }
+      ];
+
+      const basePickMode = rng() * 100 < dupes ? "dupey" : "varied";
+      const baseCounts = new Map();
+      const pool = [];
+
+      for (let i = 0; i < count; i++) {
+        let base = null;
+        if (basePickMode === "dupey") {
+          const seen = Array.from(baseCounts.keys());
+          const preferSeen = rng() < (dupes / 100) && seen.length > 0;
+          base = preferSeen ? pick(rng, seen) : pick(rng, ASSET_ITEMS);
+        } else {
+          base = pick(rng, ASSET_ITEMS);
+        }
+        baseCounts.set(base, (baseCounts.get(base) ?? 0) + 1);
+
+        const stars = pickWeighted(rng, starRoll);
+        const wear = pickWeighted(rng, wearRoll);
+        const frame = pickWeighted(rng, frameRoll);
+        const emb = pick(rng, EMBELLISH);
+
+        const rarity = RARITY[stars];
+
+        pool.push({
+          base,
+          stars,
+          rarity,
+          wear,
+          frame,
+          emb,
+          id: makeId(rng, base.key, stars)
+        });
+      }
+
+      inv.innerHTML = "";
+      const frag = document.createDocumentFragment();
+      pool.forEach((it) => {
+        const el = document.createElement("article");
+        el.className = `gcard ${it.rarity.cls} ${it.frame.cls} ${it.wear.cls}`;
+        el.innerHTML = `
+          <div class="g-content">
+            <div class="badge">
+              <span class="stars">${starsBadgeText(it.stars)}</span>
+            </div>
+            <div class="g-artwide" aria-hidden="true">
+              <img src="${it.base.img}" alt="${it.base.name}" onerror="this.src='img/mindgoblin.png'">
+            </div>
+            <div class="g-body">
+              <h3 class="g-name" title="${it.base.name}">${it.base.name}</h3>
+              <p class="flavor">${it.base.flavor}</p>
+              <div class="note">"${it.emb}"</div>
+              <div class="g-footer">
+                <div class="id">${it.id}</div>
+              </div>
+            </div>
+          </div>
+        `;
+        frag.appendChild(el);
+      });
+      inv.appendChild(frag);
+    }
+
+    rerollBtn.addEventListener("click", renderInventory);
+    seedInput.addEventListener("keydown", (e) => { if (e.key === "Enter") renderInventory(); });
+    countInput.addEventListener("change", renderInventory);
+    dupesInput.addEventListener("change", renderInventory);
+
+    (async function init() {
+      renderInventory();
+
+      const me = await fetchJson("/api/clinkbits/me");
+      if (!me.ok) {
+        setBalance(null);
+        ledger.innerHTML = `<li class="muted">Login required. Go home and log in first.</li>`;
+        return;
+      }
+      setBalance(me.data.balance);
+
+      const tx = await fetchJson("/api/clinkbits/transactions?limit=30");
+      if (!tx.ok) {
+        ledger.innerHTML = `<li class="muted">Could not load ledger.</li>`;
+        return;
+      }
+      renderTx(tx.data);
+    })();
+  </script>
+</body>
+</html>
