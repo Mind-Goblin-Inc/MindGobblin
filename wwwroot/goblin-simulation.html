@@ -1,0 +1,311 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Goblin Simulation</title>
+  <link rel="icon" type="image/png" href="img/mindgoblin.png" />
+  <style>
+    :root{
+      --bg:#0b120e;
+      --bg-2:#102218;
+      --ink:#ebe2c7;
+      --muted:#bcae8a;
+      --line:#355541;
+      --panel:#15251c;
+      --panel-2:#1a2e23;
+      --gold:#d7b462;
+      --green:#3ad68f;
+      --warn:#eb7e67;
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0;
+      color:var(--ink);
+      font-family:"Cinzel","Garamond",serif;
+      background:
+        radial-gradient(900px 380px at 85% -20%, rgba(58,214,143,.14), transparent 60%),
+        radial-gradient(1100px 420px at 15% -20%, rgba(212,106,66,.16), transparent 58%),
+        linear-gradient(170deg, var(--bg-2), var(--bg));
+      min-height:100vh;
+      overflow:hidden;
+    }
+
+    h2{margin:.1rem 0 .2rem; letter-spacing:.04em; text-transform:uppercase; color:#f1e3bd; font-size:1rem}
+    .muted{color:var(--muted)}
+    button{border:1px solid var(--gold); background:linear-gradient(170deg,#3a2c14,#2c210f); color:#f0ddb0; border-radius:10px; padding:.45rem .7rem; cursor:pointer; font-family:inherit}
+    input,select{border:1px solid rgba(215,180,98,.45); background:rgba(16,29,22,.8); color:var(--ink); border-radius:8px; padding:.38rem .5rem; font-family:inherit}
+
+    .app{position:relative; width:100vw; height:100vh}
+    .map-fill{position:absolute; inset:0; background:rgba(8,16,12,.58)}
+    .map-canvas{display:block; width:100%; height:100%; image-rendering:pixelated; cursor:crosshair}
+
+    .hud{
+      position:absolute; top:.75rem; left:.75rem; right:.75rem;
+      display:flex; gap:.6rem; align-items:flex-start; justify-content:space-between;
+      pointer-events:none;
+    }
+    .hud .block{pointer-events:auto; border:1px solid rgba(215,180,98,.2); border-radius:12px; background:rgba(10,18,13,.72); backdrop-filter: blur(2px); padding:.55rem .65rem}
+    .brand{display:flex; gap:.5rem; align-items:center; flex-wrap:wrap}
+    .title{font-size:1rem; text-transform:uppercase; letter-spacing:.05em; color:#f2e4bf}
+    .sub{font-size:.8rem; color:#d8ccab}
+    .btn-link{border:1px solid #4f7b62; background:linear-gradient(170deg,#244332,#1a3023); color:#d4f3e3; border-radius:999px; text-decoration:none; padding:.35rem .7rem; font-size:.8rem; letter-spacing:.03em}
+
+    .stats{display:grid; grid-template-columns:repeat(4, minmax(0, 1fr)); gap:.4rem; min-width:360px}
+    .stat{border:1px solid rgba(58,214,143,.25); border-radius:10px; background:rgba(58,214,143,.08); padding:.35rem .45rem}
+    .k{font-size:.66rem; letter-spacing:.07em; text-transform:uppercase; color:#b8dbcb}
+    .v{font-size:1rem; font-weight:700; margin-top:.08rem}
+
+    .map-controls{
+      position:absolute; left:.75rem; bottom:.75rem;
+      width:min(640px, calc(100vw - 1.5rem));
+      border:1px solid rgba(215,180,98,.24); border-radius:12px;
+      background:rgba(0,0,0,.45); padding:.55rem;
+      pointer-events:auto;
+    }
+    .map-tools{display:grid; grid-template-columns:1fr auto auto auto; gap:.45rem}
+    .hover-note{margin-top:.5rem; border:1px solid rgba(58,214,143,.22); border-radius:9px; background:rgba(58,214,143,.08); padding:.42rem .5rem; color:#d4f0e2; font-size:.82rem}
+    .legend{margin-top:.5rem; border:1px solid rgba(215,180,98,.24); border-radius:9px; background:rgba(0,0,0,.2); padding:.45rem}
+    .legend-row{display:flex; align-items:center; gap:.45rem; margin:.2rem 0; color:#d7e9dd; font-size:.78rem}
+    .legend-swatch{display:inline-block; width:.8rem; height:.8rem; border-radius:2px; border:1px solid rgba(255,255,255,.3)}
+
+    .mini-wrap{
+      position:absolute; right:.75rem; bottom:.75rem;
+      width:min(230px, 40vw);
+      border:1px solid rgba(58,214,143,.2); border-radius:9px; padding:.35rem;
+      background:rgba(0,0,0,.38);
+    }
+    .mini-canvas{display:block; width:100%; height:120px; image-rendering:pixelated}
+
+    .toggle-ui{
+      position:absolute; right:.75rem; top:.75rem; z-index:12;
+      border:1px solid var(--gold); background:linear-gradient(170deg,#3a2c14,#2c210f);
+      color:#f0ddb0; border-radius:10px; padding:.46rem .72rem;
+    }
+
+    .ui-panel{
+      position:absolute; top:0; right:0; height:100%; width:min(540px, 92vw); z-index:11;
+      transform:translateX(100%); transition:transform .2s ease;
+      border-left:1px solid var(--line);
+      background:linear-gradient(170deg, rgba(19,34,26,.96), rgba(11,19,14,.96));
+      box-shadow:-12px 0 36px rgba(0,0,0,.45);
+      display:flex; flex-direction:column;
+    }
+    .ui-panel.open{transform:translateX(0)}
+    .panel-head{display:flex; align-items:center; justify-content:space-between; gap:.5rem; padding:.7rem .8rem; border-bottom:1px solid rgba(215,180,98,.24)}
+    .panel-body{padding:.75rem; overflow:auto; display:grid; gap:.75rem}
+    .card{border:1px solid var(--line); border-radius:12px; background:rgba(14,24,18,.62); padding:.7rem; display:grid; gap:.55rem}
+
+    .roster{display:grid; gap:.4rem; max-height:240px; overflow:auto}
+    .gob-row{width:100%; text-align:left; border:1px solid rgba(58,214,143,.25); background:rgba(58,214,143,.06); color:var(--ink); border-radius:10px; padding:.45rem; display:grid; grid-template-columns:minmax(0,1.3fr) auto auto auto auto minmax(130px,auto); gap:.4rem; align-items:center}
+    .gob-row.active{border-color:var(--gold); box-shadow:inset 0 0 0 1px rgba(215,180,98,.35)}
+    .name{font-weight:700}
+    .tag{font-size:.78rem; color:#b7ddcb}
+    .filter-row{display:grid; grid-template-columns:1.5fr .8fr .8fr .8fr; gap:.45rem; margin-bottom:.35rem}
+    .chronicle{margin:0; padding-left:1.1rem; max-height:280px; overflow:auto}
+    .chronicle li{margin:.25rem 0}
+    .chron-row{width:100%; text-align:left; border:1px solid rgba(58,214,143,.22); background:rgba(58,214,143,.06); color:var(--ink); border-radius:9px; padding:.34rem .45rem}
+    pre{margin:0; max-height:240px; overflow:auto; font-size:.74rem; line-height:1.3; color:#d8f6e8; background:rgba(0,0,0,.28); border:1px solid rgba(58,214,143,.2); border-radius:10px; padding:.65rem}
+    .panel-grid{display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:.4rem}
+    .panel-grid-3{display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:.4rem}
+    .tiny{font-size:.75rem; color:#c7dbd0}
+    .toggle-list{display:grid; gap:.25rem}
+    .toggle-list label{display:flex; align-items:center; justify-content:space-between; gap:.4rem; font-size:.8rem}
+    .toggle-list input[type="checkbox"]{width:1rem; height:1rem}
+
+    @media (max-width: 800px){
+      .hud{left:.45rem; right:.45rem; top:.45rem}
+      .stats{min-width:280px; grid-template-columns:repeat(2, minmax(0, 1fr))}
+      .map-controls{left:.45rem; bottom:.45rem; width:calc(100vw - .9rem)}
+      .map-tools{grid-template-columns:1fr 1fr}
+      .panel-grid,.panel-grid-3{grid-template-columns:repeat(2,minmax(0,1fr))}
+      .mini-wrap{display:none}
+      .toggle-ui{right:.45rem; top:.45rem}
+    }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <section class="map-fill">
+      <canvas id="mapCanvas" class="map-canvas"></canvas>
+    </section>
+
+    <button id="toggleUiBtn" class="toggle-ui" type="button">Open Panels</button>
+
+    <section class="hud">
+      <div class="block brand">
+        <div>
+          <div class="title">Goblin Simulation</div>
+          <div class="sub">Colony status, map control, and live chronicle.</div>
+        </div>
+        <a class="btn-link" href="index.html">Back</a>
+      </div>
+
+      <div class="block">
+        <div class="stats">
+          <div class="stat"><div class="k">Tick</div><div id="tick" class="v">0</div></div>
+          <div class="stat"><div class="k">Goblins</div><div id="goblins" class="v">0</div></div>
+          <div class="stat"><div class="k">Avg Morale</div><div id="avgMorale" class="v">0%</div></div>
+          <div class="stat"><div class="k">Active</div><div id="activeGoblins" class="v">0</div></div>
+          <div class="stat"><div class="k">Critical Needs</div><div id="criticalNeeds" class="v">0</div></div>
+          <div class="stat"><div class="k">Food</div><div id="foodStock" class="v">0</div></div>
+          <div class="stat"><div class="k">Water</div><div id="waterStock" class="v">0</div></div>
+          <div class="stat"><div class="k">Wood</div><div id="woodStock" class="v">0</div></div>
+          <div class="stat"><div class="k">Mushrooms</div><div id="mushroomStock" class="v">0</div></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="map-controls">
+      <div class="map-tools">
+        <select id="overlayMode">
+          <option value="biome">Biome</option>
+          <option value="resources">Resources</option>
+          <option value="hazard">Hazard</option>
+          <option value="influence">Influence</option>
+        </select>
+        <button id="playPause" type="button">Pause</button>
+        <button id="stepTick" type="button">Step Tick</button>
+        <button id="toggleFollowMode" type="button">Free Roam</button>
+        <button id="snapTrackedGoblin" type="button">Snap To Tracked</button>
+        <button id="toggleWildlifeLayer" type="button">Hide Wildlife</button>
+        <button id="resetCamera" type="button">Reset Camera</button>
+        <button id="setStartSite" type="button">Set Start Site</button>
+      </div>
+      <div id="mapHoverSummary" class="hover-note">Hover a region to see a plain-language summary.</div>
+      <div class="legend">
+        <div class="muted" style="margin-bottom:.25rem;">Overlay Legend</div>
+        <div id="overlayLegend"></div>
+      </div>
+    </section>
+
+    <div class="mini-wrap">
+      <canvas id="minimapCanvas" class="mini-canvas"></canvas>
+    </div>
+
+    <aside id="uiOverlay" class="ui-panel">
+      <div class="panel-head">
+        <strong>Simulation Panels</strong>
+        <button id="closeUiBtn" type="button">Close</button>
+      </div>
+      <div class="panel-body">
+        <article class="card">
+          <h2>Operations</h2>
+          <div class="muted">Time, auto-pause, camera jumps, layers, snapshots, and inspection depth.</div>
+          <div class="tiny">Simulation Speed (ticks/sec)</div>
+          <div class="panel-grid">
+            <button id="simSpeed1" type="button">1x</button>
+            <button id="simSpeed2" type="button">2x</button>
+            <button id="simSpeed4" type="button">4x</button>
+            <button id="simSpeed8" type="button">8x</button>
+          </div>
+          <div class="panel-grid-3">
+            <button id="jumpToStartSite" type="button">Jump Start Site</button>
+            <button id="resetCameraPanel" type="button">Reset Camera</button>
+            <button id="snapTrackedGoblinPanel" type="button">Snap Tracked</button>
+          </div>
+          <div class="panel-grid-3">
+            <label class="tiny">Inspection Depth
+              <select id="inspectionDepth">
+                <option value="1">L1 Quick</option>
+                <option value="2" selected>L2 Detail</option>
+                <option value="3">L3 Raw</option>
+              </select>
+            </label>
+            <label class="tiny">Snapshot
+              <select id="loadSnapshotSelect"><option value="">No snapshots</option></select>
+            </label>
+            <div class="panel-grid-3">
+              <button id="saveSnapshotBtn" type="button">Save</button>
+              <button id="loadSnapshotBtn" type="button">Load</button>
+              <button id="deleteSnapshotBtn" type="button">Delete</button>
+            </div>
+          </div>
+          <div class="toggle-list">
+            <label><span>Auto-pause enabled</span><input id="autoPauseEnabled" type="checkbox" checked /></label>
+            <label><span>Pause on urgent events</span><input id="autoPauseUrgent" type="checkbox" checked /></label>
+            <label><span>Pause on critical needs</span><input id="autoPauseCriticalNeeds" type="checkbox" checked /></label>
+            <label><span>Pause on resource shortage</span><input id="autoPauseResourceShortage" type="checkbox" checked /></label>
+            <label><span>Critical-needs threshold</span><input id="criticalNeedsThreshold" type="number" min="1" max="20" value="3" /></label>
+          </div>
+          <div class="toggle-list">
+            <label><span>Show water</span><input id="layerWater" type="checkbox" checked /></label>
+            <label><span>Show resources</span><input id="layerResources" type="checkbox" checked /></label>
+            <label><span>Show homes</span><input id="layerHomes" type="checkbox" checked /></label>
+            <label><span>Show walls</span><input id="layerWalls" type="checkbox" checked /></label>
+            <label><span>Show sites</span><input id="layerSites" type="checkbox" checked /></label>
+            <label><span>Show goblins</span><input id="layerGoblins" type="checkbox" checked /></label>
+          </div>
+        </article>
+
+        <article class="card">
+          <h2>Map Inspector</h2>
+          <div class="muted">Region/site detail + start candidate scores.</div>
+          <div id="randomizationSummary" class="muted" style="border:1px solid rgba(58,214,143,.22);border-radius:9px;background:rgba(58,214,143,.08);padding:.45rem .55rem;font-size:.8rem;line-height:1.4"></div>
+          <pre id="mapInspector"></pre>
+        </article>
+
+        <article class="card">
+          <h2>Problem Feed</h2>
+          <div class="muted">Urgent, warning, and info lanes with focus jumps.</div>
+          <div id="problemFeed"></div>
+        </article>
+
+        <article class="card">
+          <h2>Pause Summary</h2>
+          <div class="muted">What changed before auto-pause fired.</div>
+          <pre id="pauseSummary"></pre>
+        </article>
+
+        <article class="card">
+          <h2>Roster</h2>
+          <div id="roster" class="roster"></div>
+        </article>
+
+        <article class="card">
+          <h2>Chronicle</h2>
+          <div class="filter-row">
+            <input id="chronicleSearch" type="text" placeholder="Search chronicle..." />
+            <select id="chronicleType">
+              <option value="all">All</option>
+              <option value="NEED_SPIKE">Need</option>
+              <option value="MOOD_CHANGED">Mood</option>
+              <option value="MEMORY_TRIGGERED">Memory</option>
+              <option value="ARTIFACT_TRANSFERRED">Artifact</option>
+              <option value="HISTORICAL_CALLBACK">Callback</option>
+            </select>
+            <select id="causalityDepth">
+              <option value="0">Cause 0</option>
+              <option value="1" selected>Cause 1</option>
+              <option value="2">Cause 2</option>
+              <option value="3">Cause 3</option>
+            </select>
+            <select id="chronicleSeverity">
+              <option value="all" selected>Severity: All</option>
+              <option value="urgent">Urgent</option>
+              <option value="warning">Warning</option>
+              <option value="info">Info</option>
+            </select>
+          </div>
+          <ul id="chronicle" class="chronicle"></ul>
+        </article>
+
+        <article class="card">
+          <h2>Artifact Inspector</h2>
+          <div id="artifactList" class="roster"></div>
+          <div class="muted">Lore view: identity, legend score, and provenance chain.</div>
+          <pre id="artifactInspector"></pre>
+        </article>
+
+        <article class="card">
+          <h2>Debug Inspector</h2>
+          <div class="muted">Tick, warnings, system order, selected entities.</div>
+          <pre id="debugJson"></pre>
+        </article>
+      </div>
+    </aside>
+  </main>
+
+  <script type="module" src="goblin-sim/index.js"></script>
+</body>
+</html>
