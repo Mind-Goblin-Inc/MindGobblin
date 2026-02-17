@@ -4,11 +4,11 @@ WORKDIR /src
 
 # Copy only csproj files first and restore dependencies
 COPY *.csproj ./
-RUN dotnet restore
+RUN dotnet restore JakeServer.csproj
 
 # Copy the rest of the source code
 COPY . ./
-RUN dotnet publish -c Release -o /app
+RUN dotnet publish JakeServer.csproj -c Release -o /app --no-restore
 
 # Run
 FROM mcr.microsoft.com/dotnet/aspnet:9.0
