@@ -1,0 +1,169 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Goblin Graphics Lab</title>
+  <link rel="icon" type="image/png" href="img/mindgoblin.png" />
+  <style>
+    :root{
+      --bg:#0b120e;
+      --panel:#15251c;
+      --ink:#ebe2c7;
+      --muted:#bcae8a;
+      --line:#355541;
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0;
+      color:var(--ink);
+      font-family:"Cinzel","Garamond",serif;
+      background:linear-gradient(170deg,#102218,var(--bg));
+      min-height:100vh;
+    }
+    .wrap{width:min(1100px,100%); margin:0 auto; padding:1rem}
+    .hero,.card{
+      border:1px solid var(--line);
+      border-radius:14px;
+      background:linear-gradient(170deg,#1a2e23,var(--panel));
+      box-shadow:0 12px 30px rgba(0,0,0,.28);
+      padding:.85rem;
+    }
+    .hero{display:flex; justify-content:space-between; align-items:center; gap:1rem; flex-wrap:wrap}
+    .btn{
+      border:1px solid #4f7b62;
+      background:linear-gradient(170deg,#244332,#1a3023);
+      color:#d4f3e3;
+      border-radius:999px;
+      text-decoration:none;
+      padding:.45rem .8rem;
+      font-size:.88rem;
+    }
+    .grid{display:grid; grid-template-columns:1fr 1fr; gap:.85rem; margin-top:.85rem}
+    canvas{
+      width:100%;
+      image-rendering:pixelated;
+      border:1px solid rgba(255,255,255,.15);
+      border-radius:10px;
+      background:#0b1a12;
+    }
+    .sprite-viewport{
+      max-height:460px;
+      overflow:auto;
+      border:1px solid rgba(255,255,255,.12);
+      border-radius:10px;
+      background:#0b1a12;
+      padding:.35rem;
+    }
+    #spritesCanvas{
+      width:auto;
+      min-width:100%;
+      display:block;
+      border:1px solid rgba(255,255,255,.1);
+    }
+    pre{
+      margin:.5rem 0 0;
+      max-height:200px;
+      overflow:auto;
+      font-size:.75rem;
+      background:rgba(0,0,0,.25);
+      border:1px solid rgba(255,255,255,.1);
+      border-radius:10px;
+      padding:.55rem;
+      color:#d8f6e8;
+    }
+    .muted{color:var(--muted)}
+    @media (max-width:900px){.grid{grid-template-columns:1fr}}
+  </style>
+</head>
+<body>
+  <main class="wrap">
+    <section class="hero">
+      <div>
+        <h1 style="margin:.1rem 0;font-size:1.5rem;letter-spacing:.04em;">Goblin Graphics Lab</h1>
+        <div class="muted">8-bit indexed sprites + 16-bit RGB565 environment decode pipeline.</div>
+      </div>
+      <a class="btn" href="goblin-simulation.html">Back to Goblin Simulation</a>
+    </section>
+
+    <section class="grid">
+      <article class="card">
+        <h2 style="margin:.1rem 0 .45rem;">8-bit Indexed Sprites</h2>
+        <div class="sprite-viewport">
+          <canvas id="spritesCanvas" width="512" height="256"></canvas>
+        </div>
+        <pre id="spritesMeta"></pre>
+      </article>
+      <article class="card">
+        <h2 style="margin:.1rem 0 .45rem;">16-bit RGB565 Environment</h2>
+        <canvas id="envCanvas" width="512" height="384"></canvas>
+        <pre id="envMeta"></pre>
+      </article>
+    </section>
+  </main>
+
+  <script type="module">
+    import { drawIndexedSprite, drawRgb565Bitmap, loadGraphicsAssets } from "./goblin-sim/graphics/indexedBitmap.js";
+
+    const spritesCanvas = document.getElementById("spritesCanvas");
+    const envCanvas = document.getElementById("envCanvas");
+    const spritesMeta = document.getElementById("spritesMeta");
+    const envMeta = document.getElementById("envMeta");
+
+    const sctx = spritesCanvas.getContext("2d");
+    const ectx = envCanvas.getContext("2d");
+
+    const assets = await loadGraphicsAssets();
+    const spriteIds = Object.keys(assets.indexed8.spritesById);
+
+    function drawSpriteIndex() {
+      const dpr = window.devicePixelRatio || 1;
+      const cols = 4;
+      const cellW = 120;
+      const cellH = 102;
+      const pad = 12;
+      const rows = Math.max(1, Math.ceil(spriteIds.length / cols));
+      const logicalW = cols * cellW + pad * 2;
+      const logicalH = rows * cellH + pad * 2;
+
+      spritesCanvas.width = Math.max(1, Math.floor(logicalW * dpr));
+      spritesCanvas.height = Math.max(1, Math.floor(logicalH * dpr));
+      sctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      sctx.clearRect(0, 0, logicalW, logicalH);
+      sctx.fillStyle = "#0c1b12";
+      sctx.fillRect(0, 0, logicalW, logicalH);
+
+      spriteIds.forEach((id, i) => {
+        const col = i % cols;
+        const row = Math.floor(i / cols);
+        const x = pad + col * cellW + 10;
+        const y = pad + row * cellH + 10;
+        drawIndexedSprite(sctx, assets, id, x, y, 64, 64);
+        sctx.fillStyle = "#e8dfc4";
+        sctx.font = "14px serif";
+        sctx.textBaseline = "top";
+        sctx.fillText(id, x, y + 70);
+      });
+    }
+
+    drawSpriteIndex();
+    window.addEventListener("resize", drawSpriteIndex);
+
+    drawRgb565Bitmap(ectx, assets, 0, 0, envCanvas.width, envCanvas.height);
+
+    spritesMeta.textContent = JSON.stringify({
+      format: "indexed8",
+      paletteSize: assets.indexed8.palette.length,
+      spriteCount: spriteIds.length,
+      spriteIds
+    }, null, 2);
+
+    envMeta.textContent = JSON.stringify({
+      format: "rgb565",
+      width: assets.rgb565.bitmap.width,
+      height: assets.rgb565.bitmap.height,
+      pixelCount: assets.rgb565.bitmap.pixels.length
+    }, null, 2);
+  </script>
+</body>
+</html>

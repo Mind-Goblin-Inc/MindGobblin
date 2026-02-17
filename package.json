@@ -1,0 +1,11 @@
+{
+  "name": "mindgobblin-tools",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "sim:test": "node wwwroot/goblin-sim/sim/goblinFactory.test.mjs && node wwwroot/goblin-sim/sim/world/worldGen.test.mjs",
+    "sim:check": "node --check wwwroot/goblin-sim/index.js && node --check wwwroot/goblin-sim/sim/tick.js && node --check wwwroot/goblin-sim/sim/goblinFactory.js && node --check wwwroot/goblin-sim/sim/world/worldGen.js && node --check wwwroot/goblin-sim/sim/world/mapSimulation.js && node --check wwwroot/goblin-sim/sim/lore/loreSystems.js && node --check wwwroot/goblin-sim/ui/render.js && node --check wwwroot/goblin-sim/ui/world/mapRenderer.js && node --check wwwroot/goblin-sim/ui/world/interactions.js",
+    "sim:verify": "npm run sim:test && npm run sim:check"
+  }
+}
