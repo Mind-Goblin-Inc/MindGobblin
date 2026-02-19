@@ -5,6 +5,7 @@ import { buildOverlays } from "./overlays.js";
 import { buildInitialIntel } from "./intel.js";
 import { randFloat, initRng } from "../rng.js";
 import { TILES_PER_CHUNK, tileKey } from "./scale.js";
+import { defaultRaceRuntimeConfigByKind } from "./raceRuntimeConfig.js";
 
 function worldSizeToDims(size) {
   const scale = 3;
@@ -185,7 +186,82 @@ function buildWaterTiles({ seed, regionsById, regionGrid, width, height }) {
     }
   }
 
-  return { byTileKey, allKeys };
+  // Shoreline irregularity pass (lakes only): soften grid-like edges without breaking rivers.
+  const riverKeys = new Set(
+    Object.entries(byTileKey)
+      .filter(([, v]) => v?.waterKind === "river")
+      .map(([k]) => k)
+  );
+  const neighbor8 = [
+    [-1, -1], [0, -1], [1, -1],
+    [-1, 0], [1, 0],
+    [-1, 1], [0, 1], [1, 1]
+  ];
+
+  function inBounds(x, y) {
+    return x >= 0 && y >= 0 && x < width && y < height;
+  }
+
+  function lakeNeighborCount(x, y) {
+    let count = 0;
+    for (const [dx, dy] of neighbor8) {
+      const nx = x + dx;
+      const ny = y + dy;
+      if (!inBounds(nx, ny)) continue;
+      const k = `${nx},${ny}`;
+      const cell = byTileKey[k];
+      if (cell && cell.waterKind === "lake") count += 1;
+    }
+    return count;
+  }
+
+  for (let pass = 0; pass < 2; pass += 1) {
+    const removeKeys = [];
+    const addTiles = [];
+
+    // Erode tiny corners/spikes and square artifacts.
+    for (const [key, cell] of Object.entries(byTileKey)) {
+      if (!cell || cell.waterKind !== "lake") continue;
+      if (riverKeys.has(key)) continue;
+      const x = cell.tileX;
+      const y = cell.tileY;
+      const n = lakeNeighborCount(x, y);
+      if (n <= 2 && randFloat(rng) < 0.72) {
+        removeKeys.push(key);
+        continue;
+      }
+      if (n === 3 && randFloat(rng) < 0.34) {
+        removeKeys.push(key);
+      }
+    }
+
+    // Fill jagged inlets where lake mass already surrounds a tile.
+    for (let y = 0; y < height; y += 1) {
+      for (let x = 0; x < width; x += 1) {
+        const key = `${x},${y}`;
+        if (byTileKey[key]) continue;
+        const n = lakeNeighborCount(x, y);
+        if (n >= 6 && randFloat(rng) < 0.58) {
+          addTiles.push({ x, y });
+          continue;
+        }
+        if (n === 5 && randFloat(rng) < 0.28) {
+          addTiles.push({ x, y });
+        }
+      }
+    }
+
+    for (const key of removeKeys) delete byTileKey[key];
+    for (const tile of addTiles) addTile(tile.x, tile.y, "lake");
+  }
+
+  const finalKeys = Object.keys(byTileKey).sort((a, b) => {
+    const [ax, ay] = a.split(",").map(Number);
+    const [bx, by] = b.split(",").map(Number);
+    if (ay !== by) return ay - by;
+    return ax - bx;
+  });
+  return { byTileKey, allKeys: finalKeys };
 }
 
 function buildResourceNodes({ seed, regionsById, waterTiles }) {
@@ -238,6 +314,158 @@ function buildResourceNodes({ seed, regionsById, waterTiles }) {
   }
 
   return { byTileKey, allKeys };
+}
+
+function buildAdvancedResourceNodes({ seed, regionsById, waterTiles }) {
+  const rng = initRng(`${seed}|advanced-resource-nodes`);
+  const waterByTileKey = waterTiles?.byTileKey || {};
+  const oreNodesByTileKey = {};
+  const fiberNodesByTileKey = {};
+  const herbNodesByTileKey = {};
+  const salvageNodesByTileKey = {};
+
+  function isNearWater(tileX, tileY) {
+    for (let oy = -1; oy <= 1; oy += 1) {
+      for (let ox = -1; ox <= 1; ox += 1) {
+        if (waterByTileKey[`${tileX + ox},${tileY + oy}`]) return true;
+      }
+    }
+    return false;
+  }
+
+  function maybeCreateNode(store, prefix, region, chance, config) {
+    if (randFloat(rng) > chance) return;
+    const key = `${region.x},${region.y}`;
+    if (store[key]) return;
+    const capacity = config.minCapacity + Math.floor(randFloat(rng) * (config.maxCapacity - config.minCapacity + 1));
+    store[key] = {
+      id: `${prefix}-${region.id}`,
+      key,
+      tileX: region.x,
+      tileY: region.y,
+      regionId: region.id,
+      kind: config.kind,
+      capacity,
+      remaining: capacity,
+      regenPerDay: config.regenPerDay,
+      danger: config.danger,
+      lastHarvestTick: 0
+    };
+  }
+
+  for (const region of Object.values(regionsById)) {
+    const tileKeyId = `${region.x},${region.y}`;
+    const onWater = Boolean(waterByTileKey[tileKeyId]);
+    const nearWater = isNearWater(region.x, region.y);
+
+    if (region.biome === "hills") {
+      if (!onWater) {
+        maybeCreateNode(oreNodesByTileKey, "ore", region, 0.36, {
+          kind: "metal_ore",
+          minCapacity: 14,
+          maxCapacity: 26,
+          regenPerDay: 0.35,
+          danger: 0.38
+        });
+      }
+      maybeCreateNode(herbNodesByTileKey, "herb", region, 0.06, {
+        kind: "herbs",
+        minCapacity: 4,
+        maxCapacity: 9,
+        regenPerDay: 0.18,
+        danger: 0.2
+      });
+      continue;
+    }
+
+    if (region.biome === "caves") {
+      if (!onWater) {
+        maybeCreateNode(oreNodesByTileKey, "ore", region, 0.48, {
+          kind: "metal_ore",
+          minCapacity: 18,
+          maxCapacity: 30,
+          regenPerDay: 0.22,
+          danger: 0.62
+        });
+      }
+      continue;
+    }
+
+    if (region.biome === "ruins") {
+      maybeCreateNode(salvageNodesByTileKey, "salvage", region, 0.32, {
+        kind: "salvage",
+        minCapacity: 8,
+        maxCapacity: 18,
+        regenPerDay: 0.08,
+        danger: 0.55
+      });
+      if (!onWater) {
+        maybeCreateNode(oreNodesByTileKey, "ore", region, 0.18, {
+          kind: "metal_ore",
+          minCapacity: 10,
+          maxCapacity: 18,
+          regenPerDay: 0.15,
+          danger: 0.46
+        });
+      }
+      continue;
+    }
+
+    if (region.biome === "swamp") {
+      maybeCreateNode(fiberNodesByTileKey, "fiber", region, nearWater ? 0.55 : 0.36, {
+        kind: "fiber",
+        minCapacity: 10,
+        maxCapacity: 22,
+        regenPerDay: 0.75,
+        danger: 0.34
+      });
+      maybeCreateNode(herbNodesByTileKey, "herb", region, 0.28, {
+        kind: "herbs",
+        minCapacity: 6,
+        maxCapacity: 14,
+        regenPerDay: 0.58,
+        danger: 0.26
+      });
+      continue;
+    }
+
+    if (region.biome === "forest") {
+      maybeCreateNode(fiberNodesByTileKey, "fiber", region, 0.18, {
+        kind: "fiber",
+        minCapacity: 7,
+        maxCapacity: 14,
+        regenPerDay: 0.52,
+        danger: 0.16
+      });
+      maybeCreateNode(herbNodesByTileKey, "herb", region, 0.31, {
+        kind: "herbs",
+        minCapacity: 8,
+        maxCapacity: 16,
+        regenPerDay: 0.62,
+        danger: 0.14
+      });
+      continue;
+    }
+
+    if (region.biome === "badlands") {
+      if (!onWater) {
+        maybeCreateNode(oreNodesByTileKey, "ore", region, 0.14, {
+          kind: "metal_ore",
+          minCapacity: 9,
+          maxCapacity: 16,
+          regenPerDay: 0.12,
+          danger: 0.69
+        });
+      }
+    }
+  }
+
+  return {
+    oreNodesByTileKey,
+    fiberNodesByTileKey,
+    herbNodesByTileKey,
+    salvageNodesByTileKey
+  };
 }
 
 function buildWildlifeSpawners({ regionsById, waterSources, width, height }) {
@@ -366,6 +594,73 @@ function buildInitialWildlife({ seed, width, height, regionsById, waterSources }
     if (!spawned) continue;
   }
 
+  const bearRegions = Object.values(regionsById).filter((r) => r.biome === "forest" || r.biome === "hills");
+  const bearCount = clamp(Math.floor((width * height) / 2600), 1, 3);
+  for (let i = 0; i < bearCount && bearRegions.length > 0; i += 1) {
+    const region = bearRegions[Math.floor(randFloat(rng) * bearRegions.length)];
+    const microX = clamp(region.x * TILES_PER_CHUNK + Math.floor(randFloat(rng) * TILES_PER_CHUNK), 0, maxMicroX);
+    const microY = clamp(region.y * TILES_PER_CHUNK + Math.floor(randFloat(rng) * TILES_PER_CHUNK), 0, maxMicroY);
+    if (waterSources.byTileKey[tileKey(microX, microY)]) continue;
+    spawnCreature({
+      kind: "bear",
+      disposition: "territorial",
+      microX,
+      microY,
+      homeRadius: 8,
+      aiState: "territorial"
+    });
+  }
+
+  const snakeRegions = Object.values(regionsById).filter((r) => r.biome === "swamp" || r.biome === "badlands");
+  const snakeCount = clamp(Math.floor((width * height) / 1500), 2, 7);
+  for (let i = 0; i < snakeCount && snakeRegions.length > 0; i += 1) {
+    const region = snakeRegions[Math.floor(randFloat(rng) * snakeRegions.length)];
+    const microX = clamp(region.x * TILES_PER_CHUNK + Math.floor(randFloat(rng) * TILES_PER_CHUNK), 0, maxMicroX);
+    const microY = clamp(region.y * TILES_PER_CHUNK + Math.floor(randFloat(rng) * TILES_PER_CHUNK), 0, maxMicroY);
+    if (waterSources.byTileKey[tileKey(microX, microY)]) continue;
+    spawnCreature({
+      kind: "snake",
+      disposition: "ambush",
+      microX,
+      microY,
+      homeRadius: 6,
+      aiState: "hiding"
+    });
+  }
+
+  const boarRegions = Object.values(regionsById).filter((r) => r.biome === "forest" || r.biome === "hills");
+  const boarCount = clamp(Math.floor((width * height) / 1700), 2, 6);
+  for (let i = 0; i < boarCount && boarRegions.length > 0; i += 1) {
+    const region = boarRegions[Math.floor(randFloat(rng) * boarRegions.length)];
+    const microX = clamp(region.x * TILES_PER_CHUNK + Math.floor(randFloat(rng) * TILES_PER_CHUNK), 0, maxMicroX);
+    const microY = clamp(region.y * TILES_PER_CHUNK + Math.floor(randFloat(rng) * TILES_PER_CHUNK), 0, maxMicroY);
+    if (waterSources.byTileKey[tileKey(microX, microY)]) continue;
+    spawnCreature({
+      kind: "boar",
+      disposition: "defensive",
+      microX,
+      microY,
+      homeRadius: 7,
+      aiState: "grazing"
+    });
+  }
+
+  const crowRegions = Object.values(regionsById).filter((r) => r.biome === "forest" || r.biome === "hills" || r.biome === "ruins");
+  const crowCount = clamp(Math.floor((width * height) / 1200), 3, 9);
+  for (let i = 0; i < crowCount && crowRegions.length > 0; i += 1) {
+    const region = crowRegions[Math.floor(randFloat(rng) * crowRegions.length)];
+    const microX = clamp(region.x * TILES_PER_CHUNK + Math.floor(randFloat(rng) * TILES_PER_CHUNK), 0, maxMicroX);
+    const microY = clamp(region.y * TILES_PER_CHUNK + Math.floor(randFloat(rng) * TILES_PER_CHUNK), 0, maxMicroY);
+    spawnCreature({
+      kind: "crow",
+      disposition: "nuisance",
+      microX,
+      microY,
+      homeRadius: 10,
+      aiState: "scouting"
+    });
+  }
+
   const wolfRegions = Object.values(regionsById).filter(
     (r) => r.biome === "forest" || r.biome === "hills" || r.biome === "badlands"
   );
@@ -399,6 +694,41 @@ function buildInitialWildlife({ seed, width, height, regionsById, waterSources }
     packsById[wolfPackId].memberIds.push(wolfId);
   }
   packsById[wolfPackId].leaderId = packsById[wolfPackId].memberIds[0] || null;
+
+  const raiderRegions = Object.values(regionsById).filter(
+    (r) => r.biome === "hills" || r.biome === "forest" || r.biome === "badlands"
+  );
+  const raiderCount = clamp(Math.floor((width * height) / 1400), 1, 4);
+  const raiderPackId = "raider-band-1";
+  packsById[raiderPackId] = {
+    id: raiderPackId,
+    kind: "raider-band",
+    memberIds: [],
+    leaderId: null,
+    targetSiteId: undefined,
+    targetMicroX: undefined,
+    targetMicroY: undefined,
+    cohesion: 0.75
+  };
+  for (let i = 0; i < raiderCount && raiderRegions.length > 0; i += 1) {
+    const region = raiderRegions[Math.floor(randFloat(rng) * raiderRegions.length)];
+    const microX = clamp(region.x * TILES_PER_CHUNK + Math.floor(randFloat(rng) * TILES_PER_CHUNK), 0, maxMicroX);
+    const microY = clamp(region.y * TILES_PER_CHUNK + Math.floor(randFloat(rng) * TILES_PER_CHUNK), 0, maxMicroY);
+    if (waterSources.byTileKey[tileKey(microX, microY)]) continue;
+    const raiderId = spawnCreature({
+      kind: "human_raider",
+      disposition: "hostile",
+      microX,
+      microY,
+      homeRadius: 12,
+      packId: raiderPackId,
+      aiState: "harassing"
+    });
+    if (!raiderId) continue;
+    packsById[raiderPackId].memberIds.push(raiderId);
+  }
+  packsById[raiderPackId].leaderId = packsById[raiderPackId].memberIds[0] || null;
+  if (!packsById[raiderPackId].leaderId) delete packsById[raiderPackId];
 
   const barbarianBandId = "barbarian-band-1";
   packsById[barbarianBandId] = {
@@ -439,7 +769,199 @@ function buildInitialWildlife({ seed, width, height, regionsById, waterSources }
   };
 }
 
-export function generateWorldMapState({ seed, size = "standard", climatePreset = "temperate", genVersion = 1 }) {
+function outpostDescriptorForPack(packKind, raceRuntimeConfigByKind) {
+  const raceKind = packKind === "barbarian-band"
+    ? "barbarian"
+    : packKind === "wolf-pack"
+      ? "wolf"
+      : packKind === "raider-band"
+        ? "human_raider"
+        : packKind === "ogre-warband"
+          ? "ogre"
+          : packKind === "ritual-coven"
+            ? "shaman"
+            : packKind === "watch-band"
+              ? "elf_ranger"
+        : null;
+  if (!raceKind) return null;
+  const cfg = raceRuntimeConfigByKind?.[raceKind]?.outpostPolicy;
+  if (!cfg || cfg.enabled === false) return null;
+  const defaultOutpostKind = raceKind === "barbarian"
+    ? "warcamp"
+    : raceKind === "human_raider"
+      ? "raider-camp"
+      : raceKind === "ogre"
+        ? "siege-den"
+        : raceKind === "shaman"
+          ? "ritual-circle"
+          : raceKind === "elf_ranger"
+            ? "watch-lodge"
+      : "wolf-pack";
+  const defaultOutpostName = raceKind === "barbarian"
+    ? "Barbarian Warcamp"
+    : raceKind === "human_raider"
+      ? "Raider Camp"
+      : raceKind === "ogre"
+        ? "Siege Den"
+        : raceKind === "shaman"
+          ? "Ritual Circle"
+          : raceKind === "elf_ranger"
+            ? "Watch Lodge"
+      : "Wolf Lair";
+  const defaultThreatTier = raceKind === "barbarian"
+    ? 3
+    : raceKind === "human_raider"
+      ? 2
+      : raceKind === "ogre"
+        ? 4
+        : 3;
+  const defaultRadiusTiles = raceKind === "barbarian" || raceKind === "ogre" ? 5 : 4;
+  return {
+    kind: String(cfg.outpostKind || defaultOutpostKind),
+    ownerFactionId: cfg.ownerFactionId ? String(cfg.ownerFactionId) : null,
+    name: String(cfg.outpostName || defaultOutpostName),
+    threatTier: Number.isFinite(cfg.threatTier) ? Math.max(1, Math.round(cfg.threatTier)) : defaultThreatTier,
+    radiusTiles: Number.isFinite(cfg.radiusTiles) ? Math.max(1, Math.round(cfg.radiusTiles)) : defaultRadiusTiles
+  };
+}
+
+function buildInitialEnemyOutposts({ wildlife, width, height, waterTiles, raceRuntimeConfigByKind }) {
+  const outposts = {};
+  const occupiedTiles = new Set();
+  const waterByTileKey = waterTiles?.byTileKey || {};
+  const maxTileX = Math.max(0, width - 1);
+  const maxTileY = Math.max(0, height - 1);
+  const tileOffsets = [
+    [0, 0],
+    [1, 0],
+    [-1, 0],
+    [0, 1],
+    [0, -1],
+    [1, 1],
+    [-1, -1],
+    [1, -1],
+    [-1, 1]
+  ];
+
+  for (const pack of Object.values(wildlife?.packsById || {})) {
+    const desc = outpostDescriptorForPack(pack?.kind, raceRuntimeConfigByKind);
+    if (!desc) continue;
+    const members = (pack.memberIds || [])
+      .map((id) => wildlife.byId?.[id])
+      .filter(Boolean);
+    if (!members.length) continue;
+
+    const leader = (pack.leaderId && wildlife.byId?.[pack.leaderId]) || members[0];
+    if (!leader) continue;
+    const homeMicroX = Number.isFinite(leader.homeMicroX) ? leader.homeMicroX : leader.microX;
+    const homeMicroY = Number.isFinite(leader.homeMicroY) ? leader.homeMicroY : leader.microY;
+    let baseTileX = clamp(Math.floor(homeMicroX / TILES_PER_CHUNK), 0, maxTileX);
+    let baseTileY = clamp(Math.floor(homeMicroY / TILES_PER_CHUNK), 0, maxTileY);
+    let tileX = null;
+    let tileY = null;
+    for (const [dx, dy] of tileOffsets) {
+      const tx = clamp(baseTileX + dx, 0, maxTileX);
+      const ty = clamp(baseTileY + dy, 0, maxTileY);
+      const tk = `${tx},${ty}`;
+      if (waterByTileKey[tk]) continue;
+      if (occupiedTiles.has(tk)) continue;
+      occupiedTiles.add(tk);
+      tileX = tx;
+      tileY = ty;
+      break;
+    }
+    if (tileX === null || tileY === null) continue;
+    const microX = tileX * TILES_PER_CHUNK + Math.floor(TILES_PER_CHUNK / 2);
+    const microY = tileY * TILES_PER_CHUNK + Math.floor(TILES_PER_CHUNK / 2);
+    const key = tileKey(microX, microY);
+
+    outposts[key] = {
+      key,
+      id: `enemy-outpost-${pack.id}`,
+      kind: desc.kind,
+      status: "active",
+      name: desc.name,
+      ownerFactionId: desc.ownerFactionId,
+      originPackId: pack.id,
+      tileX,
+      tileY,
+      microX,
+      microY,
+      strength: Math.max(1, members.length),
+      threatTier: desc.threatTier,
+      radiusTiles: desc.radiusTiles,
+      createdTick: 0,
+      updatedTick: 0,
+      metadata: {
+        packKind: pack.kind,
+        memberCount: members.length,
+        aliveMemberCount: members.length
+      }
+    };
+    pack.outpostKey = key;
+    pack.outpostTileX = tileX;
+    pack.outpostTileY = tileY;
+  }
+
+  return outposts;
+}
+
+function buildInitialAutomatedDefenses({ startingSiteId, sitesById, width, height, waterTiles }) {
+  const out = {};
+  if (!startingSiteId || !sitesById?.[startingSiteId]) return out;
+  const site = sitesById[startingSiteId];
+  const maxTileX = Math.max(0, width - 1);
+  const maxTileY = Math.max(0, height - 1);
+  const waterByTileKey = waterTiles?.byTileKey || {};
+  const occupied = new Set();
+  const tileOffsets = [
+    [2, 0], [0, 2], [-2, 0], [0, -2],
+    [2, 1], [1, 2], [-2, -1], [-1, -2],
+    [3, 0], [0, 3], [-3, 0], [0, -3]
+  ];
+
+  function place(kind) {
+    for (const [dx, dy] of tileOffsets) {
+      const tileX = clamp(site.x + dx, 0, maxTileX);
+      const tileY = clamp(site.y + dy, 0, maxTileY);
+      const tileK = `${tileX},${tileY}`;
+      if (waterByTileKey[tileK]) continue;
+      if (occupied.has(tileK)) continue;
+      occupied.add(tileK);
+      const microX = tileX * TILES_PER_CHUNK + Math.floor(TILES_PER_CHUNK / 2);
+      const microY = tileY * TILES_PER_CHUNK + Math.floor(TILES_PER_CHUNK / 2);
+      const key = tileKey(microX, microY);
+      out[key] = {
+        key,
+        id: `def-${kind}-${tileX}-${tileY}`,
+        kind,
+        tileX,
+        tileY,
+        microX,
+        microY,
+        status: "active",
+        ammo: kind === "spring_turret" ? 5 : 0,
+        maxAmmo: kind === "spring_turret" ? 10 : 0,
+        durability: 100,
+        maxDurability: 100,
+        cooldownTicks: kind === "spring_turret" ? 4 : 7,
+        range: kind === "spring_turret" ? 7 : 1.4,
+        lastActionTick: -1000,
+        maintenanceClaimedByGoblinId: null,
+        maintenanceClaimUntilTick: -1,
+        maintenanceNeeded: false
+      };
+      return true;
+    }
+    return false;
+  }
+
+  place("spring_turret");
+  place("spike_trap");
+  return out;
+}
+
+export function generateWorldMapState({ seed, size = "large", climatePreset = "temperate", genVersion = 1 }) {
   const dims = worldSizeToDims(size);
   const { regionGrid, regionsById } = generateRegions({ seed, width: dims.width, height: dims.height, size });
   const { sitesById, siteIds } = generateSites({ seed, regionGrid, regionsById, size });
@@ -468,12 +990,22 @@ export function generateWorldMapState({ seed, size = "standard", climatePreset =
     )
   };
   const resourceNodes = buildResourceNodes({ seed, regionsById, waterTiles });
+  const resources = buildAdvancedResourceNodes({ seed, regionsById, waterTiles });
+  const raceRuntimeConfigByKind = defaultRaceRuntimeConfigByKind();
   const wildlife = buildInitialWildlife({
     seed,
     width: dims.width,
     height: dims.height,
     regionsById,
     waterSources
+  });
+  wildlife.raceRuntimeConfigByKind = raceRuntimeConfigByKind;
+  const enemyOutpostsByTileKey = buildInitialEnemyOutposts({
+    wildlife,
+    width: dims.width,
+    height: dims.height,
+    waterTiles,
+    raceRuntimeConfigByKind
   });
 
   for (const siteId of siteIds) {
@@ -510,6 +1042,13 @@ export function generateWorldMapState({ seed, size = "standard", climatePreset =
   const fallbackDrySiteId = drySiteIds[0] || null;
   const startingSiteId = startCandidates[0]?.siteId || fallbackDrySiteId || siteIds[0] || null;
   const intel = buildInitialIntel({ regionGrid, sitesById, startingSiteId });
+  const automatedDefensesByTileKey = buildInitialAutomatedDefenses({
+    startingSiteId,
+    sitesById,
+    width: dims.width,
+    height: dims.height,
+    waterTiles
+  });
 
   const worldHashPayload = JSON.stringify({
     seed,
@@ -519,7 +1058,9 @@ export function generateWorldMapState({ seed, size = "standard", climatePreset =
     sitesById,
     routesById,
     waterTiles,
-    wildlife
+    resources,
+    wildlife,
+    automatedDefensesByTileKey
   });
 
   return {
@@ -562,6 +1103,7 @@ export function generateWorldMapState({ seed, size = "standard", climatePreset =
         resources: true,
         homes: true,
         walls: true,
+        enemyOutposts: true,
         sites: true,
         goblins: true
       }
@@ -571,12 +1113,16 @@ export function generateWorldMapState({ seed, size = "standard", climatePreset =
     },
     structures: {
       wallsByTileKey: {},
-      wallPlan: null
+      enemyOutpostsByTileKey,
+      automatedDefensesByTileKey,
+      wallPlan: null,
+      wallPlansBySiteId: {}
     },
     waterTiles,
     waterSources,
     wildlife,
     resourceNodes,
+    resources,
     worldHash: hashText(worldHashPayload)
   };
 }

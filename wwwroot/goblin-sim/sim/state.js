@@ -1,16 +1,21 @@
-import { RESOURCE_PURPOSES, SCHEMA_VERSION } from "./constants.js";
+import { CLIMATE_DEFAULT_CONFIG, CLIMATE_TICKS_PER_DAY, RESOURCE_PURPOSES, SCHEMA_VERSION } from "./constants.js";
 import { createGoblin } from "./goblinFactory.js";
 import { nextId } from "./ids.js";
 import { initRng, randFloat } from "./rng.js";
 import { buildArtifactIdentity } from "./lore/artifactIdentity.js";
 import { generateWorldMapState } from "./world/worldGen.js";
+import { ensureWorldContracts } from "./world/contracts.js";
+
+function deepClone(value) {
+  return JSON.parse(JSON.stringify(value));
+}
 
 export function createInitialState(seed = "phase1-seed", goblinCount = 12) {
   const randomizationProfile = buildRandomizationProfile(seed);
   const rng = initRng(seed);
   const worldMap = generateWorldMapState({
     seed,
-    size: "standard",
+    size: "large",
     climatePreset: "temperate",
     genVersion: 1
   });
@@ -21,7 +26,7 @@ export function createInitialState(seed = "phase1-seed", goblinCount = 12) {
       runId: `run-${seed}`,
       tick: 0,
       simTimeMs: 0,
-      simulationSpeed: 4,
+      simulationSpeed: 16,
       paused: false,
       autoPause: {
         enabled: false,
@@ -53,7 +58,39 @@ export function createInitialState(seed = "phase1-seed", goblinCount = 12) {
     },
     world: {
       date: { day: 1, season: "spring", year: 1 },
-      weather: { type: "mild", intensity: 0.2 },
+      season: {
+        key: "spring",
+        year: 1,
+        dayOfSeason: 1,
+        daysPerSeason: CLIMATE_DEFAULT_CONFIG.daysPerSeason
+      },
+      weather: {
+        current: "clear",
+        type: "clear",
+        intensity: 0.2,
+        startedAtTick: 0,
+        expectedDurationDays: 1
+      },
+      forecast: {
+        next7Days: []
+      },
+      climateConfig: {
+        ...deepClone(CLIMATE_DEFAULT_CONFIG),
+        ticksPerDay: CLIMATE_TICKS_PER_DAY
+      },
+      climateModifiers: {
+        byBiome: {},
+        global: {
+          foodYieldMul: 1,
+          woodYieldMul: 1,
+          hazardMul: 1,
+          travelMul: 1,
+          thirstPressureMul: 1,
+          warmthPressureMul: 1
+        },
+        updatedAtTick: 0,
+        signature: ""
+      },
       regionsById: worldMap.regionsById,
       sitesById: worldMap.sitesById,
       factionsById: {},
@@ -63,11 +100,66 @@ export function createInitialState(seed = "phase1-seed", goblinCount = 12) {
     },
     tribe: {
       name: "Ashcap",
-      resources: { food: 80, water: 90, wood: 18, mushrooms: 6, ore: 10, lore: 5 },
+      resources: {
+        food: 80,
+        water: 90,
+        wood: 18,
+        mushrooms: 6,
+        metal_ore: 0,
+        metal_parts: 0,
+        fiber: 0,
+        rope: 0,
+        wood_planks: 0,
+        charcoal: 0,
+        ammo_bolts: 0,
+        springs: 0,
+        herbs: 0,
+        fuel: 0,
+        ore: 10,
+        lore: 5
+      },
       resourcePurposes: RESOURCE_PURPOSES,
       structuresById: {},
       policies: {},
-      threat: { alertLevel: 0 }
+      threat: { alertLevel: 0 },
+      governance: {
+        leaderGoblinId: null,
+        leadershipScoreByGoblinId: {},
+        policy: {
+          riskPosture: "balanced",
+          responseProfile: "balanced",
+          expansionEnabled: true,
+          reserveFloors: {
+            ammo_bolts: 14,
+            metal_parts: 12,
+            springs: 8,
+            wood_planks: 16
+          }
+        },
+        recommendations: {
+          generatedTick: -1,
+          outpostPostureById: {},
+          staffingTargetByOutpostId: {},
+          reserveFloors: {
+            ammo_bolts: 14,
+            metal_parts: 12,
+            springs: 8,
+            wood_planks: 16
+          },
+          expansion: {
+            allowed: true,
+            reasonCode: "STABLE"
+          }
+        },
+        runtime: {
+          lastPolicyTick: -1000,
+          lastStrategicTick: -1000,
+          lastElectionTick: -1000,
+          reelectAfterTick: 0,
+          emergencyOverrideUntilTick: -1,
+          leaderStability: 0.5
+        }
+      }
     },
     goblins: {
       byId: {},
@@ -199,6 +291,7 @@ export function createInitialState(seed = "phase1-seed", goblinCount = 12) {
   state.debug.selectedGoblinId = state.goblins.allIds[0] || null;
   state.debug.trackedGoblinId = state.debug.selectedGoblinId;
   state.debug.selectedArtifactId = state.lore.artifacts.allIds[0] || null;
+  ensureWorldContracts(state);
   return state;
 }
 

@@ -903,6 +903,18 @@ Each system emits structured events consumed by `chronicleSystem`.
 - Production chains are data-driven and expandable.
 - Shortages and bottlenecks are diagnosable and narratively legible.
 
+### 3.0 Current Implementation Mapping (Hands-Off Controls + Defenses)
+- Belongs to **Phase 3 (Logistics + Economy)** because these systems are resource-throughput and recovery loops, not front-end interaction features.
+- Implemented under this phase:
+  - Processing priority controls run in simulation policy (auto-queue by stock gap + threat pressure).
+  - Automated defenses consume economy outputs (`ammo_bolts`, `metal_parts`) over time.
+  - Defense fail states are explicit (`inactive_no_ammo`, `inactive_no_parts`, `inactive_triggered`).
+  - Recovery jobs are auto-assigned by role (resupply, repair, trap reset) using claim-based task ownership.
+- Rationale:
+  - Keeps UI hands-off while preserving player influence via high-level policy.
+  - Converts defense uptime into a measurable logistics/economy problem.
+  - Produces clear bottleneck behavior for balancing and diagnostics.
+
 ### 3.1 Phase 3 Module Additions
 ```txt
 wwwroot/goblin-sim/sim/
@@ -1110,6 +1122,16 @@ Standardize failure enums for analytics and UI:
 - Events are condition-driven, stateful, and consequence-rich (not random popups).
 - Trade, diplomacy, coercion, and raids emerge from faction intent + world context.
 - Event outcomes become persistent world facts with retrievable causal chains.
+
+### 4.0 Current Kickoff Status
+- Implemented foundation runtime:
+  - Faction bootstrap/state shaping from world pressure.
+  - Intent update system (lightweight strategic goal refresh).
+  - Event trigger pass (condition-based pending event creation).
+  - Event lifecycle pass (`pending -> active -> resolved` with cooldown memory).
+- Current behavior is intentionally low-impact:
+  - Informational world-pressure/trade-probe events only.
+  - No combat/stat penalties from event outcomes yet.
 
 ### 4.1 Phase 4 Module Additions
 ```txt
@@ -1335,6 +1357,571 @@ Add systems/order:
 5. Trade and raid interactions flow from faction intent (not hardcoded scripts).
 6. Chronicle can display cause -> event -> consequence chains.
 7. Replay test verifies deterministic event ordering with same seed/action stream.
+
+### 4.16 Tribal Leader Governance (Outpost-Level Decisions)
+Goal:
+- Delegate high-level settlement/outpost decisions to a single leader role so the player can stay hands-off while still seeing coherent strategy.
+
+Leader scope:
+- Owns policy and prioritization decisions.
+- Does not micromanage per-tick worker pathing.
+
+#### 4.16.1 Leader Assignment Model
+- One active leader per tribe (`state.tribe.governance.leaderGoblinId`).
+- Leader selected by weighted score from existing goblin data:
+  - `coreStats.social`, `coreStats.will`, `coreStats.cunning`, `coreStats.perception`
+  - `aptitudes.bargaining`, `aptitudes.scouting`, `aptitudes.siegecraft`, `aptitudes.lorekeeping`
+  - `social.statusScore`, `social.loyalty`
+  - personality penalties/bonuses:
+    - high `discipline` and `bravery` improve consistency.
+    - high `aggression` increases military bias.
+    - high `curiosity` increases expansion/intel bias.
+- Succession:
+  - if leader dies/exiles/missing, run deterministic re-election after cooldown.
+
+#### 4.16.2 Decisions Under Leader Control
+Outpost staffing policy:
+- Set per-outpost target population bands.
+- Set role mix targets by outpost pressure (`forager`, `water-runner`, `builder`, `sentinel`, `hauler`).
+- Trigger reinforcement or pullback when deficit persists.
+
+Outpost risk posture:
+- Choose posture per outpost:
+  - `hold`, `fortify`, `recover`, `evacuate`.
+- Decide evacuation threshold and start tick based on threat trend + supplies + morale.
+
+Defense budget policy:
+- Set reserve floors for `ammo_bolts`, `metal_parts`, `springs`, `wood_planks`.
+- Reprioritize processing queue during pressure spikes.
+- Decide when to prioritize repair vs new construction.
+
+Frontier expansion policy:
+- Approve or freeze new colony-establisher migrations.
+- Require minimum readiness gates (food/water/threat/defense stock).
+
+Faction event posture:
+- Auto-select strategic response profile for faction events:
+  - `conciliatory`, `balanced`, `hardline`.
+- Influence event auto-resolution weights instead of hardcoding outcomes.
+
+#### 4.16.3 Decisions Not Under Leader Control
+- Individual goblin tile movement/pathing.
+- Direct target-by-target combat actions.
+- Crafting task execution details (only priority policy is leader-controlled).
+
+#### 4.16.4 Attribute-to-Decision Mapping
+- `social` + `bargaining`:
+  - better diplomacy outcomes, lower chance of hostile escalation.
+- `will` + `discipline`:
+  - fewer policy flips, longer commitment windows, better crisis stability.
+- `cunning` + `perception` + `scouting`:
+  - earlier threat posture shifts, better outpost risk prediction.
+- `aggression` + `siegecraft`:
+  - higher fortify/retaliate bias, larger defense reserve floors.
+- `curiosity` + `lorekeeping`:
+  - stronger expansion/intel investment bias.
+- `loyalty` + `statusScore`:
+  - higher compliance modifier for policy changes across roles.
+
+#### 4.16.5 Decision Cadence (Deterministic)
+- `leaderPolicyTick` every 12 ticks:
+  - update outpost posture + staffing targets.
+- `leaderEmergencyTick` every tick:
+  - allow immediate override on critical triggers (raid, collapse risk, starvation).
+- `leaderStrategicTick` every 36 ticks:
+  - reassess expansion/diplomacy macro posture.
+
+#### 4.16.6 Implementation Phases
+Phase L1 (safe foundation):
+- Add governance state, leader selection, and read-only leader profile in UI.
+- No behavior changes yet; only computed recommendations.
+
+Phase L2 (policy application):
+- Leader drives outpost posture and role target overrides.
+- Connect leader policy to existing role balancer + migration planner.
+
+Phase L3 (event delegation):
+- Event auto-resolution uses leader response profile + attributes.
+- Chronicle records: event, leader rationale, and consequence.
+
+Phase L4 (advanced governance):
+- Succession rules, confidence/stability metric, and leader failure modes.
+- Optional council model (leader + quartermaster + sentinel) for tie-breaking.
+
+#### 4.16.7 Validation Invariants
+- Exactly zero or one active leader per tribe.
+- Leader decisions only mutate policy/state, never direct micro movement.
+- Same seed + same timeline => same leader decisions.
+- Emergency overrides must expire and return to baseline policy.
+
+#### 4.16.8 Piecewise Build Plan (Execution Backlog)
+Piece 0: Schema + scaffolding
+- Add `state.tribe.governance` with:
+  - `leaderGoblinId`
+  - `leadershipScoreByGoblinId`
+  - `policy` (risk posture, reserve floors, expansion flag)
+  - `runtime` (lastPolicyTick, lastStrategicTick, emergencyOverrideUntilTick)
+- Add migration defaults for old saves.
+- Acceptance:
+  - state initializes cleanly with governance block.
+  - no behavior changes.
+
+Piece 1: Deterministic leader scoring + election
+- Implement `computeLeadershipScore(goblin)` from existing stats/aptitudes/personality.
+- Elect top score at start; deterministic tie-break by goblin id hash.
+- Add succession check for dead/missing leader with cooldown.
+- Acceptance:
+  - same seed => same leader id.
+  - leader replaced correctly when unavailable.
+
+Piece 2: Leader profile visibility (read-only)
+- Add inspector card section:
+  - leader name/id
+  - attribute breakdown
+  - current policy stance
+  - confidence/stability indicator
+- Chronicle entry on election/succession.
+- Acceptance:
+  - player can inspect leader rationale without extra controls.
+
+Piece 3: Policy recommendation pass (non-binding)
+- Compute recommendations every `leaderPolicyTick`:
+  - outpost posture recommendation
+  - staffing target recommendation
+  - reserve floor recommendation
+- Store recommendations separately from active policy.
+- Acceptance:
+  - recommendations update over time.
+  - no simulation behavior changed yet.
+
+Piece 4: Activate outpost posture policy
+- Apply leader-chosen posture to outposts:
+  - `hold`, `fortify`, `recover`, `evacuate`.
+- Connect to existing outpost lifecycle thresholds.
+- Acceptance:
+  - outpost state transitions reflect leader policy.
+- Status:
+  - implemented in current build.
+
+Piece 5: Activate staffing/role overrides
+- Feed leader staffing targets into role balancer.
+- Add guardrails:
+  - min food/water/defense roles cannot drop below safe floor.
+- Acceptance:
+  - role mix shifts toward leader targets.
+  - critical baseline roles preserved.
+- Status:
+  - implemented in current build.
+
+Piece 6: Activate defense reserve policy
+- Leader sets floors for `ammo_bolts`, `metal_parts`, `springs`, `wood_planks`.
+- Wire floors into processing priority scoring.
+- Acceptance:
+  - processing queue visibly biases to reserve deficits.
+- Status:
+  - implemented in current build.
+
+Piece 7: Activate expansion gate policy
+- Leader approves/freezes colony-establisher migrations by readiness gates.
+- Gate inputs:
+  - food, water, threat, defense uptime, outpost deficit.
+- Acceptance:
+  - expansion pauses/resumes automatically with pressure changes.
+
+Piece 8: Event delegation policy
+- Event auto-resolution uses leader response profile:
+  - `conciliatory`, `balanced`, `hardline`.
+- Weights derived from leader attributes (social/will/aggression/etc).
+- Acceptance:
+  - same event context can resolve differently under different leaders.
+- Status:
+  - implemented in current build.
+
+Piece 9: Emergency override lane
+- Trigger immediate leader override when:
+  - raid spike
+  - starvation risk
+  - cascading outpost failures
+- Override has TTL and decay back to baseline.
+- Acceptance:
+  - emergency policy starts fast and expires predictably.
+
+Piece 10: Reliability + balancing
+- Add deterministic replay checks focused on leader decisions.
+- Add validation checks for governance invariants.
+- Add tuning constants for score weights and cadence.
+- Acceptance:
+  - no nondeterministic leader flips.
+  - no invalid policy states in validator.
+
+#### 4.16.9 Minimum Vertical Slice (Recommended First Implementation)
+- Implement Pieces 0, 1, 2, and 3 only.
+- Reason:
+  - gives immediate visibility and trust in leader logic.
+  - zero-risk to gameplay balance before policy activation.
+- Status:
+  - implemented in current build (schema/election/read-only profile/recommendation pass).
+
+### 4.17 Leader Learning + Adaptive Weighting Plan
+Goal:
+- Make leader decisions adjustable, experience-weighted, and self-correcting over time.
+- Ensure resource abundance reduces over-allocation while scarcity increases focus.
+- Build a confidence/learning loop where outcomes shape future decision weight.
+
+#### 4.17.1 Design Objectives
+- Adaptive staffing:
+  - high food/water/defense stock -> lower labor pressure on those domains.
+  - low stock / repeated shortages -> higher labor pressure on those domains.
+- Outcome learning:
+  - successful policy periods reinforce current weights.
+  - failures (shortages, defense downtime, outpost failures) push weights toward corrective policy.
+- Confidence system:
+  - abundance and stability raise leader confidence.
+  - persistent crisis lowers confidence but increases learning rate.
+- Deterministic behavior:
+  - same seed + same event stream => same learning trajectory.
+
+#### 4.17.2 Core Data Model Additions
+Add under `state.tribe.governance`:
+- `learning`:
+  - `confidence` (0..1)
+  - `experience` (aggregate score)
+  - `domainWeights`:
+    - `food`, `water`, `defense`, `industry`, `logistics`, `expansion`, `diplomacy`
+  - `domainMemory`:
+    - EWMA signals per domain (`pressure`, `stability`, `successRate`)
+  - `lastLearningTick`
+  - `episodes` (bounded recent outcome windows)
+
+Episode structure:
+- inputs:
+  - resource levels vs reserve floors
+  - shortages raised
+  - outpost statuses
+  - defense uptime/failure states
+  - event outcomes (delegated success/failure)
+- outputs:
+  - policy delta applied
+  - net score (improvement/regression)
+
+#### 4.17.3 Pressure + Abundance Signals
+Per domain, compute normalized pressure:
+- `foodPressure`: based on stock, consumption trend, shortage events.
+- `waterPressure`: same pattern for water.
+- `defensePressure`: ammo/parts/springs/planks deficits + defense inactive counts.
+- `industryPressure`: processing queue backlog + key craft deficits.
+- `logisticsPressure`: haul queue saturation + blocked deliveries.
+- `expansionPressure`: frontier deficits + migration health + readiness gate failures.
+
+Abundance signal:
+- inverse of pressure with hysteresis (prevents oscillation).
+- minimum hold periods before major staffing reversals.
+
+#### 4.17.4 Confidence + Learning Rate
+Confidence update:
+- increase when:
+  - shortages low,
+  - outposts stable,
+  - defenses active,
+  - delegated events resolve favorably.
+- decrease when:
+  - repeated shortages,
+  - outposts failing/evacuating,
+  - defense failures persist.
+
+Learning rate:
+- low confidence => higher adaptation rate.
+- high confidence => smaller, conservative adjustments.
+- clamp to safe bounds to avoid overreaction.
+
+#### 4.17.5 Weighted Decision Application
+Use learned weights in three places:
+1. Staffing blend (existing Piece 5):
+  - modify role demand multipliers by domain weights.
+2. Reserve floors (existing Piece 6):
+  - raise/lower domain reserve targets with confidence scaling.
+3. Event delegation (existing Piece 8):
+  - outcome model biases by learned diplomacy/defense tradeoff.
+
+Required behaviors:
+- high food abundance over sustained window decreases food-role pressure.
+- low food sustained window increases forager/fisherman/hunter pressure.
+- same pattern for water, defense, and industrial resources.
+
+#### 4.17.6 Safety Guardrails
+- Hard floors remain for critical roles:
+  - `forager`, `water-runner`, `builder`, `sentinel`, `lookout`.
+- Max per-tick/per-window delta:
+  - cap percentage change in role targets and reserve floors.
+- Recovery bias:
+  - during crisis, enforce minimum corrective shift even with low confidence.
+- Cooldown windows:
+  - prevent rapid flip-flopping between opposing policies.
+
+#### 4.17.7 UI / Debug Visibility
+Leader panel should show:
+- confidence + trend (`rising`, `stable`, `falling`)
+- top domain weights
+- recent lessons:
+  - “Food surplus sustained -> reduced food labor weight”
+  - “Defense downtime spike -> increased defense reserve weight”
+- applied adjustments this cycle:
+  - role target deltas
+  - reserve floor deltas
+
+#### 4.17.8 Implementation Breakdown
+Phase L5.A: Learning state scaffold
+- Add governance learning schema + migration defaults.
+- Compute domain pressure/abundance metrics (read-only first).
+- Acceptance:
+  - metrics visible in inspector; no behavior changes.
+
+Phase L5.B: Confidence + episode logging
+- Add confidence update system and bounded episode history.
+- Chronicle events:
+  - `LEADER_CONFIDENCE_CHANGED`
+  - `LEADER_LEARNING_EPISODE_RECORDED`
+- Acceptance:
+  - confidence moves with conditions; deterministic replay stable.
+
+Phase L5.C: Weight adaptation engine
+- Implement adaptive `domainWeights` update from episodes + confidence.
+- Add clamps, smoothing, and cooldowns.
+- Acceptance:
+  - weights change gradually and correlate with pressure trends.
+
+Phase L5.D: Staffing + reserve integration
+- Feed adapted weights into role-balancer and reserve-floor logic.
+- Keep hard floors + max-delta controls.
+- Acceptance:
+  - abundant domains release labor; scarce domains gain labor.
+
+Phase L5.E: Event delegation integration
+- Use learned diplomacy/defense weights in event resolution selection.
+- Track post-event learning feedback.
+- Acceptance:
+  - leader behavior shifts over time based on outcomes.
+
+Phase L5.F: Tuning + validation
+- Add tuning constants for:
+  - smoothing, confidence gain/loss, adaptation caps.
+- Add deterministic and stability tests.
+- Acceptance:
+  - no oscillation spikes, no starvation regressions, deterministic across replays.
+
+#### 4.17.9 Validation Checklist
+- Domain weights always within configured bounds.
+- Confidence remains in `[0,1]`.
+- Critical role floors are never violated.
+- Under sustained abundance, related labor share declines.
+- Under sustained scarcity, related labor share increases.
+- Determinism: identical seed/event stream => identical learning path.
+
+#### 4.17.10 Detailed Implementation Units (Smaller Tasks)
+Unit U1: Governance learning schema
+- Files:
+  - `sim/state.js` (defaults)
+  - `sim/governance/leaderGovernance.js` (ensure/migrate)
+- Add:
+  - `learning.confidence`
+  - `learning.experience`
+  - `learning.domainWeights`
+  - `learning.domainMemory`
+  - `learning.episodes`
+  - `learning.lastLearningTick`
+- Done when:
+  - old saves initialize missing fields without crashing.
+
+Unit U2: Pressure snapshot calculator
+- Files:
+  - `sim/governance/leaderGovernance.js` (new helpers)
+- Add deterministic snapshot:
+  - `foodPressure`, `waterPressure`, `defensePressure`, `industryPressure`, `logisticsPressure`, `expansionPressure`
+  - `abundance` mirrors for each domain.
+- Done when:
+  - snapshot appears in map inspector JSON.
+
+Unit U3: EWMA domain memory update
+- Inputs:
+  - latest pressure snapshot
+- Formula:
+  - `mem = mem * (1 - alpha) + sample * alpha`
+  - start with `alpha = 0.12`
+- Done when:
+  - memory values move smoothly and do not spike-twitch.
+
+Unit U4: Confidence update pass
+- Inputs:
+  - shortages, outpost stability, defense status, event outcomes
+- Output:
+  - confidence delta + trend label.
+- Done when:
+  - confidence changes each learning tick with bounded delta.
+
+Unit U5: Episode recorder
+- Record every learning cycle:
+  - snapshot in/out, policy deltas, net score.
+- Cap history size (e.g. 120).
+- Done when:
+  - latest episodes visible in debug inspector.
+
+Unit U6: Weight adaptation core
+- Update domain weights from pressure + confidence:
+  - high pressure pushes matching domain weight up.
+  - sustained abundance pushes matching domain weight down.
+- Done when:
+  - each domain weight changes gradually and stays bounded.
+
+Unit U7: Staffing adaptation integration
+- Hook learned weights into role-demand scoring.
+- Keep existing hard floors and floor rebalance.
+- Done when:
+  - labor share trends track domain pressure over time.
+
+Unit U8: Reserve adaptation integration
+- Hook learned weights into reserve floor computation.
+- Apply per-cycle max delta.
+- Done when:
+  - reserve floors increase during repeated deficits and soften during abundance.
+
+Unit U9: Event adaptation integration
+- Feed learned diplomacy/defense weights into delegated event resolution scoring.
+- Done when:
+  - resolution profile shifts over long run after repeated outcomes.
+
+Unit U10: UI telemetry
+- Add leader-learning panel rows:
+  - confidence/trend
+  - top 3 weight domains
+  - latest lesson sentence
+  - last applied role/reserve deltas
+- Done when:
+  - no panel layout shift and values update predictably.
+
+Unit U11: Safety + anti-oscillation rules
+- Add:
+  - `minHoldTicks` before reversing a major directional change.
+  - `maxWeightDeltaPerCycle`.
+  - `maxReserveDeltaPerCycle`.
+- Done when:
+  - no sawtooth oscillation in 500-tick stress test.
+
+Unit U12: Deterministic tests
+- Add replay tests focused on:
+  - confidence path
+  - domain weights path
+  - role mix path
+- Done when:
+  - same seed has identical hashes for these paths.
+
+#### 4.17.11 Formula-Level Spec (First Pass)
+Confidence:
+- `confidenceNext = clamp(confidence + gain - loss, 0, 1)`
+- `gain = 0.015 * abundanceScore + 0.01 * stableOutpostRatio + 0.008 * defenseUptime`
+- `loss = 0.02 * shortageSeverity + 0.015 * failingOutpostRatio + 0.012 * defenseFailureRate`
+
+Learning rate:
+- `lr = clamp(baseLr + (1 - confidence) * lowConfidenceBoost, minLr, maxLr)`
+- initial constants:
+  - `baseLr = 0.05`
+  - `lowConfidenceBoost = 0.08`
+  - `minLr = 0.03`
+  - `maxLr = 0.14`
+
+Domain weight update:
+- `target = clamp(pressure * 0.7 + (1 - abundance) * 0.3, 0, 1)`
+- `weight = clamp(weight + (target - weight) * lr, minWeight, maxWeight)`
+- Normalize all domain weights after update so sum remains constant.
+
+Role multiplier:
+- `roleDemand = baseDemand * (1 + domainWeightBias * roleDomainFactor)`
+- cap multiplier range:
+  - `[0.65, 1.55]`
+
+Reserve floor adaptation:
+- `floorNext = floorBase * (1 + defenseWeightBias * 0.6 + scarcityBias * 0.4)`
+- clamp delta each cycle to `+-2` units.
+
+#### 4.17.12 Test Matrix (Practical)
+Scenario T1: Food abundance
+- Setup:
+  - high food stock sustained 120 ticks.
+- Expect:
+  - food domain pressure down.
+  - food weight down.
+  - food-role share down (not below floors).
+
+Scenario T2: Food scarcity
+- Setup:
+  - repeated food shortage events.
+- Expect:
+  - food weight up.
+  - forager/fisherman/hunter share up.
+
+Scenario T3: Defense stress
+- Setup:
+  - multiple `inactive_no_ammo`/`inactive_no_parts`.
+- Expect:
+  - defense weight up.
+  - reserve floors up for ammo/parts/springs/planks.
+
+Scenario T4: Stable prosperity
+- Setup:
+  - no shortages, stable outposts.
+- Expect:
+  - confidence trend rising.
+  - learning rate gradually falls.
+
+Scenario T5: Crisis recovery
+- Setup:
+  - prolonged shortages then stabilization.
+- Expect:
+  - confidence falls then recovers.
+  - weights shift toward crisis domain then relax over time.
+
+Scenario T6: Determinism
+- Setup:
+  - replay same seed and actions.
+- Expect:
+  - identical confidence/weight/role-share sequence.
+
+#### 4.17.13 Recommended Build Sequence
+1. U1 + U2 + U10 (schema + metrics visibility)
+2. U3 + U4 + U5 (memory/confidence/episodes)
+3. U6 + U11 (stable adaptation engine)
+4. U7 + U8 (staffing/reserve integration)
+5. U9 + U12 (event integration + replay assurance)
+
+#### 4.17.14 Execution Status (Current Build)
+- Executed:
+  - U1 Governance learning schema.
+  - U2 Pressure snapshot calculator.
+  - U10 UI telemetry baseline (leader learning fields integrated in governance flow and available for panel wiring).
+  - U3 EWMA domain memory update.
+  - U4 Confidence update pass.
+  - U5 Episode recorder + chronicle events (`LEADER_CONFIDENCE_CHANGED`, `LEADER_LEARNING_EPISODE_RECORDED`).
+  - U6 Weight adaptation core.
+  - U11 Safety + anti-oscillation rules (`minHoldTicks`, `maxWeightDeltaPerCycle`).
+  - U7 Staffing adaptation integration (learned domain weights now influence role-demand scoring).
+  - U8 Reserve adaptation integration (learned weights influence reserve floors with per-cycle reserve delta clamp).
+  - U9 Event adaptation integration (delegated event resolution now uses learned diplomacy/defense weighting and event-specific effective profile).
+- Verification:
+  - `npm run sim:check` passed.
+  - `npm run sim:test` passed.
+- Behavior impact:
+  - safe/default-preserving; no destructive user-facing regressions observed in automated checks.
+
+#### 4.17.15 Next Phase Selection (Numerical)
+1. Phase L5.B: U3 + U4 + U5
+  - implement EWMA memory smoothing, confidence update pass, and bounded episode recorder with chronicle hooks.
+2. Phase L5.C: U6 + U11
+  - implement adaptive weight update engine with anti-oscillation and per-cycle delta clamps.
+3. Phase L5.D: U7 + U8
+  - integrate learned weights into staffing mix and reserve-floor adaptation with hard safety floors.
+4. Phase L5.E: U9
+  - integrate learned diplomacy/defense bias into delegated event resolution.
+5. Phase L5.F: U12
+  - add deterministic replay-path assertions for confidence/weights/role mix.
 
 ## Phase 5 - Combat + Recovery (Deep Technical Blueprint)
 
@@ -3671,7 +4258,7 @@ Not included yet (planned/useful additions):
 - `forager`: gathers food nodes and contributes food pipeline.
 - `woodcutter`: gathers wood nodes and contributes wall/logistics pipeline.
 - `fisherman`: harvests fish from water tiles and returns food to storage.
-- `hunter`: tracks deer/wolves, hunts them, and returns food.
+- `hunter`: prioritizes deer harvest for high food return, then carries carcass food home.
 - `builder`: constructs and repairs wall plan segments.
 - `sentinel`: holds defense points and intercepts nearby threats.
 - `lookout`: patrols + detects hostile wildlife, emits threat alerts.
@@ -4565,16 +5152,16 @@ Rule:
 - all knobs in one config object; avoid hard-coded constants in systems.
 
 #### 17.4.10 Delivery Phases
-Phase A1 (MVP):
+Phase A1 (MVP) (Completed):
 - season clock + deterministic progression
 - weather changes + basic yield modifiers
 - UI season strip + simple forecast
 
-Phase A2:
+Phase A2 (Completed):
 - route pressure + wildlife migration hooks
 - climate warning cards + map focus
 
-Phase A3:
+Phase A3 (Completed):
 - deeper scarcity loops (spoilage/stockpiles)
 - refined balancing and scenario variants
 
@@ -5050,3 +5637,613 @@ Interaction:
   add deterministic tests for assignment + blocked-reason output.
 - Acceptance:
   checks pass and no invalid activity states are produced.
+
+---
+
+## 19) Selection Model Notes
+
+### 19.1 How Wildlife Selection Works (Current)
+Wildlife selection is occupancy-driven and deterministic.
+
+Runtime data source:
+- `worldMap.wildlife.occupancyByMicroKey: Record<string, string[]>`
+  - key format: `"microX,microY"`
+  - value: wildlife ids at that micro tile
+
+Where it is maintained:
+- initialized in world generation:
+  - `wwwroot/goblin-sim/sim/world/worldGen.js`
+- rebuilt each wildlife tick from live positions:
+  - `wwwroot/goblin-sim/sim/world/wildlifeSimulation.js`
+
+Click path:
+1. UI click on map canvas
+   - `wwwroot/goblin-sim/ui/world/interactions.js`
+2. picker computes clicked micro cell
+   - `wwwroot/goblin-sim/ui/world/mapRenderer.js#pickCellFromCanvas`
+3. picker looks up `wildlife.occupancyByMicroKey[microKey]`
+4. if found:
+   - set `state.debug.selectedWildlifeId`
+   - set `state.debug.trackedWildlifeId`
+   - clear goblin selection
+5. render highlights selected wildlife and camera follow/snap uses tracked id.
+
+Why it works reliably:
+- no distance heuristics required
+- selection uses the same micro-grid used by simulation occupancy
+- deterministic mapping from click -> micro key -> entity id
+
+### 19.2 Goblin Selection Plan B (Mirror Wildlife Exactly)
+Goal:
+- make goblin selection use the same occupancy architecture as wildlife.
+- avoid heuristic nearest-pick logic.
+
+Implementation plan:
+1. Single source of truth occupancy map
+- add/maintain:
+  - `worldMap.units.occupancyByMicroKey: Record<string, string[]>`
+- rebuild once per world simulation tick from `units.byGoblinId`.
+
+2. Picker parity
+- in `pickCellFromCanvas`:
+  - compute clicked micro key exactly once
+  - lookup `units.occupancyByMicroKey[microKey]`
+  - return first goblin id if present
+- keep wildlife lookup identical.
+
+3. Click behavior parity
+- in `interactions.js` click handler:
+  - if `pick.goblinId`:
+    - set `selectedGoblinId` + `trackedGoblinId`
+    - clear wildlife selection
+    - render
+  - else if `pick.wildlifeId`: existing wildlife flow
+  - else: region/site selection flow
+
+4. UI panel trigger rule
+- goblin detail panel visibility must depend only on:
+  - `Boolean(state.debug.selectedGoblinId)`
+- no extra hidden flags or side channels.
+
+5. Remove heuristics
+- remove nearest-distance fallback logic once occupancy parity is confirmed.
+- keep optional neighbor fallback only if simulation jitter makes strict micro-cell misses common.
+
+### 19.3 Verification Checklist (Plan B)
+1. Occupancy correctness
+- inspect one known goblin:
+  - unit `(microX,microY)` key exists in `units.occupancyByMicroKey`
+  - that key contains goblin id.
+
+2. Picker correctness
+- click exactly on known goblin tile:
+  - `pick.goblinId` equals expected id.
+
+3. State transition correctness
+- after click:
+  - `selectedGoblinId` and `trackedGoblinId` set
+  - `selectedWildlifeId` and `trackedWildlifeId` cleared.
+
+4. Panel correctness
+- when `selectedGoblinId != null`:
+  - left goblin panel is visible.
+- when cleared:
+  - panel is hidden.
+
+5. No regression
+- wildlife click selection still works unchanged.
+
+## 20) Enemy Race Identity + Strategy Plan (Sprite-Backed, Planning Only)
+Goal:
+- define detailed enemy race identities from existing sprites.
+- create differentiated strategy profiles so enemies do not feel interchangeable.
+- phase rollout by implementation risk.
+- include enemy-owned outposts for selected factions.
+
+### 20.1 Enemy-Capable Sprite Inventory
+Active enemy sprites:
+- `wolf`
+- `barbarian`
+
+Available enemy-capable sprites:
+- `human_raider`
+- `ogre`
+- `bear`
+- `snake`
+- `boar`
+- `crow`
+- `shaman`
+- `elf_ranger`
+
+Notes:
+- this section is design only; no systems are implemented here.
+- these identities are race-level behavior templates, not one-off events.
+
+### 20.2 Design Pillars
+1. Distinct win condition per race
+- each race pressures a different colony weakness.
+
+2. Readable intent
+- every race must be inferable from movement + event text.
+
+3. Deterministic simulation
+- behavior remains seed/tick deterministic.
+
+4. Counterplay first
+- each race gets at least two clear counter-strategies.
+
+5. Progressive escalation
+- early game: mostly fauna + small raiders.
+- mid game: coordinated raids and mixed forces.
+- late game: outpost networks and specialist enemies.
+
+### 20.3 Phase A / Phase B Rollout Plan
+#### 20.3.1 Phase A (Low-Medium Complexity)
+Scope:
+- `human_raider`
+- `bear`
+- `snake`
+- `boar`
+- `crow`
+
+Primary focus:
+- add recognizable pressure types with minimal new infrastructure.
+- avoid deep multi-faction diplomacy dependencies.
+
+Expected systems:
+1. `enemySpawnBudgetSystem` extension per race.
+2. `enemyGoalSelectionSystem` race branches.
+3. `enemyActionResolutionSystem` race abilities.
+4. `enemyThreatTelemetrySystem` race event feed hooks.
+
+#### 20.3.2 Phase B (Medium-High Complexity)
+Scope:
+- `ogre`
+- `shaman`
+- `elf_ranger`
+- expanded `barbarian` doctrine
+
+Primary focus:
+- coordinated combined-arms behavior.
+- enemy-owned outpost network gameplay.
+
+Expected systems:
+1. `enemyOutpostPlannerSystem`
+2. `enemyOutpostLifecycleSystem`
+3. `enemySupplyAndReinforcementSystem`
+4. `enemyFactionStrategySystem`
+
+### 20.4 Outpost Ownership Plan
+Races that can own outposts:
+- `barbarian` -> `warcamp`
+- `human_raider` -> `raider-camp`
+- `shaman` -> `ritual-circle`
+- `elf_ranger` -> `watch-lodge`
+- `ogre` -> `siege-den` (rare, late-game only)
+
+Races that do not own outposts:
+- `wolf`, `bear`, `snake`, `boar`, `crow`
+
+Outpost baseline behavior:
+1. Spawn conditions
+- distance from goblin home floor.
+- biome suitability gate.
+- global enemy cap gate.
+
+2. Effects
+- periodic reinforcement pulse.
+- local threat aura boost.
+- role-specific action modifier.
+
+3. Lifecycle
+- establish -> active -> pressured -> abandoned.
+- abandonment if supply low, defenders wiped, or prolonged goblin pressure.
+
+4. Counterplay
+- scouts can reveal.
+- sentinels/hunters can intercept reinforcements.
+- builders can harden perimeter to absorb raid pressure.
+
+### 20.5 Race Doctrine Details
+#### 20.5.1 Wolves (Pack Predators)
+Identity:
+- opportunistic, cautious, cohesion-driven.
+
+Strategic objective:
+- isolate and remove exposed goblins outside safety radius.
+
+Tactics:
+- flank toward weakest edge of colony.
+- target swap toward wounded/slow goblins.
+- break off quickly versus grouped defenders.
+
+Pressure pattern:
+- frequent low-intensity pressure spikes.
+
+Primary counters:
+- grouped travel.
+- perimeter sentinels and hunter escorts.
+
+#### 20.5.2 Barbarian Clans (Raid Logistics Enemy)
+Identity:
+- structured raiders with material goals.
+
+Strategic objective:
+- damage defenses, steal resources, force labor diversion.
+
+Tactics:
+- staged raid phases: approach, breach, loot, retreat.
+- breaker units prioritize walls.
+- carriers prioritize steal-and-exit pathing.
+
+Pressure pattern:
+- periodic medium-high intensity raid waves.
+
+Outpost interaction:
+- `warcamp` increases raid cadence and batch size.
+- camp destruction delays next large raid window.
+
+Primary counters:
+- contiguous walls and kill-zones.
+- ranged defenders and rapid-response sentinels.
+
+#### 20.5.3 Human Raiders (Skirmish Harassment)
+Identity:
+- disciplined ranged harassers, low commitment.
+
+Strategic objective:
+- suppress gather economy and keep workers near home.
+
+Tactics:
+- kite behavior at medium range.
+- preference for foragers/haulers outside wall line.
+- disengage once defenders group.
+
+Pressure pattern:
+- persistent low-medium attrition on outskirts.
+
+Outpost interaction:
+- `raider-camp` spawns scouting pairs and harassment bands.
+
+Primary counters:
+- hunter patrol routes.
+- escorting labor parties.
+
+#### 20.5.4 Ogres (Siege Shock Unit)
+Identity:
+- slow, durable, high-impact breachers.
+
+Strategic objective:
+- force structural collapse and defender displacement.
+
+Tactics:
+- shortest path to gate/wall chokepoints.
+- high structure damage, low target switching.
+- morale shock event on impact strikes.
+
+Pressure pattern:
+- rare high-intensity events.
+
+Outpost interaction:
+- `siege-den` is rare and appears only in late escalation tiers.
+
+Primary counters:
+- focused ranged fire.
+- layered walls and fallback rings.
+
+#### 20.5.5 Bears (Territorial Apex Fauna)
+Identity:
+- neutral until provoked, then explosive local aggression.
+
+Strategic objective:
+- defend territory and den radius.
+
+Tactics:
+- warning state before attack.
+- short burst maul then re-anchor to territory.
+
+Pressure pattern:
+- local biome hazard, not global raid actor.
+
+Primary counters:
+- avoid den radius.
+- distract and disengage rather than chase.
+
+#### 20.5.6 Snakes (Ambush Disruption)
+Identity:
+- stealth ambushers with short engagement windows.
+
+Strategic objective:
+- punish lone movement through risky terrain.
+
+Tactics:
+- concealment tiles, strike cooldown cycles.
+- prefer low-escort targets.
+
+Pressure pattern:
+- sharp micro-spikes in swamp/badlands corridors.
+
+Primary counters:
+- scout-cleared routes.
+- paired travel and caretaker support.
+
+#### 20.5.7 Boars (Charge Pressure)
+Identity:
+- defensive bruisers with linear burst threat.
+
+Strategic objective:
+- disrupt formations and force repositioning.
+
+Tactics:
+- windup telegraph then charge lane.
+- short reset window before next run.
+
+Pressure pattern:
+- intermittent medium spikes near forest/hills edges.
+
+Primary counters:
+- spacing discipline.
+- bait and sidestep into traps or kill lanes.
+
+#### 20.5.8 Crows (Information Warfare Nuisance)
+Identity:
+- mobility-first scouts and harassers.
+
+Strategic objective:
+- increase enemy information quality and nuisance pressure.
+
+Tactics:
+- vision ping for nearby hostiles.
+- peck harass against isolated gatherers.
+
+Pressure pattern:
+- low lethality, high annoyance, high strategic value.
+
+Primary counters:
+- lookouts/hunters prioritize anti-scout sweeps.
+- deny open exposed work routes.
+
+#### 20.5.9 Shaman Tribes (Control + Support)
+Identity:
+- backline controllers that amplify other enemies.
+
+Strategic objective:
+- destabilize morale/rest and boost allied raid efficiency.
+
+Tactics:
+- curse zones reduce goblin morale/recovery.
+- buff pulses for nearby raiders/brutes.
+- avoid front line direct contact.
+
+Pressure pattern:
+- medium-high strategic threat with low direct DPS.
+
+Outpost interaction:
+- `ritual-circle` increases curse uptime and summon pressure events.
+
+Primary counters:
+- focus-fire priority target behavior.
+- disrupt circles before major raids.
+
+#### 20.5.10 Elf Rangers (Precision Range Pressure)
+Identity:
+- disciplined marksmen with superior positioning.
+
+Strategic objective:
+- remove high-value goblins and deny open lanes.
+
+Tactics:
+- long-range volleys at priority roles.
+- trap zones around likely response paths.
+- orderly fallback when flanked.
+
+Pressure pattern:
+- low frequency, high precision casualty risk.
+
+Outpost interaction:
+- `watch-lodge` improves sight radius and volley cadence.
+
+Primary counters:
+- terrain cover movement.
+- counter-sniper hunter/lookout squads.
+
+### 20.6 Outpost Strategy Matrix (Planned)
+`warcamp`:
+- owner: `barbarian`
+- purpose: raid throughput and breach coordination
+- biome bias: badlands, ruins edge
+
+`raider-camp`:
+- owner: `human_raider`
+- purpose: harassment patrol generation
+- biome bias: hills, grass frontier
+
+`ritual-circle`:
+- owner: `shaman`
+- purpose: control aura and support cadence
+- biome bias: swamp, caves, ruins
+
+`watch-lodge`:
+- owner: `elf_ranger`
+- purpose: scouting/volley control of approach lanes
+- biome bias: forest, hills
+
+`siege-den`:
+- owner: `ogre`
+- purpose: brute reinforcement anchor
+- biome bias: badlands, caves
+
+### 20.7 Telemetry and UI Plan (Planned)
+Race events:
+- `WOLF_PACK_PROBE_STARTED`
+- `BARBARIAN_WARCAMP_ESTABLISHED`
+- `HUMAN_RAIDER_HARASSED_FORAGER`
+- `OGRE_BATTERED_WALL`
+- `BEAR_TERRITORY_TRIGGERED`
+- `SNAKE_AMBUSHED_GOBLIN`
+- `BOAR_CHARGE_IMPACT`
+- `CROW_SPOTTED_COLONY`
+- `SHAMAN_CURSE_APPLIED`
+- `ELF_RANGER_VOLLEY`
+- `ENEMY_OUTPOST_DESTROYED`
+
+UI requirements:
+1. problem feed includes `race`, `squad`, `objective`, `nearestOutpost`.
+2. map inspector lists hostile outposts by distance and pressure score.
+3. auto-pause reason includes race + objective summary.
+
+### 20.8 Balance Guardrails (Planned)
+1. early-game fairness
+- no advanced outposts before minimum day threshold.
+
+2. pressure caps
+- per-race active cap and global hostile cap.
+
+3. behavior stability
+- deterministic target choice with bounded retarget cooldown.
+
+4. anti-snowball
+- outpost reinforcement scales down when goblin population is critically low.
+
+### 20.9 Implementation Slice Recommendation
+Phase A slice order:
+1. `human_raider` basic harass loop
+2. `bear` territorial loop
+3. `snake` ambush loop
+4. `crow` scout telemetry loop
+5. `boar` charge loop
+
+Phase B slice order:
+1. `barbarian` warcamp
+2. `ogre` siege-den + brute unit
+3. `shaman` ritual-circle + support actions
+4. `elf_ranger` watch-lodge + volley/trap package
+
+### 20.10 Outpost Auto-Closure (Implemented)
+Status: Implemented in simulation and UI control surface.
+
+Behavior:
+1. Frontier outposts that remain `failing` beyond threshold move to `evacuating`.
+2. Evacuating outposts reject new inbound normal migration.
+3. Residents receive high-priority migration jobs with reason `OUTPOST_EVACUATION`.
+4. If evacuation completes, outpost becomes `abandoned`.
+5. If deadline expires, remaining residents are force-rehomed to `outpost-start` and outpost is auto-closed.
+
+Data/runtime fields:
+- `runtime.failingSinceTick`
+- `runtime.evacuationStartedTick`
+- `runtime.evacuationDeadlineTick`
+- `runtime.evacuationReasonCode`
+- `runtime.lastEvacuationProgressEventTick`
+- `runtime.abandonedTick`
+
+Event contract:
+- `OUTPOST_EVACUATION_STARTED`
+- `OUTPOST_EVACUATION_PROGRESS`
+- `OUTPOST_ABANDONED`
+- `OUTPOST_AUTO_CLOSURE_FORCED`
+- `OUTPOST_EVACUATION_CANCELED` (manual UI control)
+
+UI:
+- Outpost Command panel shows evacuation state, deadline countdown, and resident count.
+- Adds `Cancel Evac` action while evacuating.
+- Severity mapping marks evacuation start/forced closure as urgent.
+
+### 20.10 Execution Order of Operations (One-at-a-Time Gates)
+Rule:
+- implement only one gate at a time.
+- after each gate: run syntax checks + quick sim sanity + UI sanity.
+- proceed only after explicit user approval (`yes`, `next`, or gate id).
+
+#### Gate E0 (Completed) - Data Contracts
+Scope:
+- normalize enemy outpost schema.
+- enforce safe defaults at init/tick/load.
+- validate outpost invariants.
+
+Exit checks:
+1. no outpost undefined-field crashes.
+2. old saves load safely with normalized defaults.
+
+User prompt:
+- `Proceed to Gate E1?`
+
+#### Gate E1 (Completed) - Persistent Pack-Owned Outposts
+Scope:
+- seed initial outposts from existing packs.
+- sync outpost ownership/status/strength from packs each wildlife tick.
+- prevent duplicate fallback markers when explicit outposts exist.
+
+Exit checks:
+1. hostile packs always have stable outpost ownership metadata.
+2. map/inspector show persistent outposts (not only transient markers).
+
+User prompt:
+- `Proceed to Gate E2?`
+
+#### Gate E2 (Completed) - Race Runtime Substrate (No New Combat Mechanics)
+Scope:
+- add race registry/config map (`spawn budget`, `aggro`, `retreat`, `patrol`, `outpost policy`).
+- move current hostile behavior constants behind race-config reads.
+- keep current behavior parity for existing races (`wolf`, `barbarian`).
+
+Exit checks:
+1. behavior remains equivalent for existing races at baseline settings.
+2. race configs are inspectable and serializable.
+
+User prompt:
+- `Proceed to Gate E3?`
+
+#### Gate E3 (Completed) - Human Raider MVP
+Scope:
+- implement `human_raider` spawn, patrol, harass, disengage loop.
+- add raider-camp outpost ownership path.
+- add telemetry events for raider harassment.
+
+Exit checks:
+1. raiders target outskirts/economy rather than siege behavior.
+2. goblins recover if raider pressure is answered with grouped defense.
+
+User prompt:
+- `Proceed to Gate E4?`
+
+#### Gate E4 (Completed) - Bear/Snake/Boar/Crow Fauna Behaviors
+Scope:
+- `bear`: territorial trigger + short rage window.
+- `snake`: ambush strike with cooldown and disengage.
+- `boar`: telegraphed charge lane.
+- `crow`: scouting/spotting nuisance telemetry.
+
+Exit checks:
+1. each fauna type has distinct readable movement pattern.
+2. no single fauna type causes colony-wide lockups by default tuning.
+
+User prompt:
+- `Proceed to Gate E5?`
+
+#### Gate E5 (Completed) - Ogre/Shaman/Elf Ranger Advanced Slice
+Scope:
+- `ogre`: siege-den and structure-pressure role.
+- `shaman`: support/control aura around ritual-circles.
+- `elf_ranger`: ranged pressure + watch-lodge behavior.
+
+Exit checks:
+1. advanced enemies appear only after escalation thresholds.
+2. each advanced race has at least one clear counterplay path in telemetry.
+
+User prompt:
+- `Proceed to Gate E6?`
+
+#### Gate E6 (Completed) - Balancing, Caps, and Hardening
+Scope:
+- finalize global/race caps and escalation pacing.
+- add anti-snowball guardrails and low-population pressure dampening.
+- performance pass without behavior drift.
+
+Exit checks:
+1. no unavoidable death spiral in early-mid game at default settings.
+2. deterministic replay remains stable for same seed/action stream.
+3. frame/tick cost remains within baseline target envelope.
+
+User prompt:
+- `Implementation complete for Section 20. Continue to next roadmap section?`
