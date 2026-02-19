@@ -55,6 +55,19 @@
     .stat{border:1px solid rgba(58,214,143,.25); border-radius:10px; background:rgba(58,214,143,.08); padding:.35rem .45rem}
     .k{font-size:.66rem; letter-spacing:.07em; text-transform:uppercase; color:#b8dbcb}
     .v{font-size:1rem; font-weight:700; margin-top:.08rem; font-variant-numeric:tabular-nums; display:inline-block; min-width:4ch}
+    .mgmt-grid{display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:.32rem; margin-top:.45rem}
+    .critical-breakdown{margin-top:.35rem; font-size:.74rem; color:#d8ccab}
+    .mgmt-item{border:1px solid rgba(58,214,143,.2); border-radius:9px; padding:.3rem .38rem; background:rgba(10,18,13,.78)}
+    .mgmt-label{font-size:.62rem; letter-spacing:.05em; text-transform:uppercase; opacity:.95}
+    .mgmt-state{font-size:.84rem; font-weight:700; margin-top:.06rem; font-variant-numeric:tabular-nums}
+    .mgmt-item.good{border-color:rgba(90,214,135,.55); background:rgba(53,122,74,.28)}
+    .mgmt-item.warn{border-color:rgba(236,190,90,.56); background:rgba(122,97,38,.26)}
+    .mgmt-item.bad{border-color:rgba(230,99,93,.58); background:rgba(122,48,45,.3)}
+    .mgmt-item.good .mgmt-state{color:#9ff0ba}
+    .mgmt-item.warn .mgmt-state{color:#f5d292}
+    .mgmt-item.bad .mgmt-state{color:#ffaca3}
+    .season-strip{margin-top:.4rem; border:1px solid rgba(215,180,98,.24); border-radius:9px; background:rgba(0,0,0,.25); padding:.36rem .45rem; font-size:.78rem; color:#e7d8b4}
+    .forecast-row{margin-top:.2rem; font-size:.74rem; color:#d6e8dd}
 
     .map-controls{
       position:absolute; left:.75rem; bottom:.75rem;
@@ -93,6 +106,25 @@
       display:flex; flex-direction:column;
     }
     .ui-panel.open{transform:translateX(0)}
+    .goblin-detail,
+    .wildlife-detail{
+      position:absolute; top:4.2rem; left:.75rem; width:min(420px, 44vw); max-height:calc(100vh - 5rem); z-index:1000;
+      transform:translateX(-108%); transition:transform .18s ease;
+      border:1px solid var(--line); border-radius:12px;
+      background:linear-gradient(170deg, rgba(19,34,26,.96), rgba(11,19,14,.96));
+      box-shadow:0 10px 28px rgba(0,0,0,.45);
+      display:flex; flex-direction:column;
+      pointer-events:auto;
+    }
+    .goblin-detail.open,
+    .wildlife-detail.open{transform:translateX(0)}
+    .goblin-detail-head{display:flex; align-items:center; justify-content:space-between; gap:.5rem; padding:.65rem .75rem; border-bottom:1px solid rgba(215,180,98,.2)}
+    .goblin-detail-body{padding:.65rem .75rem; overflow:auto; display:grid; gap:.55rem}
+    .goblin-grid{display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:.4rem}
+    .goblin-stat{border:1px solid rgba(58,214,143,.18); border-radius:9px; background:rgba(58,214,143,.06); padding:.35rem .45rem}
+    .goblin-stat .k{font-size:.64rem}
+    .goblin-stat .v{font-size:.92rem}
+    .pill{display:inline-block; border:1px solid rgba(215,180,98,.35); border-radius:999px; padding:.15rem .5rem; font-size:.72rem; color:#f4e2b7}
     .panel-head{display:flex; align-items:center; justify-content:space-between; gap:.5rem; padding:.7rem .8rem; border-bottom:1px solid rgba(215,180,98,.24)}
     .panel-body{padding:.75rem; overflow:auto; display:grid; gap:.75rem; scrollbar-gutter:stable}
     .card{border:1px solid var(--line); border-radius:12px; background:rgba(14,24,18,.62); padding:.7rem; display:grid; gap:.55rem}
@@ -109,20 +141,58 @@
     pre{margin:0; max-height:240px; overflow:auto; font-size:.74rem; line-height:1.3; color:#d8f6e8; background:rgba(0,0,0,.28); border:1px solid rgba(58,214,143,.2); border-radius:10px; padding:.65rem}
     .panel-grid{display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:.4rem}
     .panel-grid-3{display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:.4rem}
-    .tiny{font-size:.75rem; color:#c7dbd0}
+    .role-chart{display:grid; gap:.32rem}
+    .role-row{display:grid; grid-template-columns:96px 1fr 52px; gap:.4rem; align-items:center}
+    .role-label{font-size:.75rem; color:#d4e8dc; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+    .role-bar-wrap{height:11px; border:1px solid rgba(58,214,143,.2); border-radius:999px; background:rgba(0,0,0,.28); overflow:hidden}
+    .role-bar{height:100%; border-radius:999px}
+    .role-value{font-size:.75rem; color:#b9d7c9; text-align:right; font-variant-numeric:tabular-nums}
+    .tiny{
+      font-size:.75rem; color:#c7dbd0;
+      display:block;
+      min-height:1.15rem;
+      line-height:1.15rem;
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
+    }
     .toggle-list{display:grid; gap:.25rem}
     .toggle-list label{display:flex; align-items:center; justify-content:space-between; gap:.4rem; font-size:.8rem}
     .toggle-list input[type="checkbox"]{width:1rem; height:1rem}
-    #problemFeed{max-height:280px; overflow:auto}
+    .balance-indicator{font-weight:700; transition:color .12s ease}
+    .balance-indicator.good{color:#9ff0ba}
+    .balance-indicator.bad{color:#ffaca3}
+    .balance-indicator.neutral{color:#d8ccab}
+    input.balance-good{border-color:rgba(90,214,135,.68); box-shadow:0 0 0 1px rgba(90,214,135,.25) inset; color:#c5f5d6}
+    input.balance-bad{border-color:rgba(230,99,93,.7); box-shadow:0 0 0 1px rgba(230,99,93,.2) inset; color:#ffd0cc}
+    input.balance-neutral{border-color:rgba(215,180,98,.45); box-shadow:none}
+    #problemFeed{height:220px; overflow:auto}
+    #roleDistributionChart,
+    #processingOpsQueue,
+    #blockedReasonList,
+    #enemyIntelChart,
+    #enemyOutpostList,
+    #climateWarningList,
+    #outpostOpsList,
+    #buildablesList,
+    #roster,
+    #chronicle{
+      height:220px;
+      min-height:220px;
+      max-height:220px;
+      overflow:auto;
+    }
     #mapInspector,#pauseSummary,#artifactInspector,#debugJson{height:220px}
     #randomizationSummary{min-height:88px}
 
     @media (max-width: 800px){
       .hud{left:.45rem; right:.45rem; top:.45rem}
       .stats{min-width:280px; grid-template-columns:repeat(2, minmax(0, 1fr))}
+      .mgmt-grid{grid-template-columns:repeat(2, minmax(0, 1fr))}
       .map-controls{left:.45rem; bottom:.45rem; width:calc(100vw - .9rem)}
       .map-tools{grid-template-columns:1fr 1fr}
       .panel-grid,.panel-grid-3{grid-template-columns:repeat(2,minmax(0,1fr))}
+      .goblin-detail,.wildlife-detail{left:.45rem; top:3.7rem; width:calc(100vw - .9rem); max-height:min(58vh, 520px)}
       .mini-wrap{display:none}
       .toggle-ui{right:.45rem; top:.45rem}
     }
@@ -135,6 +205,25 @@
     </section>
 
     <button id="toggleUiBtn" class="toggle-ui" type="button">Open Panels</button>
+
+    <aside id="goblinDetailPanel" class="goblin-detail" aria-live="polite">
+      <div class="goblin-detail-head">
+        <strong>Goblin Detail</strong>
+        <button id="closeGoblinDetailBtn" type="button">Close</button>
+      </div>
+      <div id="goblinDetailContent" class="goblin-detail-body">
+        <div class="muted">Select a goblin from roster/map to inspect stats.</div>
+      </div>
+    </aside>
+    <aside id="wildlifeDetailPanel" class="wildlife-detail" aria-live="polite">
+      <div class="goblin-detail-head">
+        <strong>Wildlife Detail</strong>
+        <button id="closeWildlifeDetailBtn" type="button">Close</button>
+      </div>
+      <div id="wildlifeDetailContent" class="goblin-detail-body">
+        <div class="muted">Select wildlife on map to inspect stats.</div>
+      </div>
+    </aside>
 
     <section class="hud">
       <div class="block brand">
@@ -158,6 +247,24 @@
           <div class="stat"><div class="k">Wood</div><div id="woodStock" class="v">0</div></div>
           <div class="stat"><div class="k">Mushrooms</div><div id="mushroomStock" class="v">0</div></div>
         </div>
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:.5rem;margin-top:.55rem">
+          <div class="tiny">Resources</div>
+          <div style="display:flex;gap:.35rem">
+            <button id="resourceViewCompact" type="button">Compact</button>
+            <button id="resourceViewExpanded" type="button">Expanded</button>
+          </div>
+        </div>
+        <div id="resourcePanel" class="mgmt-grid" style="margin-top:.45rem" aria-live="polite"></div>
+        <div style="margin-top:.45rem;border:1px solid rgba(255,255,255,.1);border-radius:8px;padding:.45rem;background:rgba(10,16,22,.56)">
+          <div id="resourceDrilldownSummary" class="tiny">Select a resource row to inspect flow details.</div>
+          <div id="resourceDrilldownList" class="mgmt-grid" style="margin-top:.4rem"></div>
+        </div>
+        <div id="criticalNeedsDetails" class="critical-breakdown">Waiting for critical-need telemetry...</div>
+        <div id="seasonStrip" class="season-strip">
+          <div><strong id="seasonNow">Spring Day 1</strong> · <span id="weatherNow">clear (20%)</span></div>
+          <div id="forecastNow" class="forecast-row">Forecast: pending...</div>
+        </div>
+        <div id="managementIndicators" class="mgmt-grid" aria-live="polite"></div>
       </div>
     </section>
 
@@ -176,6 +283,7 @@
         <button id="snapTrackedGoblin" type="button">Snap To Tracked</button>
         <button id="toggleWildlifeLayer" type="button">Hide Wildlife</button>
         <button id="toggleThreatOverlay" type="button">Hide Threat Overlay</button>
+        <button id="cycleOutpost" type="button">Cycle Outpost</button>
         <button id="resetCamera" type="button">Reset Camera</button>
         <button id="setStartSite" type="button">Set Start Site</button>
       </div>
@@ -206,6 +314,7 @@
             <button id="simSpeed4" type="button">4x</button>
             <button id="simSpeed8" type="button">8x</button>
             <button id="simSpeed16" type="button">16x</button>
+            <button id="simSpeed32" type="button">32x</button>
           </div>
           <div class="panel-grid-3">
             <button id="jumpToStartSite" type="button">Jump Start Site</button>
@@ -248,6 +357,7 @@
             <label><span>Show resources</span><input id="layerResources" type="checkbox" checked /></label>
             <label><span>Show homes</span><input id="layerHomes" type="checkbox" checked /></label>
             <label><span>Show walls</span><input id="layerWalls" type="checkbox" checked /></label>
+            <label><span>Show enemy outposts</span><input id="layerEnemyOutposts" type="checkbox" checked /></label>
             <label><span>Show sites</span><input id="layerSites" type="checkbox" checked /></label>
             <label><span>Show goblins</span><input id="layerGoblins" type="checkbox" checked /></label>
           </div>
@@ -266,6 +376,29 @@
             <label><span>Wall penalty scale</span><input id="tuneWallPenaltyScale" type="number" min="0" max="2" step="0.1" value="1" /></label>
           </div>
           <div class="toggle-list">
+            <label><span>Balance presets</span>
+              <span style="display:inline-flex;gap:.25rem">
+                <button id="balancePresetRelaxed" type="button">Relaxed</button>
+                <button id="balancePresetStandard" type="button">Standard</button>
+                <button id="balancePresetHarsh" type="button">Harsh</button>
+              </span>
+            </label>
+            <label><span>Global need decay</span><input id="balGlobalDecayMul" type="number" min="0.05" max="5" step="0.05" value="1" /></label>
+            <label><span>Hunger decay</span><input id="balHungerDecayMul" type="number" min="0.05" max="5" step="0.05" value="1" /></label>
+            <label><span>Thirst decay</span><input id="balThirstDecayMul" type="number" min="0.05" max="5" step="0.05" value="1" /></label>
+            <label><span>Rest decay</span><input id="balRestDecayMul" type="number" min="0.05" max="5" step="0.05" value="0.2" /></label>
+            <label><span>Warmth decay</span><input id="balWarmthDecayMul" type="number" min="0.05" max="5" step="0.05" value="1" /></label>
+            <label><span>Food consumption</span><input id="balFoodConsumptionMul" type="number" min="0.05" max="5" step="0.05" value="1" /></label>
+            <label><span>Water consumption</span><input id="balWaterConsumptionMul" type="number" min="0.05" max="5" step="0.05" value="1" /></label>
+            <label><span>Resource gain</span><input id="balResourceGainMul" type="number" min="0.1" max="20" step="0.1" value="5" /></label>
+            <label><span>Hunger shortage pressure</span><input id="balHungerShortageMul" type="number" min="0.05" max="5" step="0.05" value="1" /></label>
+            <label><span>Thirst shortage pressure</span><input id="balThirstShortageMul" type="number" min="0.05" max="5" step="0.05" value="1" /></label>
+            <label><span>Hunger relief</span><input id="balHungerReliefMul" type="number" min="0.05" max="5" step="0.05" value="1" /></label>
+            <label><span>Thirst relief</span><input id="balThirstReliefMul" type="number" min="0.05" max="5" step="0.05" value="1" /></label>
+            <label><span>Warmth gain (fire)</span><input id="balWarmthGainMul" type="number" min="0.05" max="5" step="0.05" value="1" /></label>
+            <label><span>Warmth loss (no fire)</span><input id="balWarmthLossMul" type="number" min="0.05" max="5" step="0.05" value="1" /></label>
+          </div>
+          <div class="toggle-list">
             <label><span>Reproduction enabled</span><input id="reproEnabled" type="checkbox" checked /></label>
             <label><span>Repro cooldown ticks</span><input id="reproCooldownTicks" type="number" min="10" max="1000" step="5" value="120" /></label>
             <label><span>Pair duration ticks</span><input id="reproPairDurationTicks" type="number" min="2" max="120" step="1" value="10" /></label>
@@ -275,6 +408,15 @@
             <label><span>Min walls for safety</span><input id="reproMinWallsForSafety" type="number" min="0" max="200" step="1" value="10" /></label>
             <label><span>Wall protection threshold</span><input id="reproMinWallProtectionScore" type="number" min="0" max="1" step="0.05" value="0.45" /></label>
           </div>
+          <div class="toggle-list">
+            <label><span>Climate scarcity tuning</span><span class="tiny">Live overrides</span></label>
+            <label><span>Spoilage multiplier</span><input id="csSpoilageGlobalMul" type="number" min="0.2" max="2.5" step="0.05" value="1" /></label>
+            <label><span>Spoilage max rate</span><input id="csSpoilageMaxRate" type="number" min="0.01" max="0.25" step="0.005" value="0.06" /></label>
+            <label><span>Rationing consumption</span><input id="csRationingConsumptionMul" type="number" min="0.7" max="1" step="0.01" value="0.93" /></label>
+            <label><span>Low stock days</span><input id="csRationingLowStockDays" type="number" min="1" max="10" step="1" value="3" /></label>
+            <label><span>Forecast window days</span><input id="csRationingForecastWindowDays" type="number" min="1" max="7" step="1" value="2" /></label>
+            <label><span>Trigger on moderate risk</span><input id="csRationingModerateRisk" type="checkbox" /></label>
+          </div>
         </article>
 
         <article class="card">
@@ -282,6 +424,52 @@
           <div class="muted">Region/site detail + start candidate scores.</div>
           <div id="randomizationSummary" class="muted" style="border:1px solid rgba(58,214,143,.22);border-radius:9px;background:rgba(58,214,143,.08);padding:.45rem .55rem;font-size:.8rem;line-height:1.4"></div>
           <pre id="mapInspector"></pre>
+        </article>
+
+        <article class="card">
+          <h2>Role Distribution</h2>
+          <div class="muted">Current workforce split by active role.</div>
+          <div id="roleDistributionSummary" class="tiny">No active role data.</div>
+          <div id="roleDistributionChart" class="role-chart"></div>
+        </article>
+
+        <article class="card">
+          <h2>Processing Ops</h2>
+          <div class="muted">Recipe queue progress and why work is blocked.</div>
+          <div id="processingOpsSummary" class="tiny">No processing tasks queued.</div>
+          <div id="processingOpsQueue" class="role-chart"></div>
+          <div id="blockedReasonSummary" class="tiny">No blocked reasons.</div>
+          <div id="blockedReasonList" class="role-chart"></div>
+        </article>
+
+        <article class="card">
+          <h2>Enemy Intel</h2>
+          <div class="muted">Live hostile counts and enemy outpost pressure.</div>
+          <div id="enemyIntelSummary" class="tiny">No active hostile units detected.</div>
+          <div id="enemyIntelChart" class="role-chart"></div>
+          <div id="enemyOutpostSummary" class="tiny">Outposts: none tracked.</div>
+          <div id="enemyOutpostList" class="role-chart"></div>
+        </article>
+
+        <article class="card">
+          <h2>Climate Warnings</h2>
+          <div class="muted">Forecast and route disruption warnings with focus jumps.</div>
+          <div id="climateWarningSummary" class="tiny">No active climate warnings.</div>
+          <div id="climateWarningList" class="role-chart"></div>
+        </article>
+
+        <article class="card">
+          <h2>Outpost Command</h2>
+          <div class="muted">Lifecycle status, staffing pressure, and reinforcement priority per outpost.</div>
+          <div id="outpostOpsSummary" class="tiny">No known outposts.</div>
+          <div id="outpostOpsList" class="role-chart"></div>
+        </article>
+
+        <article class="card">
+          <h2>Buildables</h2>
+          <div class="muted">Live counts and status for all player-built structures.</div>
+          <div id="buildablesSummary" class="tiny">No buildable telemetry yet.</div>
+          <div id="buildablesList" class="role-chart"></div>
         </article>
 
         <article class="card">
@@ -345,6 +533,6 @@
     </aside>
   </main>
 
-  <script type="module" src="goblin-sim/index.js"></script>
+  <script type="module" src="goblin-sim/index.js?v=20260219b"></script>
 </body>
 </html>

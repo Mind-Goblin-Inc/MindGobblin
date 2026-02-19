@@ -356,6 +356,143 @@ def ogre_sprite():
     return s
 
 
+def spring_turret_sprite():
+    s = make_sprite()
+    rect(s, 4, 10, 8, 3, 5)
+    rect(s, 7, 7, 2, 4, 6)
+    rect(s, 8, 5, 5, 2, 6)
+    put(s, 13, 5, 9)
+    put(s, 6, 11, 10)
+    put(s, 9, 11, 10)
+    # spring coil accent
+    for x in range(5, 11):
+        put(s, x, 9 + (x % 2), 13)
+    return s
+
+
+def spike_trap_sprite():
+    s = make_sprite()
+    rect(s, 3, 11, 10, 2, 4)
+    for i in range(5):
+        put(s, 4 + i * 2, 10, 6)
+        put(s, 4 + i * 2, 9, 7)
+    put(s, 3, 12, 5)
+    put(s, 12, 12, 5)
+    return s
+
+
+def snare_line_sprite():
+    s = make_sprite()
+    rect(s, 4, 11, 8, 1, 4)
+    for x in range(4, 12):
+        if x % 2 == 0:
+            put(s, x, 10, 6)
+    circle(s, 10, 8, 2, 6)
+    put(s, 10, 8, 0)
+    put(s, 5, 8, 11)
+    put(s, 5, 9, 11)
+    put(s, 5, 10, 11)
+    return s
+
+
+def watchtower_sprite():
+    s = make_sprite()
+    rect(s, 6, 4, 4, 2, 6)
+    rect(s, 5, 6, 6, 2, 5)
+    rect(s, 6, 8, 1, 6, 4)
+    rect(s, 9, 8, 1, 6, 4)
+    rect(s, 7, 9, 2, 1, 5)
+    put(s, 7, 5, 8)
+    put(s, 8, 5, 8)
+    put(s, 5, 8, 6)
+    put(s, 10, 8, 6)
+    return s
+
+
+def alarm_gong_sprite():
+    s = make_sprite()
+    rect(s, 4, 4, 8, 1, 6)
+    rect(s, 5, 5, 1, 8, 4)
+    rect(s, 10, 5, 1, 8, 4)
+    circle(s, 8, 8, 3, 9)
+    put(s, 8, 8, 10)
+    rect(s, 2, 9, 2, 1, 6)
+    put(s, 3, 8, 5)
+    return s
+
+
+def workshop_bench_sprite():
+    s = make_sprite()
+    rect(s, 4, 8, 8, 2, 4)
+    rect(s, 5, 10, 1, 4, 5)
+    rect(s, 10, 10, 1, 4, 5)
+    # anvil/tool silhouette
+    rect(s, 6, 6, 4, 1, 6)
+    rect(s, 7, 5, 2, 1, 6)
+    put(s, 9, 6, 10)
+    put(s, 10, 5, 10)
+    return s
+
+
+def cistern_pump_sprite():
+    s = make_sprite()
+    circle(s, 8, 9, 4, 12)
+    circle(s, 8, 9, 3, 1)
+    rect(s, 7, 4, 2, 3, 6)
+    rect(s, 9, 4, 3, 1, 6)
+    put(s, 12, 4, 7)
+    put(s, 8, 9, 7)
+    return s
+
+
+def smokehouse_sprite():
+    s = make_sprite()
+    rect(s, 4, 7, 8, 6, 4)
+    rect(s, 6, 5, 4, 2, 5)
+    rect(s, 7, 9, 2, 4, 1)
+    put(s, 8, 4, 6)
+    put(s, 9, 3, 13)
+    put(s, 10, 2, 13)
+    return s
+
+
+def medic_hut_sprite():
+    s = make_sprite()
+    rect(s, 4, 7, 8, 6, 3)
+    rect(s, 6, 5, 4, 2, 5)
+    rect(s, 7, 9, 2, 4, 1)
+    rect(s, 7, 7, 2, 4, 7)
+    rect(s, 6, 8, 4, 2, 7)
+    return s
+
+
+def signal_beacon_sprite():
+    s = make_sprite()
+    rect(s, 7, 7, 2, 7, 4)
+    put(s, 8, 6, 6)
+    put(s, 8, 5, 9)
+    put(s, 7, 4, 10)
+    put(s, 9, 4, 10)
+    # signal rays
+    put(s, 6, 3, 7)
+    put(s, 10, 3, 7)
+    put(s, 5, 2, 6)
+    put(s, 11, 2, 6)
+    return s
+
+
+def gatehouse_mechanism_sprite():
+    s = make_sprite()
+    rect(s, 3, 9, 10, 4, 5)
+    rect(s, 5, 7, 6, 2, 6)
+    rect(s, 7, 10, 2, 3, 1)
+    circle(s, 5, 11, 2, 6)
+    circle(s, 11, 11, 2, 6)
+    put(s, 5, 11, 1)
+    put(s, 11, 11, 1)
+    return s
+
+
 def water_tile():
     s = make_sprite(fill=12)
     # wave bands
@@ -493,6 +630,17 @@ def make_sprites_pack():
         "human_raider": human_raider_sprite(),
         "elf_ranger": elf_ranger_sprite(),
         "ogre": ogre_sprite(),
+        "spring_turret": spring_turret_sprite(),
+        "spike_trap": spike_trap_sprite(),
+        "snare_line": snare_line_sprite(),
+        "watchtower": watchtower_sprite(),
+        "alarm_gong": alarm_gong_sprite(),
+        "workshop_bench": workshop_bench_sprite(),
+        "cistern_pump": cistern_pump_sprite(),
+        "smokehouse": smokehouse_sprite(),
+        "medic_hut": medic_hut_sprite(),
+        "signal_beacon": signal_beacon_sprite(),
+        "gatehouse_mechanism": gatehouse_mechanism_sprite(),
         "water_tile": water_tile(),
         "grass_tile": grass_tile(),
         "grass_tile_2": grass_tile_variant(2),

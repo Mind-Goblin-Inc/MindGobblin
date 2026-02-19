@@ -2,6 +2,7 @@ import {
   goblinNeedDecaySystem,
   goblinMoodTransitionSystem,
   goblinMemorySystem,
+  resourceTelemetrySystem,
   resourcePurposeSystem,
   runRelationshipDrift
 } from "./systems.js";
@@ -9,21 +10,34 @@ import { runLoreSystems } from "./lore/loreSystems.js";
 import { nextId } from "./ids.js";
 import { worldMapSimulationSystem } from "./world/mapSimulation.js";
 import { wildlifeSimulationSystem } from "./world/wildlifeSimulation.js";
+import { climateSimulationSystem } from "./world/climateSimulation.js";
+import { ensureWorldContracts } from "./world/contracts.js";
 import { validateState } from "./validation.js";
+import { leaderGovernanceSystem } from "./governance/leaderGovernance.js";
+import { factionIntentSystem } from "./factions/factionAI.js";
+import { eventTriggerSystem } from "./events/triggerEngine.js";
+import { eventLifecycleSystem } from "./events/eventLifecycle.js";
 
 const PIPELINE = [
+  ["climateSimulationSystem", climateSimulationSystem],
   ["wildlifeSimulationSystem", wildlifeSimulationSystem],
   ["worldMapSimulationSystem", worldMapSimulationSystem],
   ["resourcePurposeSystem", resourcePurposeSystem],
+  ["resourceTelemetrySystem", resourceTelemetrySystem],
   ["goblinNeedDecaySystem", goblinNeedDecaySystem],
   ["goblinMoodTransitionSystem", goblinMoodTransitionSystem],
   ["goblinMemorySystem", goblinMemorySystem],
-  ["relationshipDriftSystem", runRelationshipDrift]
+  ["relationshipDriftSystem", runRelationshipDrift],
+  ["leaderGovernanceSystem", leaderGovernanceSystem],
+  ["factionIntentSystem", factionIntentSystem],
+  ["eventTriggerSystem", eventTriggerSystem],
+  ["eventLifecycleSystem", eventLifecycleSystem]
 ];
 
 export function tick(state) {
   state.meta.tick += 1;
   state.meta.simTimeMs += 1000;
+  ensureWorldContracts(state);
 
   const allEvents = [];
   state.debug.lastSystemOrder = [];
@@ -74,6 +88,16 @@ function writeChronicle(state, event) {
   if (event.type === "WILDLIFE_ATTACKED_GOBLIN") text = event.text || text;
   if (event.type === "GOBLIN_INJURED_BY_WILDLIFE") text = event.text || text;
   if (event.type === "GOBLIN_KILLED_BY_WILDLIFE") text = event.text || text;
+  if (event.type === "LEADER_CONFIDENCE_CHANGED") {
+    const leader = event.leaderGoblinId ? state.goblins.byId?.[event.leaderGoblinId] : null;
+    const name = leader?.identity?.name || event.leaderGoblinId || "Leader";
+    text = `${name} confidence ${Number(event.before || 0).toFixed(2)} -> ${Number(event.after || 0).toFixed(2)} (${event.trend || "stable"}).`;
+  }
+  if (event.type === "LEADER_LEARNING_EPISODE_RECORDED") {
+    const leader = event.leaderGoblinId ? state.goblins.byId?.[event.leaderGoblinId] : null;
+    const name = leader?.identity?.name || event.leaderGoblinId || "Leader";
+    text = `${name} prioritized ${event.topDomain || "food"} (${Number(event.topWeight || 0).toFixed(1)}).`;
+  }
 
   state.chronicle.push({
     id: nextId(state, "chron"),

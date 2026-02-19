@@ -1,4 +1,4 @@
-import { MOOD_STATES, NEED_KEYS } from "./constants.js";
+import { CLIMATE_SEASON_KEYS, CLIMATE_WEATHER_KEYS, MOOD_STATES, NEED_KEYS } from "./constants.js";
 import { canonicalEdgeKey } from "./ids.js";
 import { TILES_PER_CHUNK, tileKey } from "./world/scale.js";
 
@@ -60,7 +60,70 @@ export function validateState(state) {
     if (edge.causeEntryId === edge.effectEntryId) warnings.push(`Causality self-loop: ${edge.id}`);
   }
 
+  const governance = state.tribe?.governance || null;
+  if (governance) {
+    const leaderId = governance.leaderGoblinId || null;
+    if (leaderId && !state.goblins.byId?.[leaderId]) {
+      warnings.push(`Governance leader missing goblin: ${leaderId}`);
+    }
+    if (leaderId) {
+      const leader = state.goblins.byId?.[leaderId];
+      if (!leader?.flags?.alive || leader?.flags?.missing) {
+        warnings.push(`Governance leader unavailable: ${leaderId}`);
+      }
+    }
+    const rec = governance.recommendations || {};
+    const reserveFloors = rec.reserveFloors || {};
+    for (const key of ["ammo_bolts", "metal_parts", "springs", "wood_planks"]) {
+      if (!Number.isFinite(reserveFloors[key]) || reserveFloors[key] < 0) {
+        warnings.push(`Governance reserve floor invalid: ${key}=${reserveFloors[key]}`);
+      }
+    }
+  }
+
   const wm = state.worldMap;
+  const world = state.world;
+  if (world) {
+    const season = world.season || {};
+    const weather = world.weather || {};
+    if (!CLIMATE_SEASON_KEYS.includes(String(season.key || ""))) {
+      warnings.push(`Invalid climate season key: ${String(season.key)}`);
+    }
+    if (!Number.isFinite(season.year) || season.year < 1) {
+      warnings.push(`Invalid climate season year: ${season.year}`);
+    }
+    if (!Number.isFinite(season.daysPerSeason) || season.daysPerSeason < 1) {
+      warnings.push(`Invalid climate daysPerSeason: ${season.daysPerSeason}`);
+    }
+    if (!Number.isFinite(season.dayOfSeason) || season.dayOfSeason < 1 || season.dayOfSeason > season.daysPerSeason) {
+      warnings.push(`Invalid climate dayOfSeason: ${season.dayOfSeason}/${season.daysPerSeason}`);
+    }
+    const currentWeather = String(weather.current || weather.type || "");
+    if (!CLIMATE_WEATHER_KEYS.includes(currentWeather)) {
+      warnings.push(`Invalid climate weather key: ${currentWeather}`);
+    }
+    if (!Number.isFinite(weather.intensity) || Number(weather.intensity) < 0 || Number(weather.intensity) > 1) {
+      warnings.push(`Invalid climate weather intensity: ${weather.intensity}`);
+    }
+    const forecast = world.forecast?.next7Days;
+    if (!Array.isArray(forecast)) warnings.push("Climate forecast missing next7Days.");
+    else {
+      for (const row of forecast) {
+        if (!CLIMATE_SEASON_KEYS.includes(String(row?.season || ""))) warnings.push(`Climate forecast invalid season: ${row?.season}`);
+        if (!CLIMATE_WEATHER_KEYS.includes(String(row?.likelyWeather || ""))) warnings.push(`Climate forecast invalid weather: ${row?.likelyWeather}`);
+        if (!Number.isFinite(row?.confidence) || row.confidence < 0 || row.confidence > 1) warnings.push(`Climate forecast invalid confidence: ${row?.confidence}`);
+      }
+    }
+    const global = world.climateModifiers?.global;
+    if (!global || typeof global !== "object") warnings.push("Climate modifiers global missing.");
+    else {
+      const keys = ["foodYieldMul", "woodYieldMul", "hazardMul", "travelMul", "thirstPressureMul", "warmthPressureMul"];
+      for (const k of keys) {
+        const v = Number(global[k]);
+        if (!Number.isFinite(v) || v <= 0 || v > 3) warnings.push(`Climate modifier invalid: ${k}=${global[k]}`);
+      }
+    }
+  }
   if (wm) {
     for (const [siteId, site] of Object.entries(wm.sitesById)) {
       if (!wm.regionsById[site.regionId]) warnings.push(`Site references invalid region: ${siteId} -> ${site.regionId}`);
@@ -69,6 +132,12 @@ export function validateState(state) {
     for (const [routeId, route] of Object.entries(wm.routesById)) {
       if (!wm.sitesById[route.fromSiteId]) warnings.push(`Route invalid fromSiteId: ${routeId}`);
       if (!wm.sitesById[route.toSiteId]) warnings.push(`Route invalid toSiteId: ${routeId}`);
+    }
+    for (const [routeId, rp] of Object.entries(wm.routePressureByRouteId || {})) {
+      if (!wm.routesById?.[routeId]) warnings.push(`Route pressure references missing route: ${routeId}`);
+      if (!Number.isFinite(rp?.climateRisk) || rp.climateRisk < 0) warnings.push(`Route pressure invalid climateRisk: ${routeId}`);
+      if (!Number.isFinite(rp?.reliability) || rp.reliability < 0 || rp.reliability > 1) warnings.push(`Route pressure invalid reliability: ${routeId}`);
+      if (!Number.isFinite(rp?.travelMul) || rp.travelMul <= 0) warnings.push(`Route pressure invalid travelMul: ${routeId}`);
     }
 
     for (let y = 0; y < wm.regionGrid.length; y += 1) {
@@ -140,8 +209,55 @@ export function validateState(state) {
       }
     }
 
-    const wallPlan = wm.structures?.wallPlan;
-    if (wallPlan) {
+    for (const [key, outpost] of Object.entries(wm.structures?.enemyOutpostsByTileKey || {})) {
+      const microX = Number.isFinite(outpost.microX)
+        ? outpost.microX
+        : Number.isFinite(outpost.tileX)
+          ? outpost.tileX * TILES_PER_CHUNK + Math.floor(TILES_PER_CHUNK / 2)
+          : null;
+      const microY = Number.isFinite(outpost.microY)
+        ? outpost.microY
+        : Number.isFinite(outpost.tileY)
+          ? outpost.tileY * TILES_PER_CHUNK + Math.floor(TILES_PER_CHUNK / 2)
+          : null;
+      if (microX === null || microY === null) {
+        warnings.push(`Enemy outpost missing coordinates: ${key}`);
+        continue;
+      }
+      const expectedKey = tileKey(microX, microY);
+      if (key !== expectedKey) warnings.push(`Enemy outpost key mismatch: ${key} != ${expectedKey}`);
+      if (microX < 0 || microY < 0 || microX >= wm.width * TILES_PER_CHUNK || microY >= wm.height * TILES_PER_CHUNK) {
+        warnings.push(`Enemy outpost out of bounds: ${key}`);
+      }
+      const status = String(outpost.status || "active");
+      if (status !== "active" && status !== "dormant" && status !== "destroyed" && status !== "hidden") {
+        warnings.push(`Enemy outpost invalid status: ${key}:${status}`);
+      }
+      const kind = String(outpost.kind || outpost.type || "warcamp");
+      if (
+        kind !== "warcamp" &&
+        kind !== "raider-camp" &&
+        kind !== "ritual-circle" &&
+        kind !== "watch-lodge" &&
+        kind !== "siege-den" &&
+        kind !== "barbarian-band" &&
+        kind !== "wolf-pack"
+      ) {
+        warnings.push(`Enemy outpost unknown kind: ${key}:${kind}`);
+      }
+      if (!Number.isFinite(outpost.strength) || Number(outpost.strength) < 0) {
+        warnings.push(`Enemy outpost invalid strength: ${key}:${outpost.strength}`);
+      }
+      if (outpost.originPackId && !wm.wildlife?.packsById?.[outpost.originPackId]) {
+        warnings.push(`Enemy outpost missing origin pack: ${key}:${outpost.originPackId}`);
+      }
+    }
+
+    const wallPlansBySiteId = wm.structures?.wallPlansBySiteId || {};
+    const plans = Object.values(wallPlansBySiteId);
+    if (!plans.length && wm.structures?.wallPlan) plans.push(wm.structures.wallPlan);
+    for (const wallPlan of plans) {
+      if (!wallPlan) continue;
       if (wallPlan.homeSiteId && !wm.sitesById[wallPlan.homeSiteId]) {
         warnings.push(`Wall plan invalid homeSiteId: ${wallPlan.homeSiteId}`);
       }
@@ -158,6 +274,17 @@ export function validateState(state) {
     }
 
     if (wm.wildlife) {
+      const raceCfg = wm.wildlife.raceRuntimeConfigByKind;
+      if (!raceCfg || typeof raceCfg !== "object") {
+        warnings.push("Wildlife race runtime config missing.");
+      } else {
+        if (!raceCfg.wolf) warnings.push("Wildlife race config missing wolf.");
+        if (!raceCfg.barbarian) warnings.push("Wildlife race config missing barbarian.");
+        if (!raceCfg.ogre) warnings.push("Wildlife race config missing ogre.");
+        if (!raceCfg.shaman) warnings.push("Wildlife race config missing shaman.");
+        if (!raceCfg.elf_ranger) warnings.push("Wildlife race config missing elf_ranger.");
+      }
+
       for (const id of wm.wildlife.allIds || []) {
         if (!wm.wildlife.byId?.[id]) warnings.push(`Wildlife allIds references missing object: ${id}`);
       }
@@ -167,7 +294,15 @@ export function validateState(state) {
           warnings.push(`Wildlife byId entry is empty: ${id}`);
           continue;
         }
-        if ((creature.kind === "wolf" || creature.kind === "barbarian") && creature.huntState?.targetGoblinId) {
+        if (
+          (creature.kind === "wolf"
+            || creature.kind === "barbarian"
+            || creature.kind === "human_raider"
+            || creature.kind === "ogre"
+            || creature.kind === "shaman"
+            || creature.kind === "elf_ranger")
+          && creature.huntState?.targetGoblinId
+        ) {
           const targetId = creature.huntState.targetGoblinId;
           const targetGoblin = state.goblins.byId?.[targetId];
           if (!targetGoblin || !targetGoblin.flags?.alive || targetGoblin.flags?.missing) {

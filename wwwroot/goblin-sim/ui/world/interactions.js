@@ -76,11 +76,21 @@ export function bindWorldInteractions(state, els, actions) {
   canvas.addEventListener("click", (e) => {
     const pick = pickCellFromCanvas(state, canvas, e.clientX, e.clientY);
     if (!pick) return;
+    if (pick.goblinId) {
+      state.debug.selectedGoblinId = pick.goblinId;
+      state.debug.trackedGoblinId = pick.goblinId;
+      state.debug.selectedWildlifeId = null;
+      state.debug.trackedWildlifeId = null;
+      if (els.goblinDetailPanel) els.goblinDetailPanel.classList.add("open");
+      actions.render();
+      return;
+    }
     if (pick.wildlifeId) {
       state.debug.selectedWildlifeId = pick.wildlifeId;
       state.debug.trackedWildlifeId = pick.wildlifeId;
       state.debug.selectedGoblinId = null;
       state.debug.trackedGoblinId = null;
+      if (els.wildlifeDetailPanel) els.wildlifeDetailPanel.classList.add("open");
       actions.render();
       return;
     }
@@ -123,10 +133,16 @@ export function bindWorldInteractions(state, els, actions) {
       unit.homeTileX = unit.tileX;
       unit.homeTileY = unit.tileY;
       unit.homeSiteId = selected;
+      unit.home = unit.home || {};
+      unit.home.outpostId = "outpost-start";
+      unit.home.microX = unit.homeMicroX;
+      unit.home.microY = unit.homeMicroY;
+      unit.home.claimedAtTick = state.meta?.tick || 0;
+      unit.home.status = "resident";
       const goblin = state.goblins.byId[unit.goblinId];
       if (goblin) {
         goblin.modData = goblin.modData || {};
-        goblin.modData.home = { tileX: unit.homeTileX, tileY: unit.homeTileY, siteId: selected };
+        goblin.modData.home = { outpostId: "outpost-start", tileX: unit.homeTileX, tileY: unit.homeTileY, siteId: selected };
       }
     }
     for (const goblinId of state.goblins.allIds) {
