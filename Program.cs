@@ -5,6 +5,7 @@ using System.Text.Json;
 using System.Text;
 using Microsoft.AspNetCore.WebUtilities; // for QueryHelpers
 using Microsoft.AspNetCore.HttpOverrides;
+using Microsoft.AspNetCore.StaticFiles;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using MindGoblin.Hubs;
@@ -135,9 +136,38 @@ app.UseForwardedHeaders(new ForwardedHeadersOptions {
     ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto
 });
 
+var staticContentTypes = new FileExtensionContentTypeProvider();
+staticContentTypes.Mappings[".br"] = "application/octet-stream";
+
 app.UseCors();
 app.UseDefaultFiles();
-app.UseStaticFiles();
+app.UseStaticFiles(new StaticFileOptions
+{
+    ContentTypeProvider = staticContentTypes,
+    OnPrepareResponse = ctx =>
+    {
+        var path = ctx.File.PhysicalPath ?? ctx.Context.Request.Path.Value ?? string.Empty;
+        if (!path.EndsWith(".br", StringComparison.OrdinalIgnoreCase))
+        {
+            return;
+        }
+
+        ctx.Context.Response.Headers["Content-Encoding"] = "br";
+
+        if (path.EndsWith(".js.br", StringComparison.OrdinalIgnoreCase))
+        {
+            ctx.Context.Response.ContentType = "application/javascript";
+        }
+        else if (path.EndsWith(".wasm.br", StringComparison.OrdinalIgnoreCase))
+        {
+            ctx.Context.Response.ContentType = "application/wasm";
+        }
+        else if (path.EndsWith(".data.br", StringComparison.OrdinalIgnoreCase))
+        {
+            ctx.Context.Response.ContentType = "application/octet-stream";
+        }
+    }
+});
 app.UseSession();
 
 // tiny request logger
