@@ -21,7 +21,6 @@
       <div id="unity-fullscreen-button" aria-label="Fullscreen"></div>
     </div>
     <script>
-      var unityContainer = document.querySelector("#unity-container");
       var canvas = document.querySelector("#unity-canvas");
 
       // Shows a temporary message banner/ribbon for a few seconds, or
@@ -85,34 +84,22 @@
       // JS_FileSystem_Sync() behavior, but in future Unity version, this will be
       // expected to change.
 
-      function applyViewportSize() {
-        var viewport = window.visualViewport || window;
-        var width = Math.round(viewport.width || window.innerWidth || document.documentElement.clientWidth || 960);
-        var height = Math.round(viewport.height || window.innerHeight || document.documentElement.clientHeight || 600);
-
-        document.documentElement.style.setProperty("--app-width", width + "px");
-        document.documentElement.style.setProperty("--app-height", height + "px");
-
-        unityContainer.style.width = width + "px";
-        unityContainer.style.height = height + "px";
-        canvas.style.width = width + "px";
-        canvas.style.height = height + "px";
-      }
-
       if (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
         // Mobile device style: fill the whole browser client area with the game canvas:
 
-        unityContainer.className = "unity-mobile";
+        document.querySelector("#unity-container").className = "unity-mobile";
         canvas.className = "unity-mobile";
+
+        // To lower canvas resolution on mobile devices to gain some
+        // performance, uncomment the following line:
+        // config.devicePixelRatio = 1;
+
+
       } else {
         // Desktop style: Fill the browser viewport with the game canvas.
-        unityContainer.className = "unity-desktop";
-      }
-
-      applyViewportSize();
-      window.addEventListener("resize", applyViewportSize);
-      if (window.visualViewport) {
-        window.visualViewport.addEventListener("resize", applyViewportSize);
+        document.querySelector("#unity-container").className = "unity-desktop";
+        canvas.style.width = "100vw";
+        canvas.style.height = "100vh";
       }
 
       document.querySelector("#unity-loading-bar").style.display = "block";
