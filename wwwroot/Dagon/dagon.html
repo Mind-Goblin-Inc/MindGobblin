@@ -89,7 +89,6 @@
         var viewport = window.visualViewport || window;
         var width = Math.round(viewport.width || window.innerWidth || document.documentElement.clientWidth || 960);
         var height = Math.round(viewport.height || window.innerHeight || document.documentElement.clientHeight || 600);
-        var pixelRatio = window.devicePixelRatio || 1;
 
         document.documentElement.style.setProperty("--app-width", width + "px");
         document.documentElement.style.setProperty("--app-height", height + "px");
@@ -98,8 +97,6 @@
         unityContainer.style.height = height + "px";
         canvas.style.width = width + "px";
         canvas.style.height = height + "px";
-        canvas.width = Math.round(width * pixelRatio);
-        canvas.height = Math.round(height * pixelRatio);
       }
 
       if (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
