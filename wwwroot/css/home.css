@@ -14,7 +14,6 @@
   --control-border: #9ca66b;
   --featured-border: #83934e;
   --hover-border: #b4be72;
-  --note: #d0d3b2;
   --error: #f7b3a0;
   font: 16px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   scroll-padding-top: 24px;
@@ -69,7 +68,6 @@ h1, h2, h3, p { margin: 0; }
 .featured-link .project-title { font-size: 18px; }
 .featured-link .project-title > [aria-hidden="true"] { color: var(--accent); font-size: 18px; }
 .project-description { display: block; color: var(--muted); font-size: 14px; line-height: 1.55; }
-.project-note { display: block; margin-top: auto; padding-top: 4px; color: var(--note); font-size: 12px; }
 .featured-link:hover, .project-link:hover { background: var(--surface-hover); border-color: var(--hover-border); }
 .featured-link:hover .project-title, .project-link:hover .project-title { color: var(--accent); }
 .search-panel { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px 24px; flex-wrap: wrap; margin-top: 32px; padding-bottom: 24px; border-bottom: 1px solid var(--line); }
@@ -167,9 +165,7 @@ h1, h2, h3, p { margin: 0; }
   .featured-grid, .project-grid { grid-template-columns: minmax(0, 1fr); gap: 8px; }
   .featured-link { padding: 12px 14px; gap: 3px; }
   .featured-link .project-title { font-size: 16px; }
-  .featured-link .project-note { display: none; }
   .project-link { min-height: 64px; padding: 14px; gap: 4px; }
-  .project-note { padding-top: 2px; }
   .search-panel { margin-top: 24px; padding-bottom: 20px; gap: 10px; }
   .search-field { width: 100%; }
   .search-count { padding: 0; }

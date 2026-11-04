@@ -18,7 +18,7 @@ The preview requires Python 3 and uses only its standard library. It binds to th
 
 **What to try**
 
-- Browse all 32 projects, organized into Games, Simulations, Tools & oddities, and In progress. Tiles show names and emojis with useful control notes; descriptive and promotional copy has been removed.
+- Browse all 32 projects, organized into Games, Simulations, Tools & oddities, and In progress. Homepage tiles show only names and emojis; all descriptions and secondary notes have been removed.
 - Open About from the footer for clickable game-credit tiles: Wordle by John; Tetris, Tong’s Patty, and both Pong games by Tong; Bears 2048 by Keira. Game emojis are shown consistently in the catalogue, Featured section, and credits.
 - Use the category links and search. Try `pong`, `goblin`, or a name with no match, then clear the search.
 - Resize the browser to a phone width. The header, catalogue, and account controls should wrap cleanly.

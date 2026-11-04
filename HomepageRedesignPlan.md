@@ -71,15 +71,14 @@ Use compact, left-aligned entries with a subtle border or divider and square cor
 Each entry contains:
 
 - A clear project title.
-- A control note only when it helps the visitor choose: for example, “Touch controls,” “Keyboard needed,” or “Two players.”
 
-Following the later request, remove descriptive/flavor copy from catalogue and Featured tiles, along with extra Featured and In progress section copy. Keep distinctive names such as Tong’s Tetris and useful control/status notes. Credit tiles retain their contributor bylines.
+Following the later requests, catalogue and Featured tiles show only their names and emojis. Remove all descriptions, control/status notes, and extra Featured and In progress section copy. Keep distinctive names such as Tong’s Tetris. Credit tiles retain their contributor bylines.
 
 Restore a game emoji on each catalogue, Featured, and credit tile, as subsequently requested. Keep the emoji decorative for screen readers and use the same one for a game wherever it appears.
 
 Search behavior:
 
-- Match project titles and functional notes without regard to capitalization.
+- Match project titles without regard to capitalization.
 - Filter the existing HTML entries; do not fetch results or navigate away.
 - Hide subgroup and section headings that have no matching entries.
 - Hide Featured while searching so results do not repeat.
