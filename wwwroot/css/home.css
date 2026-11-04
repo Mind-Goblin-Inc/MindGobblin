@@ -87,8 +87,19 @@ h1, h2, h3, p { margin: 0; }
 .site-footer { display: flex; align-items: center; gap: 24px; padding-block: 32px; color: var(--muted); font-size: 13px; }
 .mushroom-home { flex: 0 0 80px; border-radius: 5px; overflow: hidden; }
 .footer-title { margin-bottom: 4px; color: var(--text); font-size: 16px; font-weight: 600; }
-.site-footer p + a { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; color: var(--accent); }
+.footer-links { display: flex; flex-wrap: wrap; gap: 4px 20px; }
+.footer-links a { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; color: var(--accent); }
 .back-to-top { display: inline-flex; align-items: center; min-height: 44px; margin-left: auto; flex-shrink: 0; }
+.about-main { min-height: 55vh; }
+.about-intro { grid-template-columns: 112px minmax(0, 1fr); }
+.credits { max-width: 720px; padding-bottom: 32px; }
+.credits-table { width: 100%; border-collapse: collapse; text-align: left; }
+.credits-table th, .credits-table td { padding: 12px 16px; border-bottom: 1px solid var(--line); }
+.credits-table thead th { color: var(--muted); font-size: 13px; font-weight: 400; }
+.credits-table tbody th { font-weight: 500; }
+.credits-table a { display: inline-flex; align-items: center; min-height: 44px; color: var(--accent); }
+.credit-variants { display: flex; flex-wrap: wrap; gap: 0 16px; font-size: 13px; }
+.about-footer { border-top: 1px solid var(--line); }
 .auth-dialog { width: min(420px, calc(100% - 32px)); max-height: calc(100dvh - 32px); padding: 24px; border: 1px solid #45536a; border-radius: 8px; background: var(--surface); color: var(--text); overflow-y: auto; }
 .auth-dialog::backdrop { background: rgb(0 0 0 / 75%); }
 .dialog-heading { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 16px; }
@@ -122,6 +133,7 @@ h1, h2, h3, p { margin: 0; }
   .category-nav a { font-size: 13px; min-height: 44px; }
   .intro { grid-template-columns: 64px minmax(0, 1fr) 44px; gap: 12px; padding-block: 24px; }
   .mascot { width: 64px; }
+  .about-intro { grid-template-columns: 64px minmax(0, 1fr); }
   .bee { width: 44px; }
   .intro h1 { font-size: 26px; }
   .section-heading { margin-bottom: 12px; }
