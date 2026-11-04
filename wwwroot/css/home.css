@@ -56,8 +56,11 @@ h1, h2, h3, p { margin: 0; }
 .featured-link { display: flex; flex-direction: column; align-items: stretch; gap: 6px; padding: 18px; border: 1px solid #35483f; border-top: 2px solid var(--accent); background: var(--surface); border-radius: 0; text-decoration: none; }
 .featured-type { margin-bottom: 3px; color: var(--warm); font-size: 12px; }
 .project-title { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; color: var(--text); font-size: 16px; font-weight: 600; line-height: 1.4; overflow-wrap: anywhere; }
+.project-name { display: flex; align-items: baseline; gap: 8px; min-width: 0; }
+.project-emoji { flex-shrink: 0; font-size: 1.1em; font-weight: 400; }
+.project-name-text { min-width: 0; }
 .featured-link .project-title { font-size: 18px; }
-.featured-link .project-title > span { color: var(--accent); font-size: 18px; }
+.featured-link .project-title > [aria-hidden="true"] { color: var(--accent); font-size: 18px; }
 .project-description { display: block; color: var(--muted); font-size: 14px; line-height: 1.55; }
 .project-note { display: block; margin-top: auto; padding-top: 4px; color: #b3c4bc; font-size: 12px; }
 .featured-link:hover, .project-link:hover { background: var(--surface-hover); border-color: #5d7f73; }
@@ -92,12 +95,9 @@ h1, h2, h3, p { margin: 0; }
 .back-to-top { display: inline-flex; align-items: center; min-height: 44px; margin-left: auto; flex-shrink: 0; }
 .about-main { min-height: 55vh; }
 .about-intro { grid-template-columns: 112px minmax(0, 1fr); }
-.credits { max-width: 720px; padding-bottom: 32px; }
-.credits-table { width: 100%; border-collapse: collapse; text-align: left; }
-.credits-table th, .credits-table td { padding: 12px 16px; border-bottom: 1px solid var(--line); }
-.credits-table thead th { color: var(--muted); font-size: 13px; font-weight: 400; }
-.credits-table tbody th { font-weight: 500; }
-.credits-table a { display: inline-flex; align-items: center; min-height: 44px; color: var(--accent); }
+.credits { padding-bottom: 32px; }
+.credit-link { justify-content: center; gap: 10px; min-height: 120px; }
+.credit-author { color: var(--text); font-weight: 600; }
 .about-footer { border-top: 1px solid var(--line); }
 .auth-dialog { width: min(420px, calc(100% - 32px)); max-height: calc(100dvh - 32px); padding: 24px; border: 1px solid #45536a; border-radius: 0; background: var(--surface); color: var(--text); overflow-y: auto; }
 .auth-dialog::backdrop { background: rgb(0 0 0 / 75%); }

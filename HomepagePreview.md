@@ -19,6 +19,7 @@ The preview requires Python 3 and uses only its standard library. It binds to th
 **What to try**
 
 - Browse all 32 projects, organized into Games, Simulations, Tools & oddities, and In progress.
+- Open About from the footer for clickable game-credit tiles: Wordle by John; Tetris, Tong’s Patty, and both Pong games by Tong; Bears 2048 by Keira. Game emojis are shown consistently in the catalogue, Featured section, and credits.
 - Use the category links and search. Try `pong`, `goblin`, or a name with no match, then clear the search.
 - Resize the browser to a phone width. The header, catalogue, and account controls should wrap cleanly.
 - At desktop widths of 1,280 px and up, alternating bee and mushroom-house banners frame the page. On smaller screens, the homepage keeps those illustrations within the content so they cannot overlap game links. Entries, buttons, artwork frames, and dialogs have square corners.

@@ -76,7 +76,7 @@ Each entry contains:
 
 Example copy: “Minesweeper — Clear the board without hitting a mine.” Keep distinctive names such as Tong’s Tetris. Use consistent spelling for descriptive labels without renaming files.
 
-Use at most one restrained emoji for a subgroup if it improves recognition. The existing mascot and illustrations already carry the visual identity.
+Restore a game emoji on each catalogue, Featured, and credit tile, as subsequently requested. Keep the emoji decorative for screen readers and use the same one for a game wherever it appears.
 
 Search behavior:
 
