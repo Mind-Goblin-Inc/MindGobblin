@@ -3,6 +3,8 @@ using System.Security.Cryptography;
 using System.Text.Json.Serialization;
 using System.Text.Json;
 using System.Text;
+using System.Globalization;
+using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.WebUtilities; // for QueryHelpers
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.StaticFiles;
@@ -61,9 +63,38 @@ builder.Services.AddSession(o =>
     o.Cookie.Name = "mg_sess";
     o.Cookie.HttpOnly = true;
     o.Cookie.SameSite = SameSiteMode.Lax;
-    o.Cookie.SecurePolicy = CookieSecurePolicy.None; // HTTP ok in dev
+    o.Cookie.SecurePolicy = builder.Environment.IsDevelopment()
+        ? CookieSecurePolicy.SameAsRequest
+        : CookieSecurePolicy.Always;
     o.Cookie.IsEssential = true;
     o.IdleTimeout = TimeSpan.FromHours(8);
+});
+
+// Limit password guesses before the login handler queries the DB or hashes a password.
+builder.Services.AddRateLimiter(options =>
+{
+    options.AddPolicy("login", ctx => RateLimitPartition.GetFixedWindowLimiter(
+        partitionKey: ctx.Connection.RemoteIpAddress?.MapToIPv6().ToString() ?? "unknown",
+        factory: _ => new FixedWindowRateLimiterOptions
+        {
+            PermitLimit = 10,
+            Window = TimeSpan.FromMinutes(1),
+            QueueLimit = 0,
+            AutoReplenishment = true
+        }));
+    options.OnRejected = async (context, cancellationToken) =>
+    {
+        var response = context.HttpContext.Response;
+        response.StatusCode = StatusCodes.Status429TooManyRequests;
+        if (context.Lease.TryGetMetadata(MetadataName.RetryAfter, out var retryAfter))
+        {
+            response.Headers.RetryAfter = Math.Max(1, (int)Math.Ceiling(retryAfter.TotalSeconds))
+                .ToString(CultureInfo.InvariantCulture);
+        }
+        await response.WriteAsJsonAsync(
+            new { error = "Too many login attempts. Please wait a minute and try again." },
+            cancellationToken);
+    };
 });
 
 // ---- HttpClient(s) for Spotify ----
@@ -132,14 +163,22 @@ using (var scope = app.Services.CreateScope())
     db.Database.Migrate(); // applies all pending migrations
 }
 
-app.UseForwardedHeaders(new ForwardedHeadersOptions {
+var forwardedHeadersOptions = new ForwardedHeadersOptions {
     ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto
-});
+};
+// Trust only explicitly configured proxies in addition to the default loopback proxies.
+foreach (var proxy in builder.Configuration.GetSection("ReverseProxy:KnownProxies").Get<string[]>() ?? [])
+{
+    forwardedHeadersOptions.KnownProxies.Add(System.Net.IPAddress.Parse(proxy));
+}
+app.UseForwardedHeaders(forwardedHeadersOptions);
 
 var staticContentTypes = new FileExtensionContentTypeProvider();
 staticContentTypes.Mappings[".br"] = "application/octet-stream";
 
+app.UseRouting();
 app.UseCors();
+app.UseRateLimiter();
 app.UseDefaultFiles();
 app.UseStaticFiles(new StaticFileOptions
 {
@@ -274,6 +313,9 @@ app.MapPost("/api/auth/login", async (MindGoblinDbContext db, HttpContext ctx, A
 {
     var username = (req.Username ?? "").Trim();
     var password = req.Password ?? "";
+    if (!AuthSupport.IsValidUsername(username) || !AuthSupport.IsValidPassword(password))
+        return Results.Unauthorized();
+
     var normalized = AuthSupport.NormalizeUsername(username);
 
     var user = await db.UserAccounts.FirstOrDefaultAsync(u => u.UsernameNormalized == normalized);
@@ -289,7 +331,7 @@ app.MapPost("/api/auth/login", async (MindGoblinDbContext db, HttpContext ctx, A
     AuthSupport.SetAuthSession(ctx, user);
 
     return Results.Ok(new { ok = true, user = new { user.Id, user.Username } });
-});
+}).RequireRateLimiting("login");
 
 app.MapPost("/api/auth/logout", (HttpContext ctx) =>
 {

@@ -631,45 +631,40 @@
           const saved = await res.json(); // { Id, Player, Points }
           playerPlacement = saved.id;
         }
+        // Use text nodes so even previously saved names cannot become HTML.
+        function appendScoreRow(placement, player, points, highlighted = false) {
+          const row = document.createElement("tr");
+          if (highlighted) row.classList.add("highlight");
+          for (const value of [placement, player, points]) {
+            const cell = document.createElement("td");
+            cell.textContent = String(value ?? "");
+            row.appendChild(cell);
+          }
+          scoreRows.appendChild(row);
+        }
+
         // Fetch top10 scores
         async function loadScores() {
           const res = await fetch('/api/tetrisscores');
           const scores = await res.json();
 
-          scoreRows.innerHTML = scores
-            .map((s, i) => `<tr>
-                              <td>${i + 1}</td>
-                              <td>${s.player}</td>
-                              <td>${s.points}</td>
-                            </tr>`)
-            .join("");
+          scoreRows.replaceChildren();
+          scores.forEach((s, i) => appendScoreRow(i + 1, s.player, s.points));
         }
         // Fetch top10 scores with player highlight
         async function loadScoreshl(playerId) {
           const res = await fetch(`/api/tetrisscoreshl?playerId=${playerId}`);
           const data = await res.json();
 
-          let rows = "";
-
+          scoreRows.replaceChildren();
           data.top.forEach(s => {
-            const highlight = (s.id === playerId) ? "highlight" : "";
-            rows += `<tr class="${highlight}">
-                      <td>${s.placement}</td>
-                      <td>${s.player}</td>
-                      <td>${s.points}</td>
-                    </tr>`;
+            appendScoreRow(s.placement, s.player, s.points, s.id === playerId);
           });
 
           if (data.player && data.player.placement > 10) {
-            rows += `<tr><td></td><td>...</td><td></td></tr>`;
-            rows += `<tr class="highlight">
-                      <td>${data.player.placement}</td>
-                      <td>${data.player.player}</td>
-                      <td>${data.player.points}</td>
-                    </tr>`;
+            appendScoreRow("", "...", "");
+            appendScoreRow(data.player.placement, data.player.player, data.player.points, true);
           }
-
-          scoreRows.innerHTML = rows;
         }
 
         // --- Helpers

@@ -162,7 +162,8 @@
         companyName: "DefaultCompany",
         productName: "Echo Rift",
         productVersion: "0.1.0",
-        showBanner: unityShowBanner
+        showBanner: unityShowBanner,
+        matchWebGLToCanvasSize: true
       };
 
       if (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
@@ -178,9 +179,41 @@
 
       document.querySelector("#unity-loading-bar").style.display = "block";
 
-      function triggerCanvasResize() {
-        window.dispatchEvent(new Event("resize"));
+      var unityPlayer = null;
+      var resizeFrame = 0;
+
+      function syncCanvasSize() {
+        resizeFrame = 0;
+        var bounds = canvas.getBoundingClientRect();
+        var pixelRatio = window.devicePixelRatio || 1;
+        var width = Math.max(1, Math.round(bounds.width * pixelRatio));
+        var height = Math.max(1, Math.round(bounds.height * pixelRatio));
+        if (canvas.width === width && canvas.height === height) return;
+
+        if (unityPlayer) {
+          unityPlayer.Module.setCanvasSize(width, height);
+        } else {
+          canvas.width = width;
+          canvas.height = height;
+        }
       }
+
+      function scheduleCanvasResize() {
+        if (!resizeFrame) resizeFrame = requestAnimationFrame(syncCanvasSize);
+      }
+
+      // Size the drawing surface before Unity starts. Its startup code can later
+      // replace it with the monitor resolution without updating the GL viewport.
+      // Observe that change as well as actual layout/fullscreen changes.
+      syncCanvasSize();
+      new ResizeObserver(scheduleCanvasResize).observe(canvas);
+      new MutationObserver(scheduleCanvasResize).observe(canvas, {
+        attributes: true,
+        attributeFilter: ["width", "height"]
+      });
+      window.addEventListener("resize", scheduleCanvasResize);
+      document.addEventListener("fullscreenchange", scheduleCanvasResize);
+      document.addEventListener("webkitfullscreenchange", scheduleCanvasResize);
 
       var script = document.createElement("script");
       script.src = loaderUrl;
@@ -188,13 +221,12 @@
         createUnityInstance(canvas, config, function(progress) {
           document.querySelector("#unity-progress-bar-full").style.width = 100 * progress + "%";
         }).then(function(unityInstance) {
+          unityPlayer = unityInstance;
           document.querySelector("#unity-loading-bar").style.display = "none";
           document.querySelector("#unity-fullscreen-button").onclick = function() {
             unityInstance.SetFullscreen(1);
           };
-          triggerCanvasResize();
-          requestAnimationFrame(triggerCanvasResize);
-          setTimeout(triggerCanvasResize, 120);
+          scheduleCanvasResize();
 
         }).catch(function(message) {
           alert(message);

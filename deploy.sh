@@ -34,8 +34,10 @@ ssh -o StrictHostKeyChecking=accept-new "$REMOTE_USER@$REMOTE_HOST" bash -s <<EO
   docker rm -f "$CONTAINER_NAME" >/dev/null 2>&1 || true
 
   echo ">> Starting new container"
+  TRUSTED_PROXY_IP="\$(docker network inspect bridge --format "{{(index .IPAM.Config 0).Gateway}}")"
   docker run -d --restart unless-stopped --name "$CONTAINER_NAME" \
     -e ASPNETCORE_URLS=http://0.0.0.0:$PORT \
+    -e ReverseProxy__KnownProxies__0="\${TRUSTED_PROXY_IP}" \
     -e SPOTIFY_CLIENT_ID=$SPOTIFY_CLIENT_ID \
     -e SPOTIFY_CLIENT_SECRET=$SPOTIFY_CLIENT_SECRET  \
     -e SPOTIFY_REDIRECT_URI=$PROD_SPOTIFY_REDIRECT_URI \

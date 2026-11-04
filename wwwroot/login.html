@@ -191,7 +191,9 @@
       const result = await authPost("/api/auth/login", { username, password });
 
       if (!result.ok) {
-        loginMsg.textContent = "Invalid username or password.";
+        loginMsg.textContent = result.status === 429
+          ? result.data?.error || "Too many login attempts. Please wait a minute and try again."
+          : "Invalid username or password.";
         return;
       }
 
