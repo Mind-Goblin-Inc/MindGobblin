@@ -96,5 +96,8 @@ docker run --rm -p 8080:8080 jake-server
 
 * The server listens on port **8080** in the container and is mapped to **localhost:8080** on your machine.
 * Keep branches focused (one feature/fix per branch) to make PRs easier to review.
+* Login permits 10 attempts per minute per client IP, then returns HTTP 429 with a retry message and a `Retry-After` header. Limits are held in memory per app instance and reset on restart.
+* Production session cookies require HTTPS. Development permits HTTP and marks cookies secure when using HTTPS.
+* The deployment workflow and scripts trust the Docker bridge gateway for the host reverse proxy. For other proxy setups, configure each exact address with `ReverseProxy__KnownProxies__0` (and `__1`, etc.). The proxy must overwrite forwarded headers supplied by visitors. Without trusted forwarding, clients behind the proxy share its login limit.
 
 ```
