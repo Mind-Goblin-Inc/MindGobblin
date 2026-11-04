@@ -29,7 +29,6 @@ h1, h2, h3, p { margin: 0; }
 .skip-link:focus { transform: translateY(0); }
 .site-header { display: flex; align-items: center; flex-wrap: wrap; justify-content: space-between; gap: 12px 24px; padding-block: 24px 20px; }
 .wordmark { display: flex; align-items: baseline; flex-wrap: wrap; gap: 12px; font-weight: 700; font-size: 18px; text-decoration: none; }
-.wordmark-note { color: var(--muted); font-size: 13px; font-weight: 400; }
 .account { display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 8px 16px; min-width: 0; max-width: 100%; font-size: 13px; }
 .account-name { overflow-wrap: anywhere; max-width: 24ch; }
 .account-button { display: inline-flex; align-items: center; justify-content: center; gap: 16px; min-height: 44px; padding: 8px 16px; border: 1px solid var(--line); border-radius: 0; background: transparent; text-decoration: none; font-weight: 600; }
@@ -146,7 +145,6 @@ h1, h2, h3, p { margin: 0; }
   .page { position: relative; z-index: 1; width: calc(100% - 32px); }
   .site-header { padding-block: 16px 12px; gap: 8px 12px; }
   .wordmark { font-size: 17px; }
-  .wordmark-note { display: none; }
   .account { gap: 4px 12px; }
   .site-header:has(.currency:not([hidden])) .account { width: 100%; justify-content: flex-start; }
   .account-name { max-width: 100%; }
