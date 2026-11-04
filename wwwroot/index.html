@@ -1,615 +1,144 @@
 <!doctype html>
 <html lang="en">
-
 <head>
   <meta charset="utf-8">
-  <title>Mind Goblin</title>
-  <link rel="icon" type="image/png" href="img/mindgoblin.png">
-  <style>
-    :root {
-      --bg: #0b0f17;
-      --fg: #eaeaea;
-      --accent: #3ff0c1;
-      --accent-dark: #2ecda4;
-      --card-bg: #151c27;
-    }
-
-    * {
-      box-sizing: border-box;
-    }
-
-    body {
-      margin: 0;
-      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-      background: var(--bg);
-      color: var(--fg);
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      min-height: 100vh;
-      padding: 2rem;
-    }
-
-    header {
-      text-align: center;
-      margin-bottom: 2rem;
-    }
-    .auth-bar {
-      position: fixed;
-      top: 18px;
-      right: 18px;
-      z-index: 3;
-      display: flex;
-      align-items: center;
-      gap: 0.5rem;
-    }
-    .auth-status {
-      color: rgba(234, 234, 234, 0.9);
-      font-size: 0.92rem;
-    }
-    .auth-actions {
-      display: flex;
-      gap: 0.5rem;
-      align-items: center;
-      position: relative;
-    }
-    .currency-wrap {
-      display: none;
-      align-items: center;
-      gap: 0.45rem;
-      padding: 0.3rem 0.55rem;
-      border: 1px solid rgba(255, 255, 255, 0.2);
-      border-radius: 999px;
-      background: rgba(21, 28, 39, 0.88);
-      backdrop-filter: blur(4px);
-      color: var(--fg);
-      font-size: 0.88rem;
-    }
-    .currency-wrap img {
-      width: 16px;
-      height: 16px;
-      object-fit: contain;
-    }
-    .currency-wrap button {
-      border-radius: 999px;
-      padding: 0.18rem 0.5rem;
-      font-size: 0.78rem;
-    }
-    .auth-actions a,
-    .auth-actions button {
-      background: transparent;
-      border: 1px solid rgba(255, 255, 255, 0.2);
-      color: var(--fg);
-      border-radius: 999px;
-      padding: 0.42rem 0.9rem;
-      text-decoration: none;
-      cursor: pointer;
-      font: inherit;
-      background: rgba(21, 28, 39, 0.88);
-      backdrop-filter: blur(4px);
-    }
-    .auth-actions button:hover,
-    .auth-actions a:hover {
-      border-color: var(--accent);
-      color: var(--accent);
-    }
-    .auth-menu {
-      position: absolute;
-      top: calc(100% + 10px);
-      right: 0;
-      width: min(330px, 90vw);
-      background: var(--card-bg);
-      border: 1px solid rgba(255, 255, 255, 0.15);
-      border-radius: 12px;
-      box-shadow: 0 12px 30px rgba(0, 0, 0, 0.35);
-      padding: 0.7rem;
-      display: none;
-    }
-    .auth-menu.open {
-      display: block;
-    }
-    .auth-tabs {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 0.4rem;
-      margin-bottom: 0.6rem;
-    }
-    .auth-tabs button {
-      border-radius: 8px;
-      border: 1px solid rgba(255, 255, 255, 0.2);
-      padding: 0.45rem;
-      background: #0f151f;
-      color: var(--fg);
-      cursor: pointer;
-    }
-    .auth-tabs button.active {
-      border-color: var(--accent);
-      color: #08111a;
-      background: var(--accent);
-      font-weight: 700;
-    }
-    .auth-form {
-      display: none;
-    }
-    .auth-form.active {
-      display: block;
-    }
-    .auth-form label {
-      display: block;
-      font-size: 0.85rem;
-      color: rgba(234, 234, 234, 0.85);
-      margin: 0.45rem 0 0.2rem;
-    }
-    .auth-form input {
-      width: 100%;
-      border-radius: 8px;
-      border: 1px solid rgba(255, 255, 255, 0.2);
-      background: #0f151f;
-      color: var(--fg);
-      padding: 0.5rem 0.55rem;
-      outline: none;
-    }
-    .auth-form input:focus {
-      border-color: var(--accent);
-    }
-    .auth-submit {
-      width: 100%;
-      margin-top: 0.6rem;
-      border-radius: 8px;
-      border: 1px solid transparent;
-      background: var(--accent);
-      color: #08111a;
-      padding: 0.5rem 0.6rem;
-      font-weight: 700;
-      cursor: pointer;
-    }
-    .auth-msg {
-      min-height: 1.1rem;
-      font-size: 0.85rem;
-      margin-top: 0.4rem;
-      color: #ff9f9f;
-    }
-    .auth-msg.ok {
-      color: var(--accent);
-    }
-    @media (max-width: 640px) {
-      .auth-bar {
-        top: 12px;
-        right: 12px;
-      }
-      .auth-status {
-        display: none;
-      }
-    }
-
-    header img {
-      width: 160px;
-      height: 160px;
-      border-radius: 50%;
-      margin-bottom: 1rem;
-      box-shadow: 0 0 20px rgba(63, 240, 193, 0.8);
-    }
-
-    h1 {
-      margin: 0.2rem 0;
-      font-size: 2.5rem;
-      letter-spacing: 1px;
-    }
-
-    nav {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-      gap: 1rem;
-      width: 100%;
-      max-width: 700px;
-    }
-
-    nav a {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 1.2rem;
-      background: var(--card-bg);
-      border-radius: 12px;
-      color: var(--fg);
-      text-decoration: none;
-      font-weight: 600;
-      font-size: 1rem;
-      transition: all 0.2s ease;
-      border: 1px solid transparent;
-    }
-
-    nav a:hover {
-      background: var(--accent-dark);
-      color: #08111a;
-      border-color: var(--accent);
-      transform: translateY(-2px);
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
-    }
-
-    /* section headers inside the nav grid */
-    nav .nav-section {
-      grid-column: 1 / -1;
-      /* span full width of the grid */
-      margin: 1.2rem 0 .35rem;
-      padding-top: .5rem;
-      border-top: 1px solid rgba(255, 255, 255, .08);
-      color: var(--accent);
-      font-weight: 700;
-      font-size: .95rem;
-      letter-spacing: .06em;
-      text-transform: uppercase;
-      opacity: .9;
-    }
-
-        /* --- About section --- */
-    footer {
-      margin-top: 3rem;     /* more space above the About section */
-      margin-bottom: 1rem;  /* a little breathing room from the bottom edge */
-      font-size: 0.9rem;
-      text-align: center;
-      opacity: 0.85;
-    }
-
-    footer a {
-      color: var(--accent);
-      text-decoration: none;
-      font-weight: 600;
-    }
-
-    footer a:hover {
-      text-decoration: underline;
-    }
-
-
-    /* --- Responsive alternating PNG pumpkins/cats down the sides --- */
-    header,
-    nav {
-      position: relative;
-      z-index: 1;
-    }
-
-    /* keep content above the art */
-
-    :root {
-      /* Icon size scales with the smaller viewport side */
-      --spooky-size: clamp(140px, 5vmin, 360px);
-      /* Vertical spacing scales with size */
-      --spooky-gap: calc(var(--spooky-size) * 2.6);
-      /* Edge padding scales too */
-      --spooky-pad: clamp(6px, 2vmin, 18px);
-    }
-
-    .spooky-trail {
-      position: fixed;
-      inset: 0;
-      pointer-events: none;
-      z-index: 0;
-    }
-
-    .spooky-item {
-      position: fixed;
-      width: calc(var(--spooky-size)*0.75);
-      height: var(--spooky-size);
-      opacity: .95;
-      filter: drop-shadow(0 0 6px rgba(63, 240, 193, .25));
-    }
-
-    .spooky-item img {
-      width: 100%;
-      height: 100%;
-      display: block;
-      user-select: none;
-    }
-
-    @media (max-width: 380px) {
-
-      /* Tiny phones: tighten spacing slightly */
-      :root {
-        --spooky-size: clamp(120px, 6vmin, 280px);
-        --spooky-gap: calc(var(--spooky-size) * 2.3);
-      }
-    }
-  </style>
-  <!-- Alternating side imagery (responsive PNG) -->
-  <div class="spooky-trail" aria-hidden="true"></div>
-  <script>
-    (function () {
-      // ---- EDIT THESE PATHS ----
-      const LEFT_SRC = 'img/bee.png';     // used on left rows
-      const RIGHT_SRC = 'img/gnomesandtheirmushroomhome.png';   // used on right rows
-      // --------------------------
-
-      const trail = document.querySelector('.spooky-trail');
-
-      function cssPx(varName) {
-        // read a CSS variable (resolved) and return number of pixels
-        const val = getComputedStyle(document.documentElement).getPropertyValue(varName).trim();
-        return parseFloat(val || '0');
-      }
-
-      function build() {
-        trail.innerHTML = '';
-
-        const gap = cssPx('--spooky-gap') || 80;
-        const size = cssPx('--spooky-size') || 28;
-        const pad = cssPx('--spooky-pad') || 12;
-
-        const vh = (window.visualViewport ? visualViewport.height : window.innerHeight);
-        const rows = Math.ceil(vh / gap) + 2;
-
-        for (let i = 0; i < rows; i++) {
-          const holder = document.createElement('div');
-          holder.className = 'spooky-item';
-          holder.style.top = (i * gap) + 'px';
-
-          const isLeft = (i % 2 === 0);
-          // Respect notches/safe areas on iOS
-          if (isLeft) {
-            holder.style.left = `calc(${pad}px + env(safe-area-inset-left, 0px))`;
-          } else {
-            holder.style.right = `calc(${pad}px + env(safe-area-inset-right, 0px))`;
-          }
-
-          const img = new Image(size, size);
-          img.src = isLeft ? LEFT_SRC : RIGHT_SRC;
-          img.alt = ''; // decorative
-          img.decoding = 'async';
-          img.loading = 'lazy';
-          holder.appendChild(img);
-
-          trail.appendChild(holder);
-        }
-      }
-
-      // Build initially and on viewport changes
-      build();
-      addEventListener('resize', build, { passive: true });
-      if (window.visualViewport) {
-        visualViewport.addEventListener('resize', build, { passive: true });
-      }
-    })();
-  </script>
-
-
-<body>
-  <header>
-    <img src="img/springgoblin.png" alt="Mind Goblin Icon">
-    <h1>Welcome to Mind Goblin</h1>
-    <p>A collection of games & things</p>
-  </header>
-  <div class="auth-bar">
-    <div id="authStatus" class="auth-status">Checking login status...</div>
-    <div class="auth-actions">
-      <div id="currencyWrap" class="currency-wrap">
-        <img src="img/clinkbit.png" alt="Clinkbit">
-        <span id="clinkbitsValue">0</span>
-        <button id="claimClinkbitsBtn" type="button">Claim</button>
-      </div>
-      <button id="authMenuBtn" type="button">Login</button>
-      <button id="logoutBtn" type="button" style="display:none;">Logout</button>
-      <div id="authMenu" class="auth-menu">
-        <div class="auth-tabs">
-          <button id="showLoginTab" class="active" type="button">Login</button>
-          <button id="showRegisterTab" type="button">Register</button>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Mind Goblin: Jake’s collection of browser games, simulations, and other things to play with.">
+  <meta name="theme-color" content="#0b0f17">
+  <title>Mind Goblin — games &amp; things</title>
+  <link rel="icon" type="image/png" href="img/home/favicon.png">
+  <link rel="stylesheet" href="css/home.css">
+  <script src="js/home.js" defer></script>
+</head>
+<body id="top">
+  <a class="skip-link" href="#Games">Skip to games</a>
+  <div class="page">
+    <header class="site-header">
+      <a class="wordmark" href="#top">Mind Goblin<span class="wordmark-note">games &amp; things</span></a>
+      <div class="account" aria-label="Your account">
+        <span id="authStatus" class="account-name" hidden></span>
+        <div id="currencyWrap" class="currency" hidden>
+          <picture><source srcset="img/home/clinkbit.webp" type="image/webp"><img src="img/home/clinkbit.png" width="20" height="20" alt=""></picture>
+          <span><span id="clinkbitsValue">—</span> <span class="currency-label">clinkbits</span></span>
+          <button id="claimClinkbitsBtn" class="text-button" type="button" disabled>Claim daily</button>
         </div>
-        <form id="loginForm" class="auth-form active">
-          <label for="loginUser">Username</label>
-          <input id="loginUser" name="username" autocomplete="username" required />
-          <label for="loginPass">Password</label>
-          <input id="loginPass" name="password" type="password" autocomplete="current-password" required />
-          <button class="auth-submit" type="submit">Log In</button>
-          <div id="loginMsg" class="auth-msg"></div>
-        </form>
-        <form id="registerForm" class="auth-form">
-          <label for="registerUser">Username</label>
-          <input id="registerUser" name="username" autocomplete="username" required />
-          <label for="registerPass">Password</label>
-          <input id="registerPass" name="password" type="password" autocomplete="new-password" required />
-          <button class="auth-submit" type="submit">Create Account</button>
-          <div id="registerMsg" class="auth-msg"></div>
-        </form>
+        <a id="authMenuBtn" class="account-button" href="login.html">Log in <span aria-hidden="true">↗</span></a>
+        <button id="logoutBtn" class="text-button" type="button" hidden>Log out</button>
       </div>
-    </div>
+      <p id="accountMessage" class="account-message" role="status" hidden></p>
+    </header>
+    <nav id="categoryNav" class="category-nav" aria-label="Browse the collection">
+      <a href="#Games">Games</a><a href="#Simulations">Simulations</a><a href="#Tools">Tools &amp; oddities</a><a href="#InProgress">In progress</a>
+    </nav>
+    <main>
+      <div class="intro">
+        <picture class="mascot"><source srcset="img/home/goblin.webp" type="image/webp"><img src="img/home/goblin.png" alt="A goblin holding a bunch of flowers" width="280" height="311" fetchpriority="high"></picture>
+        <div class="intro-copy"><h1>Welcome to Mind Goblin</h1><p>A collection of games &amp; things.</p><p class="intro-note">Pick something and have a go.</p></div>
+        <picture class="bee" aria-hidden="true"><source srcset="img/home/bee.webp" type="image/webp"><img src="img/home/bee.png" alt="" width="240" height="360"></picture>
+      </div>
+      <section id="Highlights" class="featured" aria-labelledby="featuredHeading">
+        <div class="section-heading"><h2 id="featuredHeading">Featured</h2><span class="section-aside">A few places to start</span></div>
+        <div class="featured-grid">
+          <a class="featured-link" href="Starhusk/Starhusk.html"><span class="featured-type">Space game</span><span class="project-title">Starhusk <span aria-hidden="true">→</span></span><span class="project-description">Head out into space.</span><span class="project-note">Best on desktop</span></a>
+          <a class="featured-link" href="tetris.html"><span class="featured-type">Arcade</span><span class="project-title">Tong’s Tetris <span aria-hidden="true">→</span></span><span class="project-description">Falling blocks. One more round.</span></a>
+          <a class="featured-link" href="goblin-simulation.html"><span class="featured-type">Simulation</span><span class="project-title">Goblin Simulation <span aria-hidden="true">→</span></span><span class="project-description">Watch a world of goblins take shape.</span><span class="project-note">Best on a larger screen</span></a>
+        </div>
+      </section>
+      <div id="searchPanel" class="search-panel" hidden>
+        <div class="search-field"><label for="projectSearch">Find a game or project</label><div class="search-input-wrap"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 5 5"/></svg><input id="projectSearch" type="search" placeholder="Search the collection…" autocomplete="off" spellcheck="false" aria-controls="catalogue"><button id="clearSearch" class="text-button" type="button" hidden>Clear</button></div></div>
+        <p id="searchCount" class="search-count" role="status" aria-live="polite" aria-atomic="true">32 games &amp; projects</p>
+      </div>
+      <div id="catalogue">
+        <section id="Games" class="catalogue-section" aria-labelledby="GamesHeading" data-section>
+          <div class="section-heading"><h2 id="GamesHeading">Games</h2><span class="section-aside" data-section-count>13 games</span></div>
+          <div class="project-group" data-group><h3>Arcade</h3>
+          <div class="project-grid">
+            <a class="project-link" href="tetris.html" data-project><span class="project-title">Tong’s Tetris</span><span class="project-description">Stack falling blocks and clear the lines.</span></a>
+            <a class="project-link" href="patty-flip.html" data-project><span class="project-title">Tong’s Patty</span><span class="project-description">Time your flip and land the patty.</span></a>
+            <a class="project-link" href="pong-local.html" data-project><span class="project-title">Pong — local</span><span class="project-description">Two players, one keyboard, first to ten.</span><span class="project-note">Keyboard needed</span></a>
+            <a class="project-link" href="astroids.html" data-project><span class="project-title">Asteroids</span><span class="project-description">Dodge the rocks. Make the shots count.</span></a>
+            <a class="project-link" href="game.html" data-project><span class="project-title">Click Timing Game</span><span class="project-description">Hit the mark with a well-timed tap.</span></a>
+            <a class="project-link" href="snake.html" data-project><span class="project-title">Snake</span><span class="project-description">Eat, grow, and stay out of your way.</span></a>
+            <a class="project-link" href="goblin-casino.html" data-project><span class="project-title">Goblin Casino</span><span class="project-description">Dice, slots, and other Clinkbit wagers.</span><span class="project-note">Some tables are in progress</span></a>
+          </div>
+          </div>
+          <div class="project-group" data-group><h3>Puzzles</h3>
+          <div class="project-grid">
+            <a class="project-link" href="wordle.html" data-project><span class="project-title">Wordle</span><span class="project-description">Find the five-letter word in six guesses.</span></a>
+            <a class="project-link" href="minesweeper.html" data-project><span class="project-title">Minesweeper</span><span class="project-description">Clear the board without hitting a mine.</span></a>
+          </div>
+          </div>
+          <div class="project-group" data-group><h3>Action &amp; exploration</h3>
+          <div class="project-grid">
+            <a class="project-link" href="Starhusk/Starhusk.html" data-project><span class="project-title">Starhusk</span><span class="project-description">Head out into space.</span><span class="project-note">Best on desktop</span></a>
+            <a class="project-link" href="Dagon/dagon.html" data-project><span class="project-title">Dagon</span><span class="project-description">The game currently titled Echo Rift.</span><span class="project-note">Best on desktop</span></a>
+            <a class="project-link" href="condestructor.html" data-project><span class="project-title">ConDestructor</span><span class="project-description">Build your ship from the pieces left behind.</span><span class="project-note">Keyboard needed</span></a>
+          </div>
+          </div>
+          <div class="project-group" data-group><h3>Multiplayer</h3>
+          <div class="project-grid">
+            <a class="project-link" href="pong-lobbies.html" data-project><span class="project-title">Pong — online</span><span class="project-description">Make a lobby and play against a friend.</span><span class="project-note">Two players online</span></a>
+          </div>
+          </div>
+        </section>
+        <section id="Simulations" class="catalogue-section" aria-labelledby="SimulationsHeading" data-section>
+          <div class="section-heading"><h2 id="SimulationsHeading">Simulations</h2><span class="section-aside" data-section-count>3 projects</span></div>
+          <div class="project-grid">
+            <a class="project-link" href="goblin-simulation.html" data-project><span class="project-title">Goblin Simulation</span><span class="project-description">Goblins, settlements, and a world with a history.</span><span class="project-note">Best on a larger screen</span></a>
+            <a class="project-link" href="orbital.html" data-project><span class="project-title">Orbital Simulation</span><span class="project-description">Explore the planets of the Helion system.</span><span class="project-note">Best on desktop</span></a>
+            <a class="project-link" href="life.html" data-project><span class="project-title">Conway’s Life</span><span class="project-description">Draw a pattern and see what survives.</span></a>
+          </div>
+        </section>
+        <section id="Tools" class="catalogue-section" aria-labelledby="ToolsHeading" data-section>
+          <div class="section-heading"><h2 id="ToolsHeading">Tools &amp; oddities</h2><span class="section-aside" data-section-count>7 projects</span></div>
+          <div class="project-grid">
+            <a class="project-link" href="goblin-graphics-lab.html" data-project><span class="project-title">Goblin Graphics Lab</span><span class="project-description">A closer look at the simulation’s pixel art.</span></a>
+            <a class="project-link" href="EuchreTracker.html" data-project><span class="project-title">Euchre Tracker</span><span class="project-description">Keep track of games, players, and results.</span></a>
+            <a class="project-link" href="place.html" data-project><span class="project-title">The Location</span><span class="project-description">Leave a pixel on the shared canvas.</span></a>
+            <a class="project-link" href="drums.html" data-project><span class="project-title">Drums</span><span class="project-description">Put together a beat in your browser.</span></a>
+            <a class="project-link" href="dogpic.html" data-project><span class="project-title">Dog Pictures</span><span class="project-description">Sometimes you just want to see a dog.</span></a>
+            <a class="project-link" href="spotify.html" data-project><span class="project-title">Spotify Playlist Maker</span><span class="project-description">Make a playlist with your Spotify account.</span><span class="project-note">Requires Spotify</span></a>
+            <a class="project-link" href="royale.html" data-project><span class="project-title">Clash Royale Stats</span><span class="project-description">Look up a player’s cards and battle stats.</span></a>
+          </div>
+        </section>
+        <section id="InProgress" class="catalogue-section in-progress" aria-labelledby="InProgressHeading" data-section>
+          <div class="section-heading"><h2 id="InProgressHeading">In progress</h2><span class="section-aside" data-section-count>9 projects</span></div>
+          <p class="section-description">Works in progress. Expect some rough edges.</p>
+          <div class="project-grid">
+            <a class="project-link" href="twenty-fourty-eight.html" data-project><span class="project-title">Bears 2048</span><span class="project-description">Slide matching tiles together and keep going.</span></a>
+            <a class="project-link" href="artillery.html" data-project><span class="project-title">Artillery</span><span class="project-description">Line up a shot across the battlefield.</span></a>
+            <a class="project-link" href="fractal.html" data-project><span class="project-title">Fractal</span><span class="project-description">Zoom into a world of repeating patterns.</span></a>
+            <a class="project-link" href="goinrogue.html" data-project><span class="project-title">Goin’ Rogue</span><span class="project-description">Head downstairs, find gold, and try to survive.</span><span class="project-note">Keyboard needed</span></a>
+            <a class="project-link" href="pentathalon.html" data-project><span class="project-title">Pentathlon</span><span class="project-description">Five small games of timing and physics.</span></a>
+            <a class="project-link" href="ghoul.html" data-project><span class="project-title">Ghoul</span><span class="project-description">Hold out against the next wave of zombies.</span></a>
+            <a class="project-link" href="warmonger.html" data-project><span class="project-title">Warmonger</span><span class="project-description">Build an army and advance through the ages.</span></a>
+            <a class="project-link" href="text-story.html" data-project><span class="project-title">Echoes of the Heartforge</span><span class="project-description">Choose your way through a branching fantasy story.</span></a>
+            <a class="project-link" href="powell.html" data-project><span class="project-title">Powell</span><span class="project-description">A blank page for future experiments.</span></a>
+          </div>
+        </section>
+      </div>
+      <div id="emptySearch" class="empty-search" hidden><h2>No projects match that search.</h2><p>Try a different name, or <button id="resetSearch" class="text-button" type="button">clear your search</button>.</p></div>
+    </main>
+    <footer class="site-footer">
+      <picture class="mushroom-home" aria-hidden="true"><source srcset="img/home/mushroom-home.webp" type="image/webp"><img src="img/home/mushroom-home.png" alt="" width="320" height="480" loading="lazy" decoding="async"></picture>
+      <div><p class="footer-title">Mind Goblin</p><p>Games, experiments, and other things made by Jake.</p><a href="https://github.com/JFerrigan/MindGobblin" target="_blank" rel="noopener noreferrer">View the source <span aria-hidden="true">↗</span><span class="sr-only"> (opens in a new tab)</span></a></div>
+      <a class="back-to-top" href="#top">Back to top ↑</a>
+    </footer>
   </div>
-
-  <nav>
-    <h2 class="nav-section" id="Highlights">Weekly Highlights</h2>
-    <a href="Starhusk/Starhusk.html">⭐️ Starhusk 🪐</a>
-    <a href="Dagon/dagon.html">🌊 Dagon 🌊</a>
-    <a href="orbital.html">🚀 Orbital Simulation 🪐</a>
-    <a href="tetris.html">▶ Tong's Tetris</a>
-    <a href="goblin-simulation.html">🧪 Goblin Simulation 👹</a>
-
-    <h2 class="nav-section" id="Games">Games</h2>
-    <a href="Starhusk/Starhusk.html">⭐️ Starhusk 🪐</a>
-    <a href="Dagon/dagon.html">🌊 Dagon 🌊</a>
-    <a href="goblin-simulation.html">🧪 Goblin Simulation 👹</a>
-    <a href="goblin-graphics-lab.html">🖼️ Goblin Graphics Lab 🖼️</a>
-    <a href="tetris.html">▶ Tong's Tetris</a>
-    <a href="patty-flip.html">▶ Tong's Patty</a>
-    <a href="pong-local.html">▶ Tong's Singleplayer Pong</a>
-    <a href="pong-lobbies.html">▶ Tong's Multiplayer Pong</a>
-    <a href="wordle.html">📝 Wordle</a>
-    <a href="astroids.html">☄️ Astroids 🚀</a>
-    <a href="condestructor.html">🤖 ConDestructor 👽</a>
-    <a href="game.html">▶ Click Timing Game ⏱️</a>
-    <a href="snake.html">🐍 Snake Game 🕹️</a>
-    <a href="minesweeper.html">⛏️ Minesweeper 🧹</a>
-    <a href="goblin-casino.html">🎰 Goblin Casino</a>
-
-    <h2 class="nav-section" id="Things">Things</h2>
-    <a href="EuchreTracker.html">🃏 Euchre Tracker</a>
-    <a href="orbital.html">🚀 Orbital Simulation 🪐</a>
-    <a href="place.html">🟦 The Location 🟧</a>
-    <a href="drums.html">🥁 Drums 🪘</a>
-    <a href="life.html">🌱 Conway’s Life Simulation 🦎</a>
-    <a href="dogpic.html">🐩 Dog 🐕</a>
-
-    <h2 class="nav-section" id="Tools">Tools</h2>
-    <a href="spotify.html">🎧 Spotify Playlist Maker 🎧</a>
-    <a href="royale.html">🎧 Clash Royale 🎧</a>
-
-    <h2 class="nav-section" id="Under Development">Under Development</h2>
-    <a href="twenty-fourty-eight.html">▶ Bears 2048</a>
-    <a href="artillery.html">▶ Artillery </a>
-    <a href="fractal.html"> Fractal </a>
-    <a href="goinrogue.html">🏃🏻 Goin' Rogue </a>
-    <a href="pentathalon.html">🏃🏻‍♂️ Pentathalon 🥇</a>
-    <a href="ghoul.html">Ghoul</a>
-    <a href="warmonger.html">Warmonger</a>
-    <a href="text-story.html">👸 Echoes of the Heartforge 🏰</a>
-    <a href="powell.html">📝 Powell</a>
-  </nav>
-
-  <footer>
-    View the source on
-    <a href="https://github.com/JFerrigan/MindGobblin" target="_blank" rel="noopener noreferrer">GitHub</a>.
-  </footer>
-
-  <script>
-    (async function () {
-      const authStatus = document.getElementById("authStatus");
-      const authMenuBtn = document.getElementById("authMenuBtn");
-      const authMenu = document.getElementById("authMenu");
-      const logoutBtn = document.getElementById("logoutBtn");
-      const currencyWrap = document.getElementById("currencyWrap");
-      const clinkbitsValue = document.getElementById("clinkbitsValue");
-      const claimClinkbitsBtn = document.getElementById("claimClinkbitsBtn");
-      const showLoginTab = document.getElementById("showLoginTab");
-      const showRegisterTab = document.getElementById("showRegisterTab");
-      const loginForm = document.getElementById("loginForm");
-      const registerForm = document.getElementById("registerForm");
-      const loginMsg = document.getElementById("loginMsg");
-      const registerMsg = document.getElementById("registerMsg");
-
-      async function authPost(url, payload) {
-        const res = await fetch(url, {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify(payload)
-        });
-        let data = null;
-        try { data = await res.json(); } catch {}
-        return { ok: res.ok, status: res.status, data };
-      }
-
-      function setTab(tab) {
-        const login = tab === "login";
-        showLoginTab.classList.toggle("active", login);
-        showRegisterTab.classList.toggle("active", !login);
-        loginForm.classList.toggle("active", login);
-        registerForm.classList.toggle("active", !login);
-        loginMsg.textContent = "";
-        registerMsg.textContent = "";
-        loginMsg.classList.remove("ok");
-        registerMsg.classList.remove("ok");
-      }
-
-      async function refresh() {
-        try {
-          const res = await fetch("/api/auth/me");
-          const data = await res.json();
-          if (data.loggedIn && data.user) {
-            const currencyRes = await fetch("/api/clinkbits/me");
-            let clinkbits = null;
-            if (currencyRes.ok) {
-              clinkbits = await currencyRes.json();
-            }
-            const balanceText = clinkbits ? `${clinkbits.balance} clinkbits` : "clinkbits unavailable";
-            authStatus.textContent = `${data.user.username} • ${balanceText}`;
-            clinkbitsValue.textContent = clinkbits ? clinkbits.balance : "--";
-            claimClinkbitsBtn.disabled = !clinkbits || !clinkbits.canClaimNow;
-            claimClinkbitsBtn.textContent = clinkbits && clinkbits.canClaimNow ? "Claim" : "Claimed";
-            currencyWrap.style.display = "flex";
-            authMenuBtn.style.display = "none";
-            authMenu.classList.remove("open");
-            logoutBtn.style.display = "";
-          } else {
-            authStatus.textContent = "";
-            currencyWrap.style.display = "none";
-            authMenuBtn.style.display = "";
-            logoutBtn.style.display = "none";
-          }
-        } catch {
-          authStatus.textContent = "";
-          currencyWrap.style.display = "none";
-        }
-      }
-
-      authMenuBtn.addEventListener("click", () => {
-        authMenu.classList.toggle("open");
-      });
-
-      document.addEventListener("click", (e) => {
-        if (!authMenu.contains(e.target) && !authMenuBtn.contains(e.target)) {
-          authMenu.classList.remove("open");
-        }
-      });
-
-      showLoginTab.addEventListener("click", () => setTab("login"));
-      showRegisterTab.addEventListener("click", () => setTab("register"));
-
-      loginForm.addEventListener("submit", async (e) => {
-        e.preventDefault();
-        loginMsg.classList.remove("ok");
-        loginMsg.textContent = "Signing in...";
-
-        const username = document.getElementById("loginUser").value.trim();
-        const password = document.getElementById("loginPass").value;
-        const result = await authPost("/api/auth/login", { username, password });
-
-        if (!result.ok) {
-          loginMsg.textContent = "Invalid username or password.";
-          return;
-        }
-
-        loginMsg.classList.add("ok");
-        loginMsg.textContent = "Logged in.";
-        await refresh();
-      });
-
-      registerForm.addEventListener("submit", async (e) => {
-        e.preventDefault();
-        registerMsg.classList.remove("ok");
-        registerMsg.textContent = "Creating account...";
-
-        const username = document.getElementById("registerUser").value.trim();
-        const password = document.getElementById("registerPass").value;
-        const result = await authPost("/api/auth/register", { username, password });
-
-        if (!result.ok) {
-          registerMsg.textContent = result.data?.error || "Could not create account.";
-          return;
-        }
-
-        registerMsg.classList.add("ok");
-        registerMsg.textContent = "Account created.";
-        await refresh();
-      });
-
-      logoutBtn.addEventListener("click", async () => {
-        await fetch("/api/auth/logout", { method: "POST" });
-        await refresh();
-      });
-
-      claimClinkbitsBtn.addEventListener("click", async () => {
-        const res = await fetch("/api/clinkbits/claim-daily", { method: "POST" });
-        if (res.ok) {
-          await refresh();
-          return;
-        }
-        const data = await res.json().catch(() => null);
-        if (data?.error) alert(data.error);
-        await refresh();
-      });
-
-      setTab("login");
-      await refresh();
-    })();
-  </script>
-  
+  <dialog id="authDialog" class="auth-dialog" aria-labelledby="authHeading">
+    <div class="dialog-heading"><h2 id="authHeading">Your account</h2><button id="closeAuth" class="close-button" type="button" aria-label="Close account dialog">×</button></div>
+    <p id="previewNotice" class="preview-notice" hidden>Local demo. Accounts are temporary and separate from the live site.</p>
+    <div class="auth-tabs" role="group" aria-label="Account action"><button id="showLoginTab" type="button" aria-pressed="true">Log in</button><button id="showRegisterTab" type="button" aria-pressed="false">Create account</button></div>
+    <form id="loginForm" class="auth-form">
+      <label for="loginUser">Username</label><input id="loginUser" name="username" autocomplete="username" required minlength="3" maxlength="32" autofocus>
+      <label for="loginPass">Password</label><input id="loginPass" name="password" type="password" autocomplete="current-password" required maxlength="128">
+      <button class="auth-submit" type="submit">Log in</button><p id="loginMsg" class="form-message" role="status" aria-live="polite"></p>
+    </form>
+    <form id="registerForm" class="auth-form" hidden>
+      <label for="registerUser">Username</label><input id="registerUser" name="username" autocomplete="username" required minlength="3" maxlength="32" aria-describedby="usernameHelp"><p id="usernameHelp" class="field-help">3–32 characters. Letters, numbers, dots, dashes, or underscores.</p>
+      <label for="registerPass">Password</label><input id="registerPass" name="password" type="password" autocomplete="new-password" required minlength="8" maxlength="128" aria-describedby="passwordHelp"><p id="passwordHelp" class="field-help">At least 8 characters.</p>
+      <button class="auth-submit" type="submit">Create account</button><p id="registerMsg" class="form-message" role="status" aria-live="polite"></p>
+    </form>
+  </dialog>
 </body>
-
 </html>
