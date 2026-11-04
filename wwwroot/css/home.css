@@ -98,7 +98,6 @@ h1, h2, h3, p { margin: 0; }
 .credits-table thead th { color: var(--muted); font-size: 13px; font-weight: 400; }
 .credits-table tbody th { font-weight: 500; }
 .credits-table a { display: inline-flex; align-items: center; min-height: 44px; color: var(--accent); }
-.credit-variants { display: flex; flex-wrap: wrap; gap: 0 16px; font-size: 13px; }
 .about-footer { border-top: 1px solid var(--line); }
 .auth-dialog { width: min(420px, calc(100% - 32px)); max-height: calc(100dvh - 32px); padding: 24px; border: 1px solid #45536a; border-radius: 0; background: var(--surface); color: var(--text); overflow-y: auto; }
 .auth-dialog::backdrop { background: rgb(0 0 0 / 75%); }
