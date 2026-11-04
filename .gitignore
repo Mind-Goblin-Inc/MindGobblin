@@ -496,6 +496,8 @@ $RECYCLE.BIN/
 [Ll]ogs/
 UserSettings/
 MemoryCaptures/
+/Library/
+/Temp/
 
 # Unity generated IDE files
 .vscode/
