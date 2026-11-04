@@ -71,16 +71,15 @@ Use compact, left-aligned entries with a subtle border or divider and square cor
 Each entry contains:
 
 - A clear project title.
-- One short, factual description, generally 6–12 words.
 - A control note only when it helps the visitor choose: for example, “Touch controls,” “Keyboard needed,” or “Two players.”
 
-Example copy: “Minesweeper — Clear the board without hitting a mine.” Keep distinctive names such as Tong’s Tetris. Use consistent spelling for descriptive labels without renaming files.
+Following the later request, remove descriptive/flavor copy from catalogue and Featured tiles, along with extra Featured and In progress section copy. Keep distinctive names such as Tong’s Tetris and useful control/status notes. Credit tiles retain their contributor bylines.
 
 Restore a game emoji on each catalogue, Featured, and credit tile, as subsequently requested. Keep the emoji decorative for screen readers and use the same one for a game wherever it appears.
 
 Search behavior:
 
-- Match project titles and descriptions without regard to capitalization.
+- Match project titles and functional notes without regard to capitalization.
 - Filter the existing HTML entries; do not fetch results or navigate away.
 - Hide subgroup and section headings that have no matching entries.
 - Hide Featured while searching so results do not repeat.
@@ -94,7 +93,7 @@ Keep the catalogue in a stable editorial order. Favorites, recent history, sorti
 
 **6. Visual treatment and artwork**
 
-Use warm olive backgrounds, cream text, and muted gold/green accents, following the later request to move away from the navy-and-mint palette. Use the accent primarily for links, focus indicators, and small details. Keep a slightly lighter surface for entries, quiet separators, and readable secondary text. Align the side illustrations in matching rows with the same top position and spacing on both sides.
+Use rich olive backgrounds, cream text, and warm gold/green accents, following the later requests to move away from the navy-and-mint palette and then enrich the olive colors. Use the accent primarily for links, focus indicators, and small details. Keep a slightly lighter surface for entries, quiet separators, and readable secondary text. Show artwork in its original color. Align the side illustrations in matching rows with the same top position and spacing on both sides.
 
 Use a system sans-serif font. Set body copy near 16 px, project titles near 17–18 px, and the main heading around 28–36 px depending on width. Prefer sentence case and ordinary letter spacing. Use an 8 px spacing scale, with roughly 12–16 px inside entries and 28–40 px between major sections.
 

@@ -18,11 +18,11 @@ The preview requires Python 3 and uses only its standard library. It binds to th
 
 **What to try**
 
-- Browse all 32 projects, organized into Games, Simulations, Tools & oddities, and In progress.
+- Browse all 32 projects, organized into Games, Simulations, Tools & oddities, and In progress. Tiles show names and emojis with useful control notes; descriptive and promotional copy has been removed.
 - Open About from the footer for clickable game-credit tiles: Wordle by John; Tetris, Tong’s Patty, and both Pong games by Tong; Bears 2048 by Keira. Game emojis are shown consistently in the catalogue, Featured section, and credits.
 - Use the category links and search. Try `pong`, `goblin`, or a name with no match, then clear the search.
 - Resize the browser to a phone width. The header, catalogue, and account controls should wrap cleanly.
-- The palette uses warm olive backgrounds, cream text, and muted gold/green accents drawn from the artwork. At desktop widths of 1,280 px and up, alternating bee and mushroom-house banners frame the page in aligned rows on both sides. On smaller screens, the homepage keeps those illustrations within the content so they cannot overlap game links. Entries, buttons, artwork frames, and dialogs have square corners.
+- The palette uses rich olive backgrounds, cream text, and warm gold/green accents drawn from the artwork. The side artwork retains its full original color. At desktop widths of 1,280 px and up, alternating bee and mushroom-house banners frame the page in aligned rows on both sides. On smaller screens, the homepage keeps those illustrations within the content so they cannot overlap game links. Entries, buttons, artwork frames, and dialogs have square corners.
 - Open Log in, choose Create account, and create a temporary demo account with a made-up password. Claim the daily 25 Clinkbits, log out, and log in again.
 - Use Tab, Shift+Tab, and Escape in the account dialog.
 

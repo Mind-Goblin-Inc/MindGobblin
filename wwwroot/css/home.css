@@ -1,21 +1,21 @@
 :root {
   color-scheme: dark;
-  --bg: #20271c;
-  --surface: #2b3325;
-  --surface-hover: #353e2c;
-  --text: #f0eadc;
-  --muted: #c1bdaa;
-  --accent: #c7cb8d;
-  --accent-hover: #e0e3ad;
-  --accent-ink: #232919;
-  --line: #515940;
-  --warm: #dfb77a;
-  --control-bg: #242b1f;
-  --control-border: #81896c;
-  --featured-border: #67724e;
-  --hover-border: #a0a979;
-  --note: #c7c8af;
-  --error: #f0b5a6;
+  --bg: #202b18;
+  --surface: #303d23;
+  --surface-hover: #3b4b2a;
+  --text: #f5eedb;
+  --muted: #ccc4a6;
+  --accent: #d5d97d;
+  --accent-hover: #e8eaa1;
+  --accent-ink: #252e16;
+  --line: #596b3d;
+  --warm: #efbc65;
+  --control-bg: #26321c;
+  --control-border: #9ca66b;
+  --featured-border: #83934e;
+  --hover-border: #b4be72;
+  --note: #d0d3b2;
+  --error: #f7b3a0;
   font: 16px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   scroll-padding-top: 24px;
 }
@@ -62,7 +62,6 @@ h1, h2, h3, p { margin: 0; }
 .section-aside { color: var(--muted); font-size: 13px; }
 .featured-grid, .project-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
 .featured-link { display: flex; flex-direction: column; align-items: stretch; gap: 6px; padding: 18px; border: 1px solid var(--featured-border); border-top: 2px solid var(--accent); background: var(--surface); border-radius: 0; text-decoration: none; }
-.featured-type { margin-bottom: 3px; color: var(--warm); font-size: 12px; }
 .project-title { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; color: var(--text); font-size: 16px; font-weight: 600; line-height: 1.4; overflow-wrap: anywhere; }
 .project-name { display: flex; align-items: baseline; gap: 8px; min-width: 0; }
 .project-emoji { flex-shrink: 0; font-size: 1.1em; font-weight: 400; }
@@ -88,8 +87,7 @@ h1, h2, h3, p { margin: 0; }
 .catalogue-section { padding-block: 32px; border-bottom: 1px solid var(--line); scroll-margin-top: 12px; }
 .project-group + .project-group { margin-top: 24px; }
 .project-group h3 { margin-bottom: 10px; font-size: 14px; font-weight: 500; color: var(--accent); }
-.project-link { display: flex; flex-direction: column; align-items: stretch; gap: 6px; min-height: 108px; padding: 15px 16px; border: 1px solid var(--line); border-radius: 0; background: var(--surface); text-decoration: none; }
-.section-description { margin: -4px 0 18px; color: var(--muted); font-size: 14px; }
+.project-link { display: flex; flex-direction: column; align-items: stretch; justify-content: center; gap: 6px; min-height: 76px; padding: 15px 16px; border: 1px solid var(--line); border-radius: 0; background: var(--surface); text-decoration: none; }
 .in-progress .project-link { background: transparent; }
 .in-progress .project-link:hover { background: var(--surface); }
 .empty-search { padding-block: 56px; border-bottom: 1px solid var(--line); }
@@ -140,7 +138,7 @@ h1, h2, h3, p { margin: 0; }
   .side-art__rail--left { left: max(24px, calc((100vw - 1040px) / 2 - 204px)); }
   .side-art__rail--right { right: max(24px, calc((100vw - 1040px) / 2 - 204px)); }
   .side-art__rail picture { flex: 0 0 auto; border: 1px solid var(--featured-border); box-shadow: 0 12px 28px rgb(0 0 0 / 22%); }
-  .side-art__rail img { width: 100%; height: auto; filter: brightness(.88) saturate(.85); }
+  .side-art__rail img { width: 100%; height: auto; }
   .intro { grid-template-columns: 112px minmax(0, 1fr); }
   .bee, .mushroom-home { display: none; }
 }
@@ -168,10 +166,9 @@ h1, h2, h3, p { margin: 0; }
   .section-aside { font-size: 12px; }
   .featured-grid, .project-grid { grid-template-columns: minmax(0, 1fr); gap: 8px; }
   .featured-link { padding: 12px 14px; gap: 3px; }
-  .featured-type { font-size: 11px; margin: 0; }
   .featured-link .project-title { font-size: 16px; }
   .featured-link .project-note { display: none; }
-  .project-link { min-height: 88px; padding: 14px; gap: 4px; }
+  .project-link { min-height: 64px; padding: 14px; gap: 4px; }
   .project-note { padding-top: 2px; }
   .search-panel { margin-top: 24px; padding-bottom: 20px; gap: 10px; }
   .search-field { width: 100%; }
