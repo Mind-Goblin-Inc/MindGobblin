@@ -21,6 +21,7 @@ The preview requires Python 3 and uses only its standard library. It binds to th
 - Browse all 32 projects, organized into Games, Simulations, Tools & oddities, and In progress.
 - Use the category links and search. Try `pong`, `goblin`, or a name with no match, then clear the search.
 - Resize the browser to a phone width. The header, catalogue, and account controls should wrap cleanly.
+- At desktop widths of 1,280 px and up, alternating bee and mushroom-house banners frame the page. On smaller screens, the homepage keeps those illustrations within the content so they cannot overlap game links. Entries, buttons, artwork frames, and dialogs have square corners.
 - Open Log in, choose Create account, and create a temporary demo account with a made-up password. Claim the daily 25 Clinkbits, log out, and log in again.
 - Use Tab, Shift+Tab, and Escape in the account dialog.
 

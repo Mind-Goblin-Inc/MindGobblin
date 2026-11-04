@@ -66,7 +66,7 @@ Use Starhusk, Tong’s Tetris, and Goblin Simulation as the initial Featured sel
 
 **5. Project entries and browsing behavior**
 
-Use compact, left-aligned entries with a subtle border or divider and approximately 6–8 px corners. The entire entry is a normal link. Avoid nested buttons inside it.
+Use compact, left-aligned entries with a subtle border or divider and square corners. The entire entry is a normal link. Avoid nested buttons inside it. The later user request for square edges applies to entries, controls, artwork frames, and the account dialog.
 
 Each entry contains:
 
@@ -101,7 +101,7 @@ Use a system sans-serif font. Set body copy near 16 px, project titles near 17�
 Preserve these actual images:
 
 - `springgoblin.png`: the main identity image, displayed in full without the current circular crop. Approximately 100–120 px on desktop and 64–80 px on phones.
-- `bee.png` and `gnomesandtheirmushroomhome.png`: one intentional placement each, rather than repeated pictures down the viewport edges. On wide screens they can sit in a reserved margin beside the introduction and a later section. On phones they become small illustrations within section breaks, without taking over the first screen.
+- `bee.png` and `gnomesandtheirmushroomhome.png`: retain the original alternating side banners, as subsequently requested. At widths of 1,280 px and above, reserve the margins for evenly spaced pictures with their natural proportions, square frames, and subdued color. On narrower screens, use the existing small placements in the introduction and footer, clear of the game links.
 - `clinkbit.png`: a small, crisp currency icon beside the signed-in balance.
 
 Preserve each illustration’s proportions. Do not stretch portrait art to fill an unrelated shape or place text over the detailed scenes. Decorative images receive empty alternative text; the mascot receives useful alternative text if the adjacent title does not already communicate its role.
