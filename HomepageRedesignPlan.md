@@ -94,7 +94,7 @@ Keep the catalogue in a stable editorial order. Favorites, recent history, sorti
 
 **6. Visual treatment and artwork**
 
-Retain the existing near-black/navy background, off-white text, and mint-green accent. Use the accent primarily for links, focus indicators, and small details. Keep a slightly lighter surface for entries, quiet separators, and readable secondary text.
+Use warm olive backgrounds, cream text, and muted gold/green accents, following the later request to move away from the navy-and-mint palette. Use the accent primarily for links, focus indicators, and small details. Keep a slightly lighter surface for entries, quiet separators, and readable secondary text. Align the side illustrations in matching rows with the same top position and spacing on both sides.
 
 Use a system sans-serif font. Set body copy near 16 px, project titles near 17–18 px, and the main heading around 28–36 px depending on width. Prefer sentence case and ordinary letter spacing. Use an 8 px spacing scale, with roughly 12–16 px inside entries and 28–40 px between major sections.
 
