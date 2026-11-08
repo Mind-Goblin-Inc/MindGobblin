@@ -1,5 +1,7 @@
-name: HelioBound bundle checks
+name: HelioEngine bundle checks
 on:
+  push:
+    branches: ['feature/helioengine-*', 'fix/helioengine-*']
   pull_request:
   workflow_dispatch:
 permissions:
@@ -14,7 +16,7 @@ jobs:
           python-version: '3.12'
       - name: Verify imported bundle
         run: python3 tools/verify_heliobound.py
-      - name: Verify manifest validation rejects corruption
+      - name: Verify bundle validation and HTTP startup retries
         run: python3 -m unittest discover -s tools -p 'test_heliobound*.py'
       - uses: docker/setup-buildx-action@v3
       - name: Build local image only
@@ -26,5 +28,13 @@ jobs:
           tags: mindgoblin:preview-check
       - name: Check served game and homepage
         run: |
-          docker run --rm -d --tmpfs /data --name preview-check -p 127.0.0.1:8080:8080 mindgoblin:preview-check
+          docker run -d --tmpfs /data --name preview-check -e ASPNETCORE_URLS=http://0.0.0.0:8080 -p 127.0.0.1:8080:8080 mindgoblin:preview-check
           python3 tools/check_heliobound_http.py http://127.0.0.1:8080
+      - name: Show preview container failure details
+        if: failure()
+        run: |
+          docker logs preview-check || true
+          docker inspect --format '{{json .State}}' preview-check || true
+      - name: Remove preview container
+        if: always()
+        run: docker rm -f preview-check || true
