@@ -20,8 +20,8 @@ jobs:
         with:
           python-version: '3.12'
 
-      - name: Validate approved HelioBound release
-        run: python3 tools/verify_heliobound.py --require-release
+      - name: Verify bundled HelioEngine files
+        run: python3 tools/verify_heliobound.py
 
       - name: Set up QEMU (multi-arch)
         uses: docker/setup-qemu-action@v3

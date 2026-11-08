@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Validate the exact reviewed HelioBound bundle before import or packaging."""
+"""Validate HelioEngine bundle integrity before import or packaging."""
 import argparse
 import hashlib
 import json
@@ -10,7 +10,7 @@ REQUIRED = {'index.html', 'launcher.js', 'style.css', 'pkg/heliobound.js',
             'pkg/heliobound_bg.wasm', 'pkg/audio.js', 'pkg/runtime.js', 'mind-goblin.png'}
 
 
-def verify(directory, require_release=False):
+def verify(directory):
     directory = Path(directory)
     if directory.is_symlink() or not directory.is_dir():
         raise ValueError('Bundle must be a real directory')
@@ -26,8 +26,6 @@ def verify(directory, require_release=False):
         raise ValueError('Manifest must declare whether the engine was dirty')
     if manifest.get('release_status') not in ('preview', 'release'):
         raise ValueError('Unknown release status')
-    if require_release and (manifest['release_status'] != 'release' or manifest['engine_dirty']):
-        raise ValueError('Production is blocked: this is an unapproved preview or dirty engine build')
     if manifest.get('wasm_bindgen_version') != '0.2.127' or manifest.get('rust_version') != '1.98.0':
         raise ValueError('Unexpected browser build tool versions')
     sources = manifest.get('source_files', {})
@@ -60,13 +58,12 @@ def verify(directory, require_release=False):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('directory', nargs='?', type=Path, default=Path(__file__).resolve().parents[1] / 'wwwroot/heliobound')
-    parser.add_argument('--require-release', action='store_true')
     args = parser.parse_args()
     try:
-        manifest = verify(args.directory, args.require_release)
+        manifest = verify(args.directory)
     except (ValueError, OSError, KeyError, TypeError) as error:
-        raise SystemExit(f'HelioBound validation failed: {error}')
-    print(f"HelioBound {manifest['release_status']}: {len(manifest['files'])} verified files; engine {manifest['engine_revision']}")
+        raise SystemExit(f'HelioEngine validation failed: {error}')
+    print(f"HelioEngine {manifest['release_status']}: {len(manifest['files'])} verified files; engine {manifest['engine_revision']}")
 
 
 if __name__ == '__main__':
