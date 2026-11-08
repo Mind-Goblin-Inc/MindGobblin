@@ -100,4 +100,41 @@ docker run --rm -p 8080:8080 jake-server
 * Production session cookies require HTTPS. Development permits HTTP and marks cookies secure when using HTTPS.
 * The deployment workflow and scripts trust the Docker bridge gateway for the host reverse proxy. For other proxy setups, configure each exact address with `ReverseProxy__KnownProxies__0` (and `__1`, etc.). The proxy must overwrite forwarded headers supplied by visitors. Without trusted forwarding, clients behind the proxy share its login limit.
 
+## HelioEngine local browser preview
+
+The reviewed browser bundle is stored in `wwwroot/heliobound/`. It requires a
+desktop keyboard/mouse and WebGPU over HTTPS or localhost. It is a **preview**;
+production CI rejects the current preview manifest before any image push.
+No production push or deployment is part of this change.
+
+Validate the imported artifact:
+
+```sh
+python3 tools/verify_heliobound.py
+python3 -m unittest discover -s tools -p 'test_heliobound*.py'
 ```
+
+For a local .NET preview with a separate temporary database:
+
+```sh
+Database__Path=/tmp/mindgoblin-preview.db dotnet run --project JakeServer.csproj --no-launch-profile
+```
+
+Open `http://localhost:8080/heliobound/`. `Database__Path` is optional; production
+retains its historical `/data` database selection when it is absent. For a
+static preview, serve `wwwroot` on localhost using `python3 -m http.server`.
+
+Build a selected engine checkout using its documented `python3 scripts/build-web.py`
+command, inspect its manifest and acceptance record, then import deliberately:
+
+```sh
+python3 tools/import_heliobound.py /path/to/engine/dist/heliobound --replace
+python3 tools/check_heliobound_http.py http://localhost:8080
+```
+
+Review the complete bundle and manifest in the same website change. Roll back
+by restoring the entire prior `wwwroot/heliobound/` directory and manifest
+together. The deployment workflow uses `context: .`, verifies checksums, and
+requires an approved clean engine release. Local and pull-request checks allow
+previews and never push images. See [HelioBound validation](HelioboundPreview.md)
+for measured coverage and open release checks.

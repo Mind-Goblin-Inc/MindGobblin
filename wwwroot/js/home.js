@@ -23,7 +23,7 @@ function initializeSearch() {
     for (const section of sections) {
       const visible = section.querySelectorAll('[data-project]:not([hidden])').length;
       section.hidden = visible === 0;
-      const noun = section.id === 'Games' ? 'game' : 'project';
+      const noun = section.id === 'Games' ? 'game' : section.id === 'GameEngine' ? 'engine' : 'project';
       section.querySelector('[data-section-count]').textContent = `${visible} ${noun}${visible === 1 ? '' : 's'}`;
     }
     featured.hidden = Boolean(query);

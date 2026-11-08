@@ -133,7 +133,8 @@ builder.Services.AddDbContext<MindGoblinDbContext>(options =>
     // file to mindgoblin.db, this will pick it up when jakeserver.db isn't present.
     var oldDbPath = "/data/jakeserver.db";
     var newDbPath = "/data/mindgoblin.db";
-    var dbPath = File.Exists(oldDbPath) ? oldDbPath : (File.Exists(newDbPath) ? newDbPath : oldDbPath);
+    var dbPath = builder.Configuration["Database:Path"]
+        ?? (File.Exists(oldDbPath) ? oldDbPath : (File.Exists(newDbPath) ? newDbPath : oldDbPath));
     var connectionString = $"Data Source={dbPath};Cache=Shared;";
     var connection = new SqliteConnection(connectionString);
 
@@ -175,10 +176,28 @@ app.UseForwardedHeaders(forwardedHeadersOptions);
 
 var staticContentTypes = new FileExtensionContentTypeProvider();
 staticContentTypes.Mappings[".br"] = "application/octet-stream";
+staticContentTypes.Mappings[".wasm"] = "application/wasm";
+staticContentTypes.Mappings[".js"] = "application/javascript";
 
 app.UseRouting();
 app.UseCors();
 app.UseRateLimiter();
+// Browser game policy is scoped to this route; other games keep their headers.
+app.Use(async (ctx, next) =>
+{
+    if (ctx.Request.Path.StartsWithSegments("/heliobound"))
+    {
+        ctx.Response.Headers["Content-Security-Policy"] =
+            "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self'; " +
+            "connect-src 'self'; img-src 'self'; object-src 'none'; base-uri 'none'; " +
+            "frame-ancestors 'self'; form-action 'none'";
+        ctx.Response.Headers["X-Content-Type-Options"] = "nosniff";
+        ctx.Response.Headers["Referrer-Policy"] = "no-referrer";
+        ctx.Response.Headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=(), fullscreen=(self)";
+        ctx.Response.Headers["Cache-Control"] = "no-cache";
+    }
+    await next();
+});
 app.UseDefaultFiles();
 app.UseStaticFiles(new StaticFileOptions
 {

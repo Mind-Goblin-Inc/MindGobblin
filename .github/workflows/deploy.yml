@@ -16,6 +16,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Validate approved HelioBound release
+        run: python3 tools/verify_heliobound.py --require-release
+
       - name: Set up QEMU (multi-arch)
         uses: docker/setup-qemu-action@v3
 
@@ -31,6 +38,7 @@ jobs:
       - name: Build & Push (amd64+arm64)
         uses: docker/build-push-action@v6
         with:
+          context: .
           push: true
           tags: |
             ${{ env.IMAGE }}:latest
