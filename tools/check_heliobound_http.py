@@ -25,11 +25,12 @@ def check(base, require_policy=True):
                 assert response.headers.get('X-Content-Type-Options') == 'nosniff', name
                 assert not response.headers.get('Cross-Origin-Embedder-Policy'), name
     with urlopen(base + '/heliobound/', timeout=10) as response:
-        assert b'HelioBound' in response.read()
+        assert b'HelioEngine' in response.read()
     with urlopen(base + '/', timeout=10) as response:
         home = response.read()
         assert b'href="heliobound/" data-project' in home
-        assert b'>33 games &amp; projects<' in home and b'>14 games<' in home
+        assert b'>33 games &amp; projects<' in home and b'>13 games<' in home
+        assert b'id="GameEngine"' in home and b'>1 engine<' in home
         if require_policy:
             assert not response.headers.get('Content-Security-Policy'), 'Game policy leaked to homepage'
     print(f'HTTP checks passed: {len(manifest["files"])} files, checksums, MIME types, game route, and homepage')

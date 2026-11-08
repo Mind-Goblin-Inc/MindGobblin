@@ -100,7 +100,7 @@ docker run --rm -p 8080:8080 jake-server
 * Production session cookies require HTTPS. Development permits HTTP and marks cookies secure when using HTTPS.
 * The deployment workflow and scripts trust the Docker bridge gateway for the host reverse proxy. For other proxy setups, configure each exact address with `ReverseProxy__KnownProxies__0` (and `__1`, etc.). The proxy must overwrite forwarded headers supplied by visitors. Without trusted forwarding, clients behind the proxy share its login limit.
 
-## HelioBound local browser preview
+## HelioEngine local browser preview
 
 The reviewed browser bundle is stored in `wwwroot/heliobound/`. It requires a
 desktop keyboard/mouse and WebGPU over HTTPS or localhost. It is a **preview**;

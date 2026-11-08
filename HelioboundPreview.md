@@ -1,19 +1,28 @@
-# HelioBound local preview
+# HelioEngine local preview
 
-The port is committed locally in the engine as `385171f634bed571c67dad79fb0ce5f15d4d78c3`. No push or
+The port is committed locally in the engine as
+`385171f634bed571c67dad79fb0ce5f15d4d78c3`. The website preview is prepared on
+`feature/helioengine-preview`; the engine source has not been pushed. No
 production deployment was performed. Public release still requires validation
 and separate production authorization.
 
-The imported bundle was built before that commit from a working tree based on
-`6904eb17c2b8689a6257bc59f1e2cc06c5b94a3d`, including the user's retained
-uncommitted engine edits. Its manifest therefore preserves that build parent,
-`engine_dirty: true`, and the exact source/file hashes. It does not claim to be
-a clean release build of the new engine commit. Build instructions and checks
-live in the engine's README and docs/browser-release.md.
+The imported bundle is built from the working tree based on that engine
+commit, including the HelioEngine branding and the user's retained engine
+edits. Its manifest records `engine_dirty: true` and the exact source/file
+hashes. It does not claim to be a clean release build. Build instructions and
+checks live in the engine's README and docs/browser-release.md.
 
-The website stores the self-contained bundle, adds HelioBound under Action &
-exploration, updates initial counts to 14 games / 33 projects, and retains the
-Featured selections. It adds scoped CSP/permissions headers and explicit
+The current bundle also includes the Safari shader compatibility fix: UI cells
+and pixel sprites compile separate resource declarations rather than overlapping
+bindings in the glyph compositor module. The menu and Corn Maze render in actual
+Safari 18.1 on this Mac, with keyboard movement verified. Startup now awaits
+graphics validation and keeps reported errors visible. Full Safari gameplay/audio
+coverage remains unverified.
+
+The website stores the self-contained bundle, features HelioEngine, and gives
+it a dedicated Game Engine category, with 13 games / 1 engine / 33 total
+projects. The previous Featured selections remain. It adds scoped
+CSP/permissions headers and explicit
 JavaScript/WebAssembly MIME mappings. No game backend or upload endpoint is
 added. Database__Path permits a separate temporary database for local .NET
 checks while preserving historical production database selection by default.

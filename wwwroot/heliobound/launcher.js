@@ -6,13 +6,15 @@ const muted = document.querySelector('#muted');
 const canvas = document.querySelector('#game');
 let started = false;
 let loading = false;
+let restartRequired = false;
 let game;
 async function begin(withAudio) {
   if (started || loading) return;
+  if (restartRequired) { window.location.reload(); return; }
   loading = true;
   start.disabled = muted.disabled = true;
   try {
-    if (!isSecureContext || !navigator.gpu) throw new Error('HelioBound needs desktop WebGPU over HTTPS or localhost. This browser or device does not provide it.');
+    if (!isSecureContext || !navigator.gpu) throw new Error('HelioEngine needs desktop WebGPU over HTTPS or localhost. This browser or device does not provide it.');
     if (withAudio) {
       try { await activateAudio(); }
       catch { status.textContent = 'Audio did not start. Retry audio or choose Play muted.'; status.hidden = false; return; }
@@ -24,7 +26,12 @@ async function begin(withAudio) {
     game = await import('./pkg/heliobound.js');
     const exports = await game.default();
     set_memory(exports.memory);
+    // winit permits only one event loop per WASM instance, even if GPU setup fails.
+    restartRequired = true;
     await game.start(canvas);
+    // A panic or browser error can be reported while async startup completes.
+    // Keep that diagnostic rather than clearing it and exposing a blank screen.
+    if (status.dataset.error === 'true') throw new Error(status.textContent);
     started = true;
     set_load_time(performance.now() - began);
     status.textContent = '';
@@ -33,7 +40,12 @@ async function begin(withAudio) {
     start.hidden = muted.hidden = true;
     canvas.focus();
   } catch (error) {
-    report_error(`${error?.message ?? error} Reload this page to retry.`);
+    const message = String(error?.message ?? error);
+    report_error(/reload/i.test(message) ? message : `${message} Reload this page to retry.`);
+    if (restartRequired) {
+      start.textContent = 'Reload page';
+      muted.hidden = true;
+    }
   } finally { loading = false; if (!started) start.disabled = muted.disabled = false; }
 }
 start.addEventListener('click', () => void begin(true));

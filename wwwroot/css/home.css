@@ -60,6 +60,7 @@ h1, h2, h3, p { margin: 0; }
 .section-heading h2 { font-size: 23px; line-height: 1.25; letter-spacing: -.025em; font-weight: 650; }
 .section-aside { color: var(--muted); font-size: 13px; }
 .featured-grid, .project-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.featured-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 .featured-link { display: flex; flex-direction: column; align-items: stretch; gap: 6px; padding: 18px; border: 1px solid var(--featured-border); border-top: 2px solid var(--accent); background: var(--surface); border-radius: 0; text-decoration: none; }
 .project-title { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; color: var(--text); font-size: 16px; font-weight: 600; line-height: 1.4; overflow-wrap: anywhere; }
 .project-name { display: flex; align-items: baseline; gap: 8px; min-width: 0; }
