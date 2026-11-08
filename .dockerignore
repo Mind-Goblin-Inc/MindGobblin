@@ -1,0 +1,17 @@
+.git
+.github
+.agents
+.codex
+.aws
+bin
+obj
+node_modules
+.env
+.env.*
+envVars.sh
+data/*
+!data/*.cs
+keys
+*.db
+*.db-*
+.heliobound-import-*
