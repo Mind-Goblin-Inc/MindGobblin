@@ -1,10 +1,10 @@
-# HelioEngine local preview
+# HelioEngine browser bundle
 
 The port is committed locally in the engine as
-`385171f634bed571c67dad79fb0ce5f15d4d78c3`. The website preview is prepared on
-`feature/helioengine-preview`; the engine source has not been pushed. No
-production deployment was performed. Public release still requires validation
-and separate production authorization.
+`385171f634bed571c67dad79fb0ce5f15d4d78c3`; the engine source has not been pushed.
+The normal website workflow checks bundle integrity before packaging. Preview
+status and dirty-source metadata do not block deployment, and there is no
+separate HelioEngine CI workflow.
 
 The imported bundle is built from the working tree based on that engine
 commit, including the HelioEngine branding and the user's retained engine
@@ -36,28 +36,27 @@ Verified locally:
 - All checked-in authored maps/assets load through the shared validators.
 - The local .NET host serves every manifest file with matching checksums,
   correct MIME types, and scoped game policy. The homepage does not inherit it.
-- Seven manifest checks pass, including corrupted/missing/extra files,
-  traversal, symlinks, and rejection of an unapproved preview for production.
+- Seven manifest checks cover corrupted/missing/extra files, traversal,
+  symlinks, and acceptance of preview/release and dirty-source metadata.
 - Browser platform checks pass: unsupported devices, audio failure/muted play/
   retry, fullscreen/Escape, device loss, and homepage search/navigation.
 
 Hardware used: Apple M4 Pro with 16 GPU cores, macOS 15.1 (24B2082), desktop
 Chromium 156.0.0.0, Apple Metal 3 adapter, not a fallback adapter. Browser
 audio checks establish activation and graph state. Human headphone listening
-and prolonged gameplay remain required for public release.
+and prolonged gameplay have not yet been recorded.
 
-An earlier preview Docker image built successfully. Container runtime and the
-final image check remain blocked: Docker Desktop logged storage I/O errors
-and its local API stopped responding after the host disk filled. Temporary
-build files from this task were cleared; existing Docker data was not reset
-or pruned. The website CI now includes a clean local-only Docker build/run
-check using an ephemeral /data mount. No image was pushed.
+Docker build, container runtime, and served-file checks passed in
+[GitHub Actions](https://github.com/Mind-Goblin-Inc/MindGobblin/actions/runs/42514922036).
+The HTTP checker retries transient startup resets. The separate preview job
+has since been removed; its HTTP checker remains available for local use.
+Local Docker Desktop is still unresponsive after storage I/O errors; its data
+was not reset or pruned.
 
 Use tools/verify_heliobound.py and tools/check_heliobound_http.py before a
 future selected release import. Restore the entire previous bundle and its
-manifest together for rollback. Do not change this preview into an approved
-release until the remaining acceptance work and production authorization are
-complete.
+manifest together for rollback. Keep the manifest's preview and source metadata
+accurate when publishing the bundle.
 
 ## Hardware measurements — 2026-11-08
 

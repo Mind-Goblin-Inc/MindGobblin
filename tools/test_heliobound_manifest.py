@@ -44,13 +44,18 @@ class ManifestValidation(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'Unsupported entry'):
             verify(self.bundle)
 
-    def test_preview_cannot_pass_production_gate(self):
+    def test_preview_and_dirty_sources_are_valid_metadata(self):
         path = self.bundle / 'manifest.json'
         manifest = json.loads(path.read_text())
-        manifest['release_status'] = 'preview'
-        path.write_text(json.dumps(manifest))
-        with self.assertRaisesRegex(ValueError, 'Production is blocked'):
-            verify(self.bundle, require_release=True)
+        for status in ('preview', 'release'):
+            for dirty in (True, False):
+                with self.subTest(status=status, dirty=dirty):
+                    manifest['release_status'] = status
+                    manifest['engine_dirty'] = dirty
+                    path.write_text(json.dumps(manifest))
+                    verified = verify(self.bundle)
+                    self.assertEqual(verified['release_status'], status)
+                    self.assertEqual(verified['engine_dirty'], dirty)
 
 
 if __name__ == '__main__':

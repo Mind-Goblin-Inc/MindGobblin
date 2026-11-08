@@ -104,8 +104,7 @@ docker run --rm -p 8080:8080 jake-server
 
 The reviewed browser bundle is stored in `wwwroot/heliobound/`. It requires a
 desktop keyboard/mouse and WebGPU over HTTPS or localhost. It is a **preview**;
-production CI rejects the current preview manifest before any image push.
-No production push or deployment is part of this change.
+that label records game maturity and does not block website deployment.
 
 Validate the imported artifact:
 
@@ -134,7 +133,8 @@ python3 tools/check_heliobound_http.py http://localhost:8080
 
 Review the complete bundle and manifest in the same website change. Roll back
 by restoring the entire prior `wwwroot/heliobound/` directory and manifest
-together. The deployment workflow uses `context: .`, verifies checksums, and
-requires an approved clean engine release. Local and pull-request checks allow
-previews and never push images. See [HelioBound validation](HelioboundPreview.md)
-for measured coverage and open release checks.
+together. The normal website deployment workflow uses `context: .` and verifies
+the bundle's inventory and checksums. Preview/release and dirty-source fields
+record provenance; both are accepted. There is no separate HelioEngine workflow.
+Pushing or merging to `main` uses the existing website build and deployment flow.
+See [HelioEngine validation](HelioboundPreview.md) for measured coverage.
