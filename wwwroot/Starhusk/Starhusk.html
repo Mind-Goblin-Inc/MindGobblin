@@ -1,12 +1,15 @@
 <!DOCTYPE html>
-<html lang="en-us">
+<html lang="en-us" data-site-home>
   <head>
+<meta name="viewport" content="width=device-width, initial-scale=1">
     <meta charset="utf-8">
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
     <title>Unity Web Player | Starhusk</title>
     <link rel="shortcut icon" href="TemplateData/favicon.ico">
     <link rel="stylesheet" href="TemplateData/style.css">
-  </head>
+  <link rel="stylesheet" href="/css/site-home.css">
+<script src="/js/site-home.js"></script>
+</head>
   <body>
     <div id="unity-container" class="unity-desktop">
       <canvas id="unity-canvas" width=960 height=600 tabindex="-1"></canvas>
@@ -104,8 +107,8 @@
 
       } else {
         // Desktop style: Render the game canvas in a window that can be maximized to fullscreen:
-        canvas.style.width = "960px";
-        canvas.style.height = "600px";
+        canvas.style.width = "100%";
+        canvas.style.height = "auto";
       }
 
       document.querySelector("#unity-loading-bar").style.display = "block";

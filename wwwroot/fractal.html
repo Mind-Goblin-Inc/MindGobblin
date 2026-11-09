@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-site-home>
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
@@ -12,7 +12,7 @@
   body{margin:0;background:var(--bg);color:var(--fg);font:14px/1.45 system-ui,Segoe UI,Roboto,Inter,Arial}
   canvas{width:100%;height:100%;display:block}
   #hud{
-    position:fixed;left:12px;top:12px;display:flex;gap:10px;flex-wrap:wrap;
+    position:fixed;left:12px;top:calc(var(--site-home-height) + 12px);display:flex;gap:10px;flex-wrap:wrap;
     background:var(--ui);border:1px solid var(--edge);padding:10px;border-radius:12px;backdrop-filter:blur(6px)
   }
   .row{display:flex;align-items:center;gap:8px}
@@ -30,6 +30,8 @@
   }
   @media (max-width:700px){ #hud{max-width:calc(100% - 24px)} }
 </style>
+<link rel="stylesheet" href="/css/site-home.css">
+<script src="/js/site-home.js"></script>
 </head>
 <body>
 <canvas id="gl"></canvas>

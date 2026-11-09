@@ -1,15 +1,17 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-site-home>
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Asteroids (with bullet limit & mini-boss)</title>
   <style>
     body{margin:0;background:#000;color:#fff;font-family:sans-serif;overflow:hidden}
-    #hud{position:fixed;top:10px;left:10px;display:flex;gap:10px}
+    #hud{position:fixed;top:calc(var(--site-home-height) + 10px);left:10px;display:flex;gap:10px}
     .pill{background:rgba(255,255,255,.1);padding:4px 8px;border-radius:6px}
     canvas{display:block}
   </style>
+<link rel="stylesheet" href="/css/site-home.css">
+<script src="/js/site-home.js"></script>
 </head>
 <body>
 <canvas id="canvas"></canvas>
@@ -49,7 +51,7 @@
           <kbd>R</kbd> <span>restart</span>
         </div>`;
       hud.style.position = 'fixed';
-      hud.style.inset = '0';
+      hud.style.inset = 'var(--site-home-height) 0 0';
       hud.style.pointerEvents = 'none';
       hud.style.display = 'flex';
       hud.style.alignItems = 'flex-start';
@@ -75,9 +77,9 @@
   const DPR = Math.min(2, window.devicePixelRatio || 1);
   function resize(){
     canvas.width = Math.floor(innerWidth * DPR);
-    canvas.height = Math.floor(innerHeight * DPR);
+    canvas.height = Math.floor(window.MindGoblinHome.viewportHeight * DPR);
     canvas.style.width = innerWidth + 'px';
-    canvas.style.height = innerHeight + 'px';
+    canvas.style.height = window.MindGoblinHome.viewportHeight + 'px';
     ctx.setTransform(DPR,0,0,DPR,0,0);
   }
   addEventListener('resize', resize);
@@ -88,7 +90,7 @@
   const rand = (a,b) => Math.random()*(b-a)+a;
   const clamp = (v,a,b) => Math.max(a, Math.min(b,v));
   const dist2 = (x1,y1,x2,y2) => {const dx=x2-x1, dy=y2-y1; return dx*dx+dy*dy};
-  const wrap = (obj) => { const w=innerWidth, h=innerHeight; if(obj.x<0) obj.x+=w; if(obj.x>w) obj.x-=w; if(obj.y<0) obj.y+=h; if(obj.y>h) obj.y-=h; };
+  const wrap = (obj) => { const w=innerWidth, h=window.MindGoblinHome.viewportHeight; if(obj.x<0) obj.x+=w; if(obj.x>w) obj.x-=w; if(obj.y<0) obj.y+=h; if(obj.y>h) obj.y-=h; };
 
   // --- Tuning (classic-ish) ---
   const MAX_BULLETS = 4;            // classic Asteroids limit
@@ -119,7 +121,7 @@
   // Entity factories
   function makeShip(){
     return {
-      type:'ship', x: innerWidth/2, y: innerHeight/2, r: 12,
+      type:'ship', x: innerWidth/2, y: window.MindGoblinHome.viewportHeight/2, r: 12,
       angle: -Math.PI/2, vx:0, vy:0, thrusting:false, dead:false,
     };
   }
@@ -150,7 +152,7 @@
     state.bossActive = true;
     // spawn from left or right
     const side = Math.random()<0.5 ? -40 : innerWidth+40;
-    const y = rand(60, innerHeight-60);
+    const y = rand(60, window.MindGoblinHome.viewportHeight-60);
     const hp = BOSS_HP_BASE + Math.floor((state.level-1)*1.5);
     const speed = 1.2 + state.level*0.1;
     const vx = side<0? speed : -speed;
@@ -170,7 +172,7 @@
     // Spawn asteroids away from ship
     for(let i=0;i<n;i++){
       let x,y; let tries=0;
-      do { x = rand(0, innerWidth); y = rand(0, innerHeight); tries++; }
+      do { x = rand(0, innerWidth); y = rand(0, window.MindGoblinHome.viewportHeight); tries++; }
       while(dist2(x,y,ship.x,ship.y) < 200*200 && tries<50);
       state.entities.push(asteroid(x,y,3));
     }
@@ -263,7 +265,7 @@
       // Hyperspace
       if(state.keys.has('ShiftLeft')||state.keys.has('ShiftRight')){
         state.keys.delete('ShiftLeft'); state.keys.delete('ShiftRight');
-        ship.x = rand(0, innerWidth); ship.y = rand(0, innerHeight);
+        ship.x = rand(0, innerWidth); ship.y = rand(0, window.MindGoblinHome.viewportHeight);
         state.invincibleUntil = t + 1200;
       }
     }
@@ -288,7 +290,7 @@
     if(boss){
       boss.x += boss.vx; boss.y += boss.vy;
       // gentle vertical drift
-      if(boss.y<40||boss.y>innerHeight-40) boss.vy*=-1;
+      if(boss.y<40||boss.y>window.MindGoblinHome.viewportHeight-40) boss.vy*=-1;
       wrap(boss);
       // Fire at the player with a bit of inaccuracy
       boss.fireCooldown -= 16; // approx ms per frame
@@ -425,7 +427,7 @@
 
   // Rendering
   function render(){
-    ctx.clearRect(0,0,innerWidth,innerHeight);
+    ctx.clearRect(0,0,innerWidth,window.MindGoblinHome.viewportHeight);
     const list = state.entities;
 
     // Stars background (cheap twinkle)
@@ -433,7 +435,7 @@
     ctx.globalAlpha = 0.15;
     for(let i=0;i<80;i++){
       const x = (i*137.5 + performance.now()*0.01) % innerWidth;
-      const y = (i*91.7 + i*13) % innerHeight;
+      const y = (i*91.7 + i*13) % window.MindGoblinHome.viewportHeight;
       ctx.fillRect(x,y,1,1);
     }
     ctx.restore();

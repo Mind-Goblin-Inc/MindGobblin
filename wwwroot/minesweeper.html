@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-site-home>
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
@@ -16,7 +16,7 @@
     margin:0;background:radial-gradient(1200px 700px at 15% -10%, #0e1a13 0, transparent 60%),
              radial-gradient(900px 600px at 110% 10%, #10202b 0, transparent 55%), var(--bg);
     color:var(--fg);font:14px/1.35 system-ui,Segoe UI,Roboto,Inter,Arial,sans-serif;
-    display:flex;align-items:center;justify-content:center;padding:18px
+    display:flex;align-items:safe center;justify-content:safe center;padding:18px
   }
   .game{
     width:min(96vw,900px);
@@ -78,6 +78,8 @@
     .select, input[type="number"]{width:78px}
   }
 </style>
+<link rel="stylesheet" href="/css/site-home.css">
+<script src="/js/site-home.js"></script>
 </head>
 <body>
   <div class="game" id="app">

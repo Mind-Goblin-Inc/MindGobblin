@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-site-home>
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
@@ -43,7 +43,7 @@
   .frame{
     position:relative;
     width:min(1100px, 96vw);
-    height:min(680px, 92vh);
+    height:min(680px, calc(var(--site-page-height) * 0.92));
     border-radius:28px;
     padding:18px;
     box-sizing:border-box;
@@ -213,6 +213,8 @@
   }
   .toast.show{ opacity:1; }
 </style>
+<link rel="stylesheet" href="/css/site-home.css">
+<script src="/js/site-home.js"></script>
 </head>
 <body>
 <div class="stage">

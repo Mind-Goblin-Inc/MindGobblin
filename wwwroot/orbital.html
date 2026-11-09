@@ -1,6 +1,7 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-site-home>
 <head>
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <meta charset="UTF-8">
 <title>Orbital Simulation – The Helion System</title>
 <style>
@@ -13,13 +14,18 @@
     color: #fff;
   }
   #game {
+    position: fixed;
+    top: var(--site-home-height);
+    left: 0;
+    width: 100%;
+    height: calc(100dvh - var(--site-home-height));
     display: block;
     background: radial-gradient(circle at 50% 130%, #001018, #000000 65%, #02020a);
   }
   
     #overlay {
     position: fixed;
-    inset: 0;
+    inset: var(--site-home-height) 0 0;
     padding: 8px 14px 14px;
     display: flex;
     flex-direction: column;
@@ -345,6 +351,8 @@
 
 
 </style>
+<link rel="stylesheet" href="/css/site-home.css">
+<script src="/js/site-home.js"></script>
 </head>
 <body>
 <canvas id="game"></canvas>
@@ -473,8 +481,9 @@
   const SAFE_ORBIT_RADIUS_PX = 20000;
 
   function resize() {
-    canvas.width = window.innerWidth;
-    canvas.height = window.innerHeight;
+    const bounds = canvas.getBoundingClientRect();
+    canvas.width = Math.max(1, Math.round(bounds.width));
+    canvas.height = Math.max(1, Math.round(bounds.height));
   }
   window.addEventListener("resize", resize);
   resize();

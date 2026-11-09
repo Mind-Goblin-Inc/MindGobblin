@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-site-home>
 <head>
 <meta charset="utf-8">
 <title>Snake</title>
@@ -14,7 +14,7 @@
   body{
     margin:0; background:radial-gradient(1000px 700px at 70% 20%, #101a2a 0, #0b0f17 50%, #070a10 100%);
     color:var(--text); font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial;
-    display:flex; flex-direction:column; align-items:center; gap:12px; padding:14px;
+    display:flex; flex-direction:column; align-items:safe center; gap:12px; padding:14px;
   }
   header{width:min(980px, 96vw); display:flex; align-items:center; justify-content:space-between; gap:8px}
   h1{font-size:20px; margin:0}
@@ -45,6 +45,8 @@
   .badge{display:inline-block; padding:2px 8px; border-radius:999px; background:rgba(119,166,255,.15); color:#cfe0ff; font-size:12px}
   a{color:#9cd1ff}
 </style>
+<link rel="stylesheet" href="/css/site-home.css">
+<script src="/js/site-home.js"></script>
 </head>
 <body>
   <header>

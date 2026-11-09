@@ -35,7 +35,8 @@ h1, h2, h3, p { margin: 0; }
 .skip-link { position: absolute; top: 8px; left: 16px; z-index: 10; padding: 12px 16px; background: var(--accent); color: var(--bg); transform: translateY(-160%); border-radius: 0; }
 .skip-link:focus { transform: translateY(0); }
 .site-header { display: flex; align-items: center; flex-wrap: wrap; justify-content: space-between; gap: 12px 24px; padding-block: 24px 20px; }
-.wordmark { display: flex; align-items: baseline; flex-wrap: wrap; gap: 12px; font-weight: 700; font-size: 18px; text-decoration: none; }
+.wordmark { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; font-weight: 700; font-size: 18px; text-decoration: none; }
+.wordmark img { flex: none; width: 28px; height: 28px; image-rendering: pixelated; }
 .account { display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 8px 16px; min-width: 0; max-width: 100%; font-size: 13px; }
 .account-name { overflow-wrap: anywhere; max-width: 24ch; }
 .account-button { display: inline-flex; align-items: center; justify-content: center; gap: 16px; min-height: 44px; padding: 8px 16px; border: 1px solid var(--line); border-radius: 0; background: transparent; text-decoration: none; font-weight: 600; }
