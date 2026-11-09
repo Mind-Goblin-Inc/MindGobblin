@@ -1315,7 +1315,7 @@ function ensureGoblinDetailDom(state, els) {
   panel.style.top = ".75rem";
   panel.style.left = ".75rem";
   panel.style.width = "min(420px,44vw)";
-  panel.style.maxHeight = "calc(100vh - 1.5rem)";
+  panel.style.maxHeight = "calc(var(--site-page-height) - 1.5rem)";
   panel.style.zIndex = "10";
   panel.style.zIndex = "1000";
   panel.style.border = "1px solid #355541";
@@ -1355,7 +1355,7 @@ function ensureWildlifeDetailDom(state, els) {
   panel.style.top = ".75rem";
   panel.style.left = ".75rem";
   panel.style.width = "min(420px,44vw)";
-  panel.style.maxHeight = "calc(100vh - 1.5rem)";
+  panel.style.maxHeight = "calc(var(--site-page-height) - 1.5rem)";
   panel.style.zIndex = "1000";
   panel.style.border = "1px solid #355541";
   panel.style.borderRadius = "12px";

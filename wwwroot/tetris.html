@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-site-home>
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -40,8 +40,8 @@
       body {
         margin: 0;
         display: grid;
-        place-items: center;
-        min-height: 100vh;
+        place-items:safe center;
+        min-height: var(--site-page-height);
         background: var(--bg);
         font-family: system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
         color: var(--ink);
@@ -155,7 +155,7 @@
       /* Modal (menu & controls) */
       .modal {
         position: fixed;
-        inset: 0;
+        inset:var(--site-home-height) 0 0;
         background: var(--modal-overlay);
         display: none;
         justify-content: center;
@@ -249,7 +249,9 @@
 
 
     </style>
-  </head>
+  <link rel="stylesheet" href="/css/site-home.css">
+<script src="/js/site-home.js"></script>
+</head>
 
   <body>
     <div class="container">

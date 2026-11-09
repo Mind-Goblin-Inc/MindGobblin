@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-site-home>
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1"/>
@@ -10,11 +10,11 @@
     --brand:#57e6c1;--brand2:#3ac39f;--danger:#ff6b6b;--gold:#ffd166
   }
   html,body{height:100%;margin:0;background:var(--bg);color:var(--fg);font:16px/1.45 system-ui,-apple-system,Segoe UI,Roboto,Inter,Arial,sans-serif}
-  #wrap{position:fixed;inset:0;display:grid;grid-template-rows:auto 1fr}
+  #wrap{position:fixed;inset:var(--site-home-height) 0 0;display:grid;grid-template-rows:auto minmax(0,1fr)}
   header{display:flex;gap:12px;align-items:center;justify-content:space-between;padding:8px 12px;background:linear-gradient(180deg,#111a2a,transparent);border-bottom:1px solid var(--edge);z-index:2}
   header h1{margin:0;font-size:14px;color:var(--brand)}
   header .btn{pointer-events:auto;border:1px solid var(--edge);background:#121a28;padding:6px 10px;border-radius:10px;color:var(--fg);cursor:pointer}
-  #hud{position:fixed;left:10px;top:48px;background:#0f1522cc;border:1px solid var(--edge);padding:8px 10px;border-radius:10px;backdrop-filter:blur(6px);z-index:2}
+  #hud{position:fixed;left:10px;top:calc(var(--site-home-height) + 48px);background:#0f1522cc;border:1px solid var(--edge);padding:8px 10px;border-radius:10px;backdrop-filter:blur(6px);z-index:2}
   #hud .row{display:flex;gap:14px;align-items:center}
   #hud .bar{width:160px;height:10px;border:1px solid var(--edge);border-radius:999px;overflow:hidden;background:#0b1220}
   #hud .bar > span{display:block;height:100%}
@@ -27,14 +27,16 @@
   .pill{display:inline-block;padding:6px 10px;border:1px solid var(--edge);border-radius:999px;background:#121a28;color:var(--fg)}
   .pill + .pill{margin-left:8px}
   /* touch controls */
-  .touch{position:fixed;inset:0;pointer-events:none}
+  .touch{position:fixed;inset:var(--site-home-height) 0 0;pointer-events:none}
   .touch .pad{position:absolute;bottom:14px;left:14px;display:grid;grid-template-columns:repeat(3,56px);grid-template-rows:repeat(2,56px);gap:10px}
   .touch .action{position:absolute;bottom:14px;right:14px;display:flex;gap:10px}
   .touch button{width:56px;height:56px;border-radius:50%;background:#121a28cc;border:1px solid var(--edge);color:#fff;pointer-events:auto}
   .touch .wide{width:86px;border-radius:999px}
-  .help{position:fixed;right:10px;top:48px;z-index:2;background:#0f1522cc;border:1px solid var(--edge);padding:8px 10px;border-radius:10px}
+  .help{position:fixed;right:10px;top:calc(var(--site-home-height) + 48px);z-index:2;background:#0f1522cc;border:1px solid var(--edge);padding:8px 10px;border-radius:10px}
   .help kbd{background:#121a28;border:1px solid var(--edge);padding:2px 6px;border-radius:6px}
 </style>
+<link rel="stylesheet" href="/css/site-home.css">
+<script src="/js/site-home.js"></script>
 </head>
 <body>
 <div id="wrap">
@@ -114,8 +116,7 @@ let DPR=window.devicePixelRatio||1
 let ZOOM=2.4 // zoomed in view
 function resize(){
   DPR=window.devicePixelRatio||1
-  const w=window.innerWidth, h=window.innerHeight
-  canvas.style.width=w+'px'; canvas.style.height=h+'px'
+  const {width:w, height:h}=canvas.getBoundingClientRect()
   canvas.width=Math.floor(w*DPR); canvas.height=Math.floor(h*DPR)
 }
 window.addEventListener('resize',resize,{passive:true}); resize()

@@ -100,6 +100,19 @@ docker run --rm -p 8080:8080 jake-server
 * Production session cookies require HTTPS. Development permits HTTP and marks cookies secure when using HTTPS.
 * The deployment workflow and scripts trust the Docker bridge gateway for the host reverse proxy. For other proxy setups, configure each exact address with `ReverseProxy__KnownProxies__0` (and `__1`, etc.). The proxy must overwrite forwarded headers supplied by visitors. Without trusted forwarding, clients behind the proxy share its login limit.
 
+## Shared home navigation
+
+Game and tool pages use the 44 px home strip from `wwwroot/css/site-home.css`
+and `wwwroot/js/site-home.js`. The strip reserves space above the page instead
+of covering its controls. The homepage, credits, and HelioEngine use their
+existing headers with the same goblin symbol.
+
+For a new standalone page, add `data-site-home` to `<html>` and include the
+shared stylesheet and script at the end of `<head>` (without `defer`). Use
+`var(--site-page-height)` for CSS viewport heights and
+`window.MindGoblinHome.viewportHeight` for full-window canvas calculations.
+Fixed controls need a top offset of `var(--site-home-height)` as well.
+
 ## HelioEngine local browser preview
 
 The reviewed browser bundle is stored in `wwwroot/heliobound/`. It requires a

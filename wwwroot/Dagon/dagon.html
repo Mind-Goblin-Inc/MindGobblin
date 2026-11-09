@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en-us">
+<html lang="en-us" data-site-home>
   <head>
     <meta charset="utf-8">
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
@@ -21,18 +21,18 @@
 
       #unity-container {
         position: fixed;
-        inset: 0;
+        inset: var(--site-home-height) 0 0;
         width: 100vw;
-        height: 100vh;
+        height: calc(100dvh - var(--site-home-height));
         background: #020608;
       }
 
       #unity-container.unity-mobile,
       #unity-container.unity-desktop {
         position: fixed;
-        inset: 0;
+        inset: var(--site-home-height) 0 0;
         width: 100vw;
-        height: 100vh;
+        height: calc(100dvh - var(--site-home-height));
       }
 
       #unity-canvas {
@@ -80,7 +80,7 @@
       #unity-warning {
         position: fixed;
         left: 50%;
-        top: 16px;
+        top: calc(var(--site-home-height) + 16px);
         transform: translateX(-50%);
         display: none;
         z-index: 4;
@@ -111,7 +111,9 @@
         color: #d8ecd8;
       }
     </style>
-  </head>
+  <link rel="stylesheet" href="/css/site-home.css">
+<script src="/js/site-home.js"></script>
+</head>
   <body>
     <div id="unity-container" class="unity-desktop">
       <canvas id="unity-canvas" width=960 height=600 tabindex="-1"></canvas>

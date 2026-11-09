@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-site-home>
 <head>
   <meta charset="utf-8" />
   <title>MindGobblin Place</title>
@@ -61,14 +61,14 @@
 
     /* Color sheet modal */
     .sheet {
-      position:fixed; inset:0; display:none; place-items:end center;
+      position:fixed; inset:var(--site-home-height) 0 0; display:none; place-items:end center;
       background:rgba(0,0,0,.45);
       padding: env(safe-area-inset-top) 12px calc(env(safe-area-inset-bottom) + 12px);
       z-index:50;
     }
     .sheet.open { display:grid; }
     .sheet-card {
-      width:min(560px, 96vw); max-height: 80vh; overflow:auto;
+      width:min(560px, 96vw); max-height: calc(var(--site-page-height) * 0.8); overflow:auto;
       background:#0f1626; border:1px solid #243047; border-radius:16px;
       padding: 14px; box-shadow: 0 16px 40px rgba(0,0,0,.45);
     }
@@ -101,6 +101,8 @@
       h1 { font-size:.95rem; }
     }
   </style>
+<link rel="stylesheet" href="/css/site-home.css">
+<script src="/js/site-home.js"></script>
 </head>
 <body>
   <header>

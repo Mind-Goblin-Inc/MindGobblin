@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-site-home>
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
@@ -19,8 +19,8 @@
                 var(--bg);
     color: var(--accent);
     display: flex;
-    align-items: center;
-    justify-content: center;
+    align-items:safe center;
+    justify-content:safe center;
     flex-direction: column;
   }
   .container {
@@ -157,8 +157,8 @@
   /* --- LANDSCAPE --- */
   @media (orientation: landscape) {
     html, body {
-      justify-content: center;
-      align-items: center;
+      justify-content:safe center;
+      align-items:safe center;
     }
 
     .container {
@@ -170,7 +170,7 @@
     }
 
     canvas#game {
-      max-height: 70vh;
+      max-height: calc(var(--site-page-height) * 0.7);
       width: auto;
       height: auto;
       display: block;
@@ -238,6 +238,8 @@
     touch-action: none;
   }
 </style>
+<link rel="stylesheet" href="/css/site-home.css">
+<script src="/js/site-home.js"></script>
 </head>
 <body>
   <div class="container">
@@ -632,7 +634,7 @@
     const wrapperRect = touchWrapper.getBoundingClientRect();
     const rect = canvas.getBoundingClientRect();
     const vw = window.innerWidth;
-    const vh = window.innerHeight;
+    const vh = window.MindGoblinHome.viewportHeight;
 
     // Keep everything centered in both orientations
     document.body.style.display = 'flex';

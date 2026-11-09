@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-site-home>
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -11,17 +11,19 @@
   body{margin:0;background:radial-gradient(1200px 800px at 10% -10%, #132033 0%, transparent 60%),
                      radial-gradient(1200px 800px at 110% 10%, #0b1a14 0%, transparent 55%),
                      var(--bg);color:var(--fg);font:16px/1.4 system-ui,-apple-system,Segoe UI,Roboto,Inter,Arial,sans-serif;}
-  #canvas{display:block;width:100vw;height:100vh;touch-action:none}
-  #hud{position:fixed;inset:0;pointer-events:none;display:flex;align-items:flex-start;justify-content:space-between;padding:12px}
+  #canvas{display:block;width:100vw;height:var(--site-page-height);touch-action:none}
+  #hud{position:fixed;inset:var(--site-home-height) 0 0;pointer-events:none;display:flex;align-items:flex-start;justify-content:space-between;padding:12px}
   .pill{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.08);padding:6px 10px;border-radius:999px;font-weight:600}
   #left{display:flex;gap:10px;align-items:center}
   #right{display:flex;gap:10px;align-items:center}
-  #msg{position:fixed;inset:0;display:grid;place-items:center;pointer-events:none}
+  #msg{position:fixed;inset:var(--site-home-height) 0 0;display:grid;place-items:center;pointer-events:none}
   #msg .card{background:rgba(0,0,0,.35);backdrop-filter:blur(6px);border:1px solid rgba(255,255,255,.08);border-radius:16px;padding:16px 20px;text-align:center;max-width:680px}
   kbd{background:#111a28;border:1px solid #20324a;border-bottom-width:3px;border-radius:6px;padding:2px 6px;font-family:ui-monospace, SFMono-Regular, Menlo, monospace;font-size:12px}
   .btn{pointer-events:auto;display:inline-block;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.12);padding:8px 12px;border-radius:10px;font-weight:700}
   .btn:active{transform:scale(.98)}
 </style>
+<link rel="stylesheet" href="/css/site-home.css">
+<script src="/js/site-home.js"></script>
 </head>
 <body>
 <canvas id="canvas"></canvas>
@@ -46,9 +48,9 @@
   const DPR = Math.min(2, devicePixelRatio||1);
   function resize(){
     canvas.width = Math.floor(innerWidth*DPR);
-    canvas.height = Math.floor(innerHeight*DPR);
+    canvas.height = Math.floor(window.MindGoblinHome.viewportHeight*DPR);
     canvas.style.width = innerWidth+'px';
-    canvas.style.height = innerHeight+'px';
+    canvas.style.height = window.MindGoblinHome.viewportHeight+'px';
     ctx.setTransform(DPR,0,0,DPR,0,0);
   }
   addEventListener('resize', resize); resize();
@@ -98,8 +100,8 @@
     let phase=0; // 0 power, 1 angle, 2 flight, 3 done
     let power=0, ang=0;
     let meter=0, dir=1;
-    let x=120,y=innerHeight-120, vx=0, vy=0;
-    const ground = innerHeight-100;
+    let x=120,y=window.MindGoblinHome.viewportHeight-120, vx=0, vy=0;
+    const ground = window.MindGoblinHome.viewportHeight-100;
     let dist=0;
 
     e.init=()=>{
@@ -137,7 +139,7 @@
   function EventJavelin(){
     const e={name:'Javelin (Run, Aim, Release)', maxClicks:3, clicksLeft:3};
     let phase=0; // 0 run power, 1 aim angle, 2 release timing, 3 flight, 4 done
-    let meter=0, dir=1; let run=0; let angle=0; let sway=0; let x=120,y=innerHeight-120,vx=0,vy=0; const ground=innerHeight-100;
+    let meter=0, dir=1; let run=0; let angle=0; let sway=0; let x=120,y=window.MindGoblinHome.viewportHeight-120,vx=0,vy=0; const ground=window.MindGoblinHome.viewportHeight-100;
     const wind = rand(-0.03,0.03);
     e.init=()=>{
       phase=0; meter=0; dir=1; run=0; angle=0; sway=0; x=120; y=ground; vx=0; vy=0; e.clicksLeft=e.maxClicks;
@@ -185,8 +187,8 @@
   function EventHammer(){
     const e={name:'Hammer Throw (Spin & Release)', maxClicks:6, clicksLeft:6};
     let omega=0, angle=0; const R=60; let phase=0; // 0 build, 1 released, 2 done
-    let cx=innerWidth*0.35, cy=innerHeight-130; let bx=0, by=0, vx=0, vy=0;
-    const ground=innerHeight-100; const wind = rand(-0.02,0.02);
+    let cx=innerWidth*0.35, cy=window.MindGoblinHome.viewportHeight-130; let bx=0, by=0, vx=0, vy=0;
+    const ground=window.MindGoblinHome.viewportHeight-100; const wind = rand(-0.02,0.02);
     e.init=()=>{
       omega=0; angle=0; phase=0; bx=cx+R; by=cy; vx=0; vy=0; e.clicksLeft=e.maxClicks;
       showMsg(`<h2 style="margin:.2em 0">Event 3 — Hammer Throw</h2>
@@ -232,7 +234,7 @@
     // Phases: 0 set run, 1 approach + pop timing, 2 flight (optional tuck), 3 done
     let phase=0; let meter=0, dir=1;
     let run=0; let popQ=0; let popped=false;
-    const ground=innerHeight-100;
+    const ground=window.MindGoblinHome.viewportHeight-100;
     const rampX=260, rampLen=420, rampA=20*Math.PI/180;
     let x=120, y=ground, vx=0, vy=0, approachVel=0;
     let tucked=false, tuckTimer=0;
@@ -299,7 +301,7 @@
   function EventGlider(){
     const e={name:'Glider Run (Launch & Glide)', maxClicks:2, clicksLeft:2};
     let phase=0; // 0 power, 1 pitch, 2 flight, 3 done
-    let meter=0, dir=1; let power=0; let pitch=0; let x=120,y=innerHeight-140,vx=0,vy=0; const ground=innerHeight-100; const drag=0.02; const liftK=0.04; const sink=0.2; const vxCap=11;
+    let meter=0, dir=1; let power=0; let pitch=0; let x=120,y=window.MindGoblinHome.viewportHeight-140,vx=0,vy=0; const ground=window.MindGoblinHome.viewportHeight-100; const drag=0.02; const liftK=0.04; const sink=0.2; const vxCap=11;
     e.init=()=>{
       phase=0; meter=0;dir=1;power=0;pitch=0;x=120;y=ground;vx=0;vy=0; e.clicksLeft=e.maxClicks;
       showMsg(`<h2 style="margin:.2em 0">Event 5 — Glider Run</h2>
@@ -329,7 +331,7 @@
     };
     e.draw=(ctx)=>{
       withCamera(()=>{
-        ctx.fillStyle='rgba(255,255,255,.08)'; ctx.fillRect(0, innerHeight-100, Math.max(innerWidth, x+400), 4);
+        ctx.fillStyle='rgba(255,255,255,.08)'; ctx.fillRect(0, window.MindGoblinHome.viewportHeight-100, Math.max(innerWidth, x+400), 4);
         // glider
         ctx.save(); ctx.translate(x,y-10); ctx.rotate(pitch);
         ctx.strokeStyle='#e7ecef'; ctx.lineWidth=2; ctx.beginPath(); ctx.moveTo(-16,0); ctx.lineTo(16,0); ctx.moveTo(0,0); ctx.lineTo(0,-12); ctx.stroke(); ctx.restore();
@@ -350,10 +352,10 @@
   let last=performance.now();
   function loop(t){
     const dt = Math.min(2, (t-last)/16.6667); last=t; // normalize ~60fps
-    ctx.clearRect(0,0,innerWidth,innerHeight);
+    ctx.clearRect(0,0,innerWidth,window.MindGoblinHome.viewportHeight);
 
     // stars bg (screen space)
-    ctx.save(); ctx.globalAlpha=0.12; for(let i=0;i<80;i++){ const x=(i*137.5 + t*0.01)%innerWidth; const y=(i*91.7 + i*13)%innerHeight; ctx.fillRect(x,y,1,1);} ctx.restore();
+    ctx.save(); ctx.globalAlpha=0.12; for(let i=0;i<80;i++){ const x=(i*137.5 + t*0.01)%innerWidth; const y=(i*91.7 + i*13)%window.MindGoblinHome.viewportHeight; ctx.fillRect(x,y,1,1);} ctx.restore();
 
     const ev = events[state.idx];
     eventEl.textContent = ev.name; attemptEl.textContent = '1'; scoreEl.textContent = (ev.finished? ev.score: 0)|0; totalEl.textContent = state.total|0;

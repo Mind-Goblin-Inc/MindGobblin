@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-site-home>
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -16,8 +16,8 @@
             display: flex;
             flex-direction: column; /* stack header above game */
             justify-content: flex-start;
-            align-items: center; /* center horizontally */
-            min-height: 100vh;
+            align-items:safe center; /* center horizontally */
+            min-height: var(--site-page-height);
             margin: 0;
             padding-top: 0;
             box-sizing: border-box;
@@ -174,13 +174,10 @@
             }
         }
     </style>
+<link rel="stylesheet" href="/css/site-home.css">
+<script src="/js/site-home.js"></script>
 </head>
 <body>
-    <header>
-        <a href="index.html" aria-label="Go to homepage" title="Home">
-            <img src="img/mindgobblin.jpg" alt="Mind Goblin Icon">
-        </a>
-    </header>
     <div class="game-container">
         <h1>Wordle</h1>
         <div class="grid">
