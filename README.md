@@ -153,3 +153,19 @@ the bundle's inventory and checksums. Preview/release and dirty-source fields
 record provenance; both are accepted. There is no separate HelioEngine workflow.
 Pushing or merging to `main` uses the existing website build and deployment flow.
 See [HelioEngine validation](HelioboundPreview.md) for measured coverage.
+
+## SharkBoy Emulator
+
+Play the complete 13-game Jakeboy Arcade at `/SharkBoyEmulator/`. The bundled
+WebAssembly player includes keyboard/mouse and touch controls, synthesized
+audio, pause, restart, and menu navigation. Validate it before deployment:
+
+```sh
+python3 tools/verify_sharkboy.py
+python3 -m unittest discover -s tools -p 'test_sharkboy*.py'
+python3 tools/check_sharkboy_http.py http://localhost:8080
+```
+
+See [SharkBoy Emulator](SharkBoyEmulator.md) for preview, reproducible builds,
+source refresh, browser checks, and packaging details. Its reviewed artifact
+ships through the normal website deployment workflow.

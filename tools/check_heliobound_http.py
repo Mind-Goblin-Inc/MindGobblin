@@ -57,7 +57,7 @@ def check(base, require_policy=True):
     with urlopen(base + '/', timeout=10) as response:
         home = response.read()
         assert b'href="helioengine/" data-project' in home
-        assert b'>33 games &amp; projects<' in home and b'>13 games<' in home
+        assert b'>34 games &amp; projects<' in home and b'>14 games<' in home
         assert b'id="GameEngine"' in home and b'>1 engine<' in home
         if require_policy:
             assert not response.headers.get('Content-Security-Policy'), 'Game policy leaked to homepage'
