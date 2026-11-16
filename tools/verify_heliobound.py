@@ -57,7 +57,7 @@ def verify(directory):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('directory', nargs='?', type=Path, default=Path(__file__).resolve().parents[1] / 'wwwroot/heliobound')
+    parser.add_argument('directory', nargs='?', type=Path, default=Path(__file__).resolve().parents[1] / 'wwwroot/helioengine')
     args = parser.parse_args()
     try:
         manifest = verify(args.directory)
