@@ -182,7 +182,7 @@ staticContentTypes.Mappings[".js"] = "application/javascript";
 app.UseRouting();
 app.UseCors();
 app.UseRateLimiter();
-// Browser game policy is scoped to this route; other games keep their headers.
+// Browser game policy is scoped to these routes; other pages keep their headers.
 app.Use(async (ctx, next) =>
 {
     if (ctx.Request.Path.StartsWithSegments("/heliobound", out var remaining))
@@ -193,7 +193,8 @@ app.Use(async (ctx, next) =>
             permanent: true, preserveMethod: true);
         return;
     }
-    if (ctx.Request.Path.StartsWithSegments("/helioengine"))
+    if (ctx.Request.Path.StartsWithSegments("/helioengine") ||
+        ctx.Request.Path.StartsWithSegments("/SharkBoyEmulator"))
     {
         ctx.Response.Headers["Content-Security-Policy"] =
             "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self'; " +

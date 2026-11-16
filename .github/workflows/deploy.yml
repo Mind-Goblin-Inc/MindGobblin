@@ -23,6 +23,11 @@ jobs:
       - name: Verify bundled HelioEngine files
         run: python3 tools/verify_heliobound.py
 
+      - name: Verify bundled SharkBoy Emulator files
+        run: |
+          python3 tools/verify_sharkboy.py
+          python3 -m unittest discover -s tools -p 'test_sharkboy*.py'
+
       - name: Set up QEMU (multi-arch)
         uses: docker/setup-qemu-action@v3
 

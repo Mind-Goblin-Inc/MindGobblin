@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en" data-site-home>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="description" content="Play SharkBoy's complete 13-game pocket arcade. Original games, cartridges, and two-buzzer music, with keyboard and touch controls.">
+  <title>SharkBoy Emulator · Mind Goblin</title>
+  <link rel="icon" href="/img/home/favicon.png">
+  <link rel="stylesheet" href="./style.css">
+  <link rel="stylesheet" href="/css/site-home.css">
+  <script src="/js/site-home.js"></script>
+  <script type="module" src="./launcher.js"></script>
+</head>
+<body>
+  <main>
+    <header class="intro">
+      <h1>SharkBoy <span>Emulator</span></h1>
+    </header>
+    <div class="layout">
+      <section class="player" aria-label="SharkBoy player">
+        <div class="cartridge-picker">
+          <label for="cartridge">Cartridge</label>
+          <select id="cartridge" disabled><option>Start the arcade to browse</option></select>
+        </div>
+        <div id="console" class="console">
+          <div class="console-brand"><span>SHARK<span class="brand-accent">BOY</span></span><span class="power" aria-label="Power off"></span></div>
+          <div class="console-body">
+            <div class="bezel">
+              <div class="screen">
+                <canvas id="game" width="240" height="320" tabindex="0" aria-label="SharkBoy arcade screen. W and S: left switch. Up and Down: right switch. A or Left Arrow: left action button. D or Right Arrow: right action button."></canvas>
+                <div id="overlay" class="overlay">
+                  <span class="pixel-mark" aria-hidden="true">▦</span>
+                  <p id="overlay-title">A whole arcade.<br>In your pocket.</p>
+                  <button id="start" class="start">Play arcade <span aria-hidden="true">→</span></button>
+                </div>
+              </div>
+            </div>
+            <div class="touch-controls" aria-label="Touch game controls">
+              <div class="switch-pad"><span>LEFT SWITCH</span><button data-control="0" aria-label="Left switch up">▲ <kbd>W</kbd></button><button data-control="1" aria-label="Left switch down">▼ <kbd>S</kbd></button></div>
+              <div class="action-pad">
+                <div>
+                  <button data-control="4" class="action left-action" aria-label="Left action button, A or Left Arrow"><span class="action-key">A</span><span class="action-arrow" aria-hidden="true">←</span></button>
+                  <button data-control="5" class="action right-action" aria-label="Right action button, D or Right Arrow"><span class="action-key">D</span><span class="action-arrow" aria-hidden="true">→</span></button>
+                </div>
+              </div>
+              <div class="switch-pad"><span>RIGHT SWITCH</span><button data-control="2" aria-label="Right switch up">▲ <kbd>↑</kbd></button><button data-control="3" aria-label="Right switch down">▼ <kbd>↓</kbd></button></div>
+            </div>
+          </div>
+          <div class="console-footer"><span>ORIGINAL JAKEBOY ARCADE</span><span class="speaker" aria-hidden="true">▥▥▥</span></div>
+        </div>
+        <div class="toolbar" aria-label="Player controls">
+          <button id="pause" disabled>Pause</button>
+          <button id="menu" disabled>Menu</button>
+          <button id="restart" disabled>Restart</button>
+          <button id="sound" aria-pressed="false">Mute</button>
+          <button id="fullscreen">Full screen</button>
+        </div>
+        <p id="status" class="status" role="status" aria-live="polite">Ready when you are.</p>
+        <p id="audio-status" class="audio-status" role="status" hidden></p>
+      </section>
+    </div>
+    <noscript><p class="status">JavaScript is required to play SharkBoy Emulator.</p></noscript>
+  </main>
+</body>
+</html>
