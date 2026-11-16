@@ -115,7 +115,7 @@ Fixed controls need a top offset of `var(--site-home-height)` as well.
 
 ## HelioEngine local browser preview
 
-The reviewed browser bundle is stored in `wwwroot/heliobound/`. It requires a
+The reviewed browser bundle is stored in `wwwroot/helioengine/`. It requires a
 desktop keyboard/mouse and WebGPU over HTTPS or localhost. It is a **preview**;
 that label records game maturity and does not block website deployment.
 
@@ -132,9 +132,11 @@ For a local .NET preview with a separate temporary database:
 Database__Path=/tmp/mindgoblin-preview.db dotnet run --project JakeServer.csproj --no-launch-profile
 ```
 
-Open `http://localhost:8080/heliobound/`. `Database__Path` is optional; production
+Open `http://localhost:8080/helioengine/`. `Database__Path` is optional; production
 retains its historical `/data` database selection when it is absent. For a
 static preview, serve `wwwroot` on localhost using `python3 -m http.server`.
+The .NET host permanently redirects the old `/heliobound` path and its
+subpaths to `/helioengine/`, preserving query parameters.
 
 Build a selected engine checkout using its documented `python3 scripts/build-web.py`
 command, inspect its manifest and acceptance record, then import deliberately:
@@ -145,7 +147,7 @@ python3 tools/check_heliobound_http.py http://localhost:8080
 ```
 
 Review the complete bundle and manifest in the same website change. Roll back
-by restoring the entire prior `wwwroot/heliobound/` directory and manifest
+by restoring the entire prior `wwwroot/helioengine/` directory and manifest
 together. The normal website deployment workflow uses `context: .` and verifies
 the bundle's inventory and checksums. Preview/release and dirty-source fields
 record provenance; both are accepted. There is no separate HelioEngine workflow.

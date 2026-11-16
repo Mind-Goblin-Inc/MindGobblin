@@ -6,18 +6,41 @@ from http.client import IncompleteRead
 import json
 from pathlib import Path
 import time
-from urllib.error import URLError
-from urllib.request import urlopen
+from urllib.error import HTTPError, URLError
+from urllib.request import HTTPRedirectHandler, build_opener, urlopen
+
+
+def check_redirects(base):
+    class KeepRedirect(HTTPRedirectHandler):
+        def redirect_request(self, request, response, code, message, headers, target):
+            return None
+
+    opener = build_opener(KeepRedirect())
+    paths = (
+        ('/heliobound', '/helioengine/'),
+        ('/heliobound/', '/helioengine/'),
+        ('/heliobound?mode=maze&return=%2Fgames%2F', '/helioengine/?mode=maze&return=%2Fgames%2F'),
+        ('/heliobound/manifest.json', '/helioengine/manifest.json'),
+        ('/heliobound/pkg/heliobound_bg.wasm?download=1', '/helioengine/pkg/heliobound_bg.wasm?download=1'),
+    )
+    for old, new in paths:
+        try:
+            response = opener.open(base + old, timeout=10)
+        except HTTPError as error:
+            response = error
+        with response:
+            assert response.status == 308, (old, response.status)
+            assert response.headers.get('Location') == new, (old, response.headers)
 
 
 def check(base, require_policy=True):
     base = base.rstrip('/')
-    with urlopen(base + '/heliobound/manifest.json', timeout=10) as response:
+    with urlopen(base + '/helioengine/manifest.json', timeout=10) as response:
         manifest = json.load(response)
     mime = {'.js': ('application/javascript', 'text/javascript'), '.wasm': ('application/wasm',),
             '.html': ('text/html',), '.css': ('text/css',), '.png': ('image/png',)}
     for name, checksum in manifest['files'].items():
-        with urlopen(base + '/heliobound/' + name, timeout=10) as response:
+        with urlopen(base + '/helioengine/' + name, timeout=10) as response:
             assert response.status == 200, name
             assert hashlib.sha256(response.read()).hexdigest() == checksum, name
             assert response.headers.get_content_type() in mime[Path(name).suffix], (name, response.headers)
@@ -25,16 +48,20 @@ def check(base, require_policy=True):
                 assert "'wasm-unsafe-eval'" in response.headers.get('Content-Security-Policy', ''), name
                 assert response.headers.get('X-Content-Type-Options') == 'nosniff', name
                 assert not response.headers.get('Cross-Origin-Embedder-Policy'), name
-    with urlopen(base + '/heliobound/', timeout=10) as response:
+    with urlopen(base + '/helioengine/', timeout=10) as response:
         assert b'HelioEngine' in response.read()
+    with urlopen(base + '/helioengine', timeout=10) as response:
+        assert response.geturl() == base + '/helioengine/'
+    if require_policy:
+        check_redirects(base)
     with urlopen(base + '/', timeout=10) as response:
         home = response.read()
-        assert b'href="heliobound/" data-project' in home
+        assert b'href="helioengine/" data-project' in home
         assert b'>33 games &amp; projects<' in home and b'>13 games<' in home
         assert b'id="GameEngine"' in home and b'>1 engine<' in home
         if require_policy:
             assert not response.headers.get('Content-Security-Policy'), 'Game policy leaked to homepage'
-    print(f'HTTP checks passed: {len(manifest["files"])} files, checksums, MIME types, game route, and homepage')
+    print(f'HTTP checks passed: {len(manifest["files"])} files, checksums, MIME types, game route, legacy redirects, and homepage')
 
 
 def check_with_retry(base, require_policy=True, attempts=30, retry_delay=1):

@@ -1,5 +1,9 @@
 # HelioEngine browser bundle
 
+The public path is `/helioengine/`; the bundle lives in `wwwroot/helioengine/`.
+The .NET host redirects old `/heliobound/` URLs, including asset subpaths and
+query parameters, to the corresponding new paths.
+
 The port is committed locally in the engine as
 `385171f634bed571c67dad79fb0ce5f15d4d78c3`; the engine source has not been pushed.
 The normal website workflow checks bundle integrity before packaging. Preview

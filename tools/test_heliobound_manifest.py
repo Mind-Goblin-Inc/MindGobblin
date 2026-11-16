@@ -11,7 +11,7 @@ class ManifestValidation(unittest.TestCase):
         self.temporary = tempfile.TemporaryDirectory()
         self.addCleanup(self.temporary.cleanup)
         self.bundle = Path(self.temporary.name) / 'bundle'
-        shutil.copytree(Path(__file__).resolve().parents[1] / 'wwwroot/heliobound', self.bundle)
+        shutil.copytree(Path(__file__).resolve().parents[1] / 'wwwroot/helioengine', self.bundle)
 
     def test_exact_bundle(self):
         self.assertIn(verify(self.bundle)['release_status'], ('preview', 'release'))

@@ -79,7 +79,7 @@ Show a clear unsupported-device message when neither path works.
 
 Add a browser entry point in the engine repository and a reproducible release
 script. The output should be a self-contained directory that can be served
-under `/heliobound/`, containing an HTML launcher, external JavaScript/CSS,
+under `/helioengine/`, containing an HTML launcher, external JavaScript/CSS,
 the wasm-bindgen module, and its `.wasm` file. All runtime URLs must work under
 that prefix. Include external map/asset files only if they are not embedded.
 
@@ -95,7 +95,7 @@ static web artifact. A single wasm artifact serves both VPS CPU architectures.
 
 ## Mind Goblin integration
 
-1. Import the verified browser artifact into `wwwroot/heliobound/`.
+1. Import the verified browser artifact into `wwwroot/helioengine/`.
 2. Serve `.wasm` as `application/wasm` and modules as JavaScript. Existing
    `Program.cs` code already supplies correct headers for `.wasm.br` and
    `.js.br` if the release chooses explicit Brotli URLs. Verify these responses

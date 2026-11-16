@@ -18,7 +18,7 @@ class StartupRetries(unittest.TestCase):
             manifest_requests = 0
 
             def do_GET(self):
-                if self.path == '/heliobound/manifest.json':
+                if self.path == '/helioengine/manifest.json':
                     type(self).manifest_requests += 1
                     if self.manifest_requests == 1:
                         # Reproduce an accepted connection reset by Docker before

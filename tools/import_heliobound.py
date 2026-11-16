@@ -11,7 +11,7 @@ parser.add_argument('bundle', type=Path)
 parser.add_argument('--replace', action='store_true', help='Replace the current bundle and manifest together')
 args = parser.parse_args()
 root = Path(__file__).resolve().parents[1]
-destination = root / 'wwwroot/heliobound'
+destination = root / 'wwwroot/helioengine'
 verify(args.bundle)
 if destination.exists() and not args.replace:
     raise SystemExit('A bundle already exists. Review it before using --replace.')

@@ -185,7 +185,15 @@ app.UseRateLimiter();
 // Browser game policy is scoped to this route; other games keep their headers.
 app.Use(async (ctx, next) =>
 {
-    if (ctx.Request.Path.StartsWithSegments("/heliobound"))
+    if (ctx.Request.Path.StartsWithSegments("/heliobound", out var remaining))
+    {
+        var target = ctx.Request.PathBase.Add(new PathString("/helioengine"))
+            .Add(remaining.HasValue ? remaining : new PathString("/"));
+        ctx.Response.Redirect(target.ToUriComponent() + ctx.Request.QueryString.ToUriComponent(),
+            permanent: true, preserveMethod: true);
+        return;
+    }
+    if (ctx.Request.Path.StartsWithSegments("/helioengine"))
     {
         ctx.Response.Headers["Content-Security-Policy"] =
             "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self'; " +
