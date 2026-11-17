@@ -24,8 +24,9 @@ graphics validation and keeps reported errors visible. Full Safari gameplay/audi
 coverage remains unverified.
 
 The website stores the self-contained bundle, features HelioEngine, and gives
-it a dedicated Game Engine category, with 13 games / 1 engine / 33 total
-projects. The previous Featured selections remain. It adds scoped
+it a dedicated Game Engine category. The homepage now lists the engine in
+its own top row, followed by a divider and direct links to all ten games and
+Freeplay. SharkBoy uses the same arrangement. The catalogue has 58 entries. The previous Featured selections remain. It adds scoped
 CSP/permissions headers and explicit
 JavaScript/WebAssembly MIME mappings. No game backend or upload endpoint is
 added. Database__Path permits a separate temporary database for local .NET
@@ -101,3 +102,19 @@ Measured Zombies p95 fell from 309.3 ms to 28.5 ms. Native navigation, collision
 combat, and Echolocation regressions pass. A parallel-test temporary-directory
 name collision observed during verification was also fixed with a process ID
 and atomic sequence in addition to the timestamp.
+
+## Homepage game links
+
+Links such as `/helioengine/?game=corn-maze` automatically start the player
+and select the matching entry through its existing release-menu shortcut.
+Freeplay opens the map/playstyle picker. Unrecognized names retain the normal
+Start screen. Sound activates with the first game control or the Enable audio
+button; Echolocation explicitly calls out its sound requirement. Desktop
+WebGPU is still required.
+
+This website change customizes `launcher.js` without rebuilding the engine.
+The manifest updates its public checksum and records the original launcher
+hash in `site_overrides`; `source_files` and `source_sha256` retain the
+upstream engine build provenance. Future engine imports must retain or port
+this launcher adapter and its game links. No new validation was run for this
+change, as requested.

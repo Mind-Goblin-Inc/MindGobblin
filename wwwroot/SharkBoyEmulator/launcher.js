@@ -3,6 +3,14 @@ import createSharkBoy from './sharkboy.js';
 const $ = id => document.getElementById(id);
 const canvas = $('game');
 const status = $('status');
+// Stable names keep homepage links independent of the native registry order.
+const gameSlugs = new Set([
+  'deep-vector', 'ice-cold-beer', 'meteor-sweep', 'tank', 'pong', 'fishing',
+  'horizon-burn', 'skyhook', 'space-evaders', 'alpine-slalom', 'scrap-claw',
+  'deep-hook', 'odd-stride'
+]);
+const requestedGame = new URLSearchParams(location.search).get('game');
+const launchGame = gameSlugs.has(requestedGame) ? requestedGame : null;
 const keys = new Map([
   ['KeyW', 0], ['KeyS', 1], ['ArrowUp', 2], ['ArrowDown', 3],
   ['KeyA', 4], ['ArrowLeft', 4], ['KeyD', 5], ['ArrowRight', 5]
@@ -87,13 +95,16 @@ async function start() {
     ready = true;
     loading = false;
     $('cartridge').replaceChildren();
+    let requestedCartridge = null;
     for (let index = 0; index < runtime._web_count(); index++) {
       const name = runtime.UTF8ToString(runtime._web_title(index));
+      if (name.toLowerCase().replace(/ /g, '-') === launchGame) requestedCartridge = index;
       const option = document.createElement('option');
       option.value = String(index);
       option.textContent = name;
       $('cartridge').append(option);
     }
+    if (requestedCartridge !== null) runtime._web_cartridge(requestedCartridge);
     for (const id of ['pause', 'menu', 'restart', 'cartridge']) $(id).disabled = false;
     document.querySelector('.power').classList.add('on');
     document.querySelector('.power').setAttribute('aria-label', 'Power on');
@@ -156,6 +167,7 @@ canvas.addEventListener('keydown', event => {
   if (!ready || event.ctrlKey || event.metaKey || event.altKey) return;
   if (keys.has(event.code)) {
     event.preventDefault(); event.stopImmediatePropagation();
+    runtime._web_resume_audio();
     if (!paused) { heldKeys.add(event.code); sendInput(); }
   } else if (event.code === 'Escape') { event.preventDefault(); setPause(true); }
   else if (event.code === 'KeyR' && !event.repeat && !paused) { event.preventDefault(); clearInput(); runtime._web_command(2); }
@@ -175,6 +187,7 @@ for (const button of controls) {
   button.addEventListener('pointerdown', event => {
     event.preventDefault();
     if (!ready || paused) return;
+    runtime._web_resume_audio();
     canvas.focus({preventScroll: true});
     button.setPointerCapture(event.pointerId);
     pointers.set(event.pointerId, Number(button.dataset.control));
@@ -193,6 +206,7 @@ for (const button of controls) {
 }
 canvas.addEventListener('pointerdown', event => {
   if (!ready || paused || event.button !== 0) return;
+  runtime._web_resume_audio();
   canvas.focus({preventScroll: true});
   const rect = canvas.getBoundingClientRect();
   runtime._web_click(Math.floor((event.clientX - rect.left) * 240 / rect.width),
@@ -203,3 +217,5 @@ canvas.addEventListener('wheel', event => {
   event.preventDefault();
   runtime._web_browse(event.deltaY > 0 ? 1 : -1);
 }, {passive: false});
+
+if (launchGame) void start();

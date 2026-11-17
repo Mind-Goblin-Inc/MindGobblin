@@ -6,6 +6,15 @@ browser: 13 games, cartridge artwork and animation, Music Player, Settings,
 and Hardware Test. It uses WebAssembly, SDL2/WebGL, and Web Audio. It needs
 no game server, account, WebGPU, shared-memory threads, or external assets.
 
+The homepage has a **SharkBoy · ESP32 arcade** section between Games and
+Game Engine. Its emulator tile occupies the first row, with all 13 games
+underneath. These game links
+open the player and automatically launch that cartridge, for example
+`/SharkBoyEmulator/?game=deep-vector`. Game names in links are stable even
+if the native cartridge order changes. Unknown game names fall back to the
+normal **Play arcade** screen. Browsers may require the first game control
+press to enable sound after an automatic launch.
+
 ## Local preview
 
 From the website repository:
@@ -97,10 +106,13 @@ the default is `/tmp/sharkboy-browser-results`.
 The browser harness exercises launch/input/restart/return for all 13 games,
 the three tools, nonzero audio output, mute, pause/resume and clock freezing,
 input alias release, focus loss, fullscreen, simultaneous real touch input,
-and narrow layouts. It also runs a Pong/music smoke check in WebKit, checks
+and narrow layouts. Homepage link checks launch each of the 13 games in
+desktop Chromium, mobile Chromium, and WebKit, and cover search, counts,
+bookmarked links, reloads, and invalid game names.
+It also runs a Pong/music smoke check in WebKit, checks
 the retry message after a failed download, and starts a muted game when Web
 Audio is unavailable. Set `SHARKBOY_CHECKS` to a comma-separated subset of
-`desktop,mobile,webkit,fallbacks` to repeat only a selected group. These
+`links,desktop,mobile,webkit,fallbacks` to repeat only a selected group. These
 are browser smoke and lifecycle checks, not exhaustive tests of every game
 mode or physical ESP32 performance.
 
