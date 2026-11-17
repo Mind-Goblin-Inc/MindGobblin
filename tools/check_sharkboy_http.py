@@ -27,7 +27,7 @@ def check(base):
     with urlopen(base + '/', timeout=10) as response:
         home = response.read()
         assert b'href="SharkBoyEmulator/" data-project' in home
-        assert b'>47 games &amp; projects<' in home and b'>27 games<' in home
+        assert b'>47 games &amp; projects<' in home and b'>13 games<' in home
         assert not response.headers.get('Content-Security-Policy'), 'Game policy leaked to home'
     print('SharkBoy HTTP checks passed: bytes, MIME, route policy, canonical path, homepage')
 

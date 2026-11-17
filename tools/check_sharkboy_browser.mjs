@@ -73,7 +73,7 @@ async function gameLinks(engine, mobile = false) {
     assert.equal(links.length, 13);
     assert.equal(new Set(links.map(link => link.href)).size, 13);
     await page.waitForFunction(() => document.querySelector('#searchCount').textContent === '47 games & projects');
-    assert.equal(await page.locator('#Games [data-section-count]').textContent(), '27 games');
+    assert.equal(await page.locator('#Games [data-section-count]').textContent(), '13 games');
     await page.locator('#projectSearch').fill('Deep Vector');
     assert.equal(await page.locator('[data-project]:visible').count(), 1);
     await page.locator('#clearSearch').click();

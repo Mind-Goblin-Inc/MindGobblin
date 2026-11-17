@@ -6,7 +6,9 @@ browser: 13 games, cartridge artwork and animation, Music Player, Settings,
 and Hardware Test. It uses WebAssembly, SDL2/WebGL, and Web Audio. It needs
 no game server, account, WebGPU, shared-memory threads, or external assets.
 
-The homepage lists each game under **SharkBoy · ESP32 arcade**. These links
+The homepage has a **SharkBoy · ESP32 arcade** section between Games and
+Game Engine. Its emulator tile occupies the first row, with all 13 games
+underneath. These game links
 open the player and automatically launch that cartridge, for example
 `/SharkBoyEmulator/?game=deep-vector`. Game names in links are stable even
 if the native cartridge order changes. Unknown game names fall back to the
