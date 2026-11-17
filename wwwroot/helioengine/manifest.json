@@ -3,7 +3,7 @@
   "engine_revision": "385171f634bed571c67dad79fb0ce5f15d4d78c3",
   "files": {
     "index.html": "71ba36d62730e79dae2583a062ea0a1c4da9e89edd222d54fc478932f0ec72ad",
-    "launcher.js": "527606c501ba44573191246971f74cfcbbf915f4ed97d56e38c1a5a617378b71",
+    "launcher.js": "372175ad44b0633c3980a434791c8241e66f9ac398e86cb301b682123fe6dca5",
     "mind-goblin.png": "deff304d6b093ccba41d0f72baa253f41519a19cbb461186913e00aeec48ddb0",
     "pkg/audio.js": "79206751b410fe96f64dfdd848727bfa360bef3dad0337a2bf1f8fe7edf16c43",
     "pkg/heliobound.js": "4d7131f736688133a47f7dcafcf9e7a5453ebbf5f7303ed531ec1fd25723dc8c",
@@ -14,6 +14,12 @@
   "format_version": 1,
   "release_status": "preview",
   "rust_version": "1.98.0",
+  "site_overrides": {
+    "launcher.js": {
+      "description": "Mind Goblin game links launch the selected entry through the bundled release-menu shortcut. Upstream source provenance is retained in source_files.",
+      "upstream_sha256": "527606c501ba44573191246971f74cfcbbf915f4ed97d56e38c1a5a617378b71"
+    }
+  },
   "source_files": {
     "Cargo.lock": "284583057439d37f7bbfe17d095cf91a69f4a0e2ad5dbdce515accb18cd20411",
     "Cargo.toml": "c4f4d2ddb5308b9dee62f9e8427d8814f2d5e05395c054fec992ea3196123f5f",
