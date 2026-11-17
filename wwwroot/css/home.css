@@ -91,6 +91,7 @@ h1, h2, h3, p { margin: 0; }
 .project-link { display: flex; flex-direction: column; align-items: stretch; justify-content: center; gap: 6px; min-height: 76px; padding: 15px 16px; border: 1px solid var(--line); border-radius: 0; background: var(--surface); text-decoration: none; }
 .in-progress .project-link { background: transparent; }
 .in-progress .project-link:hover { background: var(--surface); }
+.project-group.in-progress h3 { color: var(--text); }
 .empty-search { padding-block: 56px; border-bottom: 1px solid var(--line); }
 .empty-search h2 { font-size: 20px; }
 .empty-search p { margin-top: 8px; color: var(--muted); }
