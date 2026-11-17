@@ -4,7 +4,7 @@
   "emscripten_version": "4.0.23",
   "files": {
     "index.html": "6f1fd9e33582ed3563f081c90486e3a963c7cad03cf29af2928f89bf37bf2773",
-    "launcher.js": "80a723debb1f5311f2c66c96f1c55621dc150581662a48d5f2562a0fffc51288",
+    "launcher.js": "b63351aa0b0a4769f60c5f7393c869cf52ee9bbf5127e677c2c92f1d911a67dc",
     "sharkboy.js": "53a33224fdef0aa1b76834743de0eac6d08fd3d6556f57a6ef5e0ef07bc64c85",
     "sharkboy.wasm": "cdcc34a4d56b0f1d7843f5ec368d1a19d9e4518338f075c394c73339d59e74f9",
     "style.css": "3e8690d96d6a76412a35b80d90f0e29981b09368620eccc0ea365de89bc04bf2"
@@ -14,7 +14,7 @@
     "build_sharkboy.py": "324c2adcd388cfd3321f25332043b593803329ca85d6560683a2450148edfbed",
     "compat/Arduino.h": "fcd5dc05a13bff0d31155d0aed3f82d0b834b7e31dabc2d16e8f9e2ffad759d2",
     "page/index.html": "6f1fd9e33582ed3563f081c90486e3a963c7cad03cf29af2928f89bf37bf2773",
-    "page/launcher.js": "80a723debb1f5311f2c66c96f1c55621dc150581662a48d5f2562a0fffc51288",
+    "page/launcher.js": "b63351aa0b0a4769f60c5f7393c869cf52ee9bbf5127e677c2c92f1d911a67dc",
     "page/style.css": "3e8690d96d6a76412a35b80d90f0e29981b09368620eccc0ea365de89bc04bf2",
     "runtime.cpp": "c6005b59a7be0897c0dc2b0da7c060cd8776393f52611c27a5e37958aa1c84c9",
     "source-manifest.json": "2048d74fd0294bc077878c0d508285c04154700fd77cbf641905771449afb6f0",
@@ -80,5 +80,5 @@
     "source/simulator/include/SPI.h": "742d7cd71a056ead0af2c8a531ce95038034c1ba71a5b943cb93378a7f10e8e1",
     "source/simulator/include/esp_system.h": "d482463be44a3240c9ffbc02ae6a418753ed95d9c77e8275c3b7f0efe3ed551f"
   },
-  "source_sha256": "346547a6db4d8c13bf6a8825539e961eaf9fcc37cc256aa3b68c271e088f3eef"
+  "source_sha256": "c1c22444107cea970817edd71ccb63cb3d39005850c7b5b2ccbd2b56fb95dc64"
 }

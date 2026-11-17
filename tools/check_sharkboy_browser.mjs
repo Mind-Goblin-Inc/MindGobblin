@@ -58,6 +58,59 @@ async function menu(page) {
   await page.waitForTimeout(250);
 }
 
+async function gameLinks(engine, mobile = false) {
+  const browser = await engine.launch({headless: true});
+  try {
+    const page = await browser.newPage(mobile ? {
+      viewport: {width: 390, height: 844}, isMobile: true, hasTouch: true
+    } : {viewport: {width: 1200, height: 1050}});
+    const errors = [];
+    page.on('pageerror', error => errors.push(String(error)));
+    await page.goto(base + '/');
+    const links = await page.locator('a[data-project][href^="SharkBoyEmulator/?game="]').evaluateAll(
+      elements => elements.map(element => ({href: element.getAttribute('href'), title: element.querySelector('.project-name-text').textContent}))
+    );
+    assert.equal(links.length, 13);
+    assert.equal(new Set(links.map(link => link.href)).size, 13);
+    await page.waitForFunction(() => document.querySelector('#searchCount').textContent === '47 games & projects');
+    assert.equal(await page.locator('#Games [data-section-count]').textContent(), '27 games');
+    await page.locator('#projectSearch').fill('Deep Vector');
+    assert.equal(await page.locator('[data-project]:visible').count(), 1);
+    await page.locator('#clearSearch').click();
+    for (const {href, title} of links) {
+      await page.locator(`a[data-project][href="${href}"]`).click();
+      // No click on Play arcade: the homepage link must launch the game itself.
+      await page.waitForFunction(() => document.querySelector('#game')?.dataset.screen === '2', {timeout: 30000});
+      assert.equal(await page.locator('#cartridge option:checked').textContent(), title.toUpperCase());
+      assert.equal(await page.locator('#overlay').isVisible(), false);
+      assert.equal(await page.locator('#game').getAttribute('data-paused'), 'false');
+      await page.locator('#game').press('d');
+      await menu(page);
+      assert.equal(await page.locator('#cartridge option:checked').textContent(), title.toUpperCase());
+      await page.goto(base + '/');
+    }
+    // Reloading a bookmark keeps the requested game; unrelated query keys work too.
+    await page.goto(base + '/SharkBoyEmulator/?from=home&game=deep-vector');
+    for (let attempt = 0; attempt < 2; attempt++) {
+      await page.waitForFunction(() => document.querySelector('#game')?.dataset.screen === '2', {timeout: 30000});
+      assert.equal(await page.locator('#cartridge option:checked').textContent(), 'DEEP VECTOR');
+      if (!attempt) await page.reload();
+    }
+    // Unrecognized names and tool names must retain the normal manual start screen.
+    for (const value of ['', 'unknown', 'settings', 'music-player', '0', '<img src=x onerror=alert(1)>']) {
+      await page.goto(base + '/SharkBoyEmulator/?game=' + encodeURIComponent(value));
+      await page.waitForTimeout(200);
+      assert(await page.locator('#start').isEnabled());
+      assert.match(await page.locator('#start').textContent(), /Play arcade/);
+      assert.equal(await page.locator('#game').getAttribute('data-screen'), null);
+    }
+    await page.locator('#start').click();
+    await page.waitForFunction(() => document.querySelector('#game').dataset.screen === '1', {timeout: 30000});
+    assert.deepEqual(errors, []);
+    console.log(`${engine.name()}${mobile ? ' mobile' : ''}: all 13 homepage links auto-launch, search/counts, reload and invalid names passed`);
+  } finally { await browser.close(); }
+}
+
 async function desktop() {
   const browser = await chromium.launch({headless: true});
   try {
@@ -213,7 +266,12 @@ async function fallbacks() {
   } finally { await browser.close(); }
 }
 
-const checks = (process.env.SHARKBOY_CHECKS || 'desktop,mobile,webkit,fallbacks').split(',');
+const checks = (process.env.SHARKBOY_CHECKS || 'links,desktop,mobile,webkit,fallbacks').split(',');
+if (checks.includes('links')) {
+  await gameLinks(chromium);
+  await gameLinks(chromium, true);
+  await gameLinks(webkit);
+}
 if (checks.includes('desktop')) await desktop();
 if (checks.includes('mobile')) await mobile();
 if (checks.includes('webkit')) await safariEngine();
