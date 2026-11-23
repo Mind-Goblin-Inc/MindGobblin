@@ -194,7 +194,8 @@ app.Use(async (ctx, next) =>
         return;
     }
     if (ctx.Request.Path.StartsWithSegments("/helioengine") ||
-        ctx.Request.Path.StartsWithSegments("/SharkBoyEmulator"))
+        ctx.Request.Path.StartsWithSegments("/SharkBoyEmulator") ||
+        ctx.Request.Path.StartsWithSegments("/Insectum"))
     {
         ctx.Response.Headers["Content-Security-Policy"] =
             "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self'; " +
@@ -208,6 +209,27 @@ app.Use(async (ctx, next) =>
     await next();
 });
 app.UseDefaultFiles();
+var insectumContentTypes = new FileExtensionContentTypeProvider();
+insectumContentTypes.Mappings[".gz"] = "application/octet-stream";
+app.UseStaticFiles(new StaticFileOptions
+{
+    RequestPath = "/Insectum/Build",
+    FileProvider = new Microsoft.Extensions.FileProviders.PhysicalFileProvider(
+        Path.Combine(app.Environment.WebRootPath, "Insectum", "Build")),
+    ContentTypeProvider = insectumContentTypes,
+    OnPrepareResponse = ctx =>
+    {
+        var asset = ctx.File.Name;
+        if (asset.EndsWith(".gz", StringComparison.OrdinalIgnoreCase))
+        {
+            ctx.Context.Response.Headers["Content-Encoding"] = "gzip";
+            if (staticContentTypes.TryGetContentType(asset[..^3], out var contentType))
+            {
+                ctx.Context.Response.ContentType = contentType;
+            }
+        }
+    }
+});
 app.UseStaticFiles(new StaticFileOptions
 {
     ContentTypeProvider = staticContentTypes,

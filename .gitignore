@@ -514,3 +514,6 @@ ServerData/
 
 # macOS
 .DS_Store
+
+# Checked-in Unity WebGL build for Insectum
+!/wwwroot/Insectum/Build/
